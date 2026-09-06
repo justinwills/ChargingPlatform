@@ -3,6 +3,12 @@ add_library(protocol STATIC
     protocolcodec.h
 )
 
+set_target_properties(protocol PROPERTIES
+    AUTOMOC ON
+    AUTOUIC ON
+    AUTORCC ON
+)
+
 target_include_directories(protocol PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
