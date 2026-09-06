@@ -106,6 +106,103 @@
        <string>首页</string>
        </property>
      </widget>
+    <widget class="QLabel" name="labelAddressSearch">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>55</y>
+       <width>80</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>地址搜索：</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="editAddress">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>52</y>
+       <width>165</width>
+       <height>25</height>
+      </rect>
+     </property>
+     <property name="placeholderText">
+      <string>输入区域或充电站地址</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="BtnSearchStations">
+     <property name="geometry">
+      <rect>
+       <x>265</x>
+       <y>50</y>
+       <width>85</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>附近充电站</string>
+     </property>
+    </widget>
+    <widget class="QPlainTextEdit" name="stationResults">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>90</y>
+       <width>340</width>
+      <height>305</height>
+      </rect>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="plainText">
+      <string>请输入地址后搜索附近充电站</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="labelStationId">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>410</y>
+       <width>80</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>站点编号：</string>
+     </property>
+    </widget>
+    <widget class="QSpinBox" name="spinStationId">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>407</y>
+       <width>70</width>
+       <height>25</height>
+      </rect>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="value">
+      <number>1</number>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="BtnStationDetail">
+     <property name="geometry">
+      <rect>
+       <x>175</x>
+       <y>405</y>
+       <width>130</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>查看站点详情</string>
+     </property>
+    </widget>
     </widget>
     <widget class="QWidget" name="pageMine">
      <widget class="QLabel" name="label_3">

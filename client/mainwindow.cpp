@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include <QMessageBox>
+#include <QJsonArray>
 #include <QRegularExpression>
 #include <QtGlobal>
 
@@ -120,6 +121,26 @@ void MainWindow::on_BtnSettleOrder_clicked()
     });
 }
 
+void MainWindow::on_BtnSearchStations_clicked()
+{
+    const QString address = ui->editAddress->text().trimmed();
+    if (address.isEmpty()) {
+        QMessageBox::warning(this, tr("地址搜索"), tr("请输入地址或区域"));
+        return;
+    }
+
+    connection->sendRequest(QStringLiteral("query_stations"), {
+        {"address", address}
+    });
+}
+
+void MainWindow::on_BtnStationDetail_clicked()
+{
+    connection->sendRequest(QStringLiteral("query_station_detail"), {
+        {"stationId", ui->spinStationId->value()}
+    });
+}
+
 void MainWindow::onServerResponse(const QJsonObject &response)
 {
     const int code = response.value("code").toInt(-1);
@@ -127,6 +148,50 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
     if (code != 0) {
         QMessageBox::warning(this, tr("请求失败"), response.value("msg").toString());
+        return;
+    }
+
+    if (data.contains("stations")) {
+        const QJsonArray stations = data.value("stations").toArray();
+        if (stations.isEmpty()) {
+            ui->stationResults->setPlainText(tr("没有找到匹配的充电站"));
+            return;
+        }
+
+        QStringList lines;
+        for (const QJsonValue &value : stations) {
+            const QJsonObject station = value.toObject();
+            lines << tr("%1\n地址：%2\n空闲电桩：%3/%4\n在线率：%5%\n单价：%6 元/度")
+                          .arg(station.value("name").toString())
+                          .arg(station.value("address").toString())
+                          .arg(station.value("freePileCount").toInt())
+                          .arg(station.value("pileCount").toInt())
+                          .arg(station.value("onlineRate").toDouble(), 0, 'f', 1)
+                          .arg(station.value("price").toDouble(), 0, 'f', 2);
+        }
+        ui->stationResults->setPlainText(lines.join(QStringLiteral("\n\n")));
+        return;
+    }
+
+    if (data.contains("piles") && data.contains("stationId")) {
+        QStringList lines;
+        lines << tr("充电站：%1\n地址：%2\n价格：%3 元/度\n空闲电桩：%4/%5\n在线率：%6%")
+                      .arg(data.value("name").toString())
+                      .arg(data.value("address").toString())
+                      .arg(data.value("price").toDouble(), 0, 'f', 2)
+                      .arg(data.value("freePileCount").toInt())
+                      .arg(data.value("pileCount").toInt())
+                      .arg(data.value("onlineRate").toDouble(), 0, 'f', 1);
+        lines << QStringLiteral("\n电桩列表：");
+        for (const QJsonValue &value : data.value("piles").toArray()) {
+            const QJsonObject pile = value.toObject();
+            lines << tr("%1 | %2 | %3 kW | 状态：%4")
+                          .arg(pile.value("code").toString())
+                          .arg(pile.value("type").toString())
+                          .arg(pile.value("power").toDouble(), 0, 'f', 1)
+                          .arg(pile.value("status").toString());
+        }
+        ui->stationResults->setPlainText(lines.join(QStringLiteral("\n")));
         return;
     }
 

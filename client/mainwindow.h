@@ -35,6 +35,10 @@ private slots:
 
     void on_BtnSettleOrder_clicked();
 
+    void on_BtnSearchStations_clicked();
+
+    void on_BtnStationDetail_clicked();
+
     void onServerResponse(const QJsonObject &response);
 
     void onConnectionError(const QString &message);

@@ -29,6 +29,7 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
     if (action == "login")              return handleLogin(params);
     if (action == "admin_login")        return handleAdminLogin(params);
     if (action == "query_stations")     return handleQueryStations(params);
+    if (action == "query_station_detail") return handleQueryStationDetail(params);
     if (action == "query_pile_detail")  return handleQueryPileDetail(params);
     if (action == "start_charging")     return handleStartCharging(params);
     if (action == "query_order")        return handleQueryOrder(params);
@@ -74,11 +75,17 @@ QJsonObject RequestDispatcher::handleAdminLogin(const QJsonObject &params)
     return ok(QJsonObject());
 }
 
-QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject & /*params*/)
+QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
 {
     QJsonArray arr;
+    const QString addressKeyword = params.value("address").toString().trimmed();
     const auto stations = Database::getAllStations();
     for (const auto &s : stations) {
+        if (!addressKeyword.isEmpty()
+            && !s.name.contains(addressKeyword, Qt::CaseInsensitive)
+            && !s.address.contains(addressKeyword, Qt::CaseInsensitive)) {
+            continue;
+        }
         QJsonObject o;
         o["stationId"] = s.id;
         o["name"] = s.name;
@@ -115,6 +122,43 @@ QJsonObject RequestDispatcher::handleQueryPileDetail(const QJsonObject &params)
     data["status"] = pile.status;
     data["totalSessions"] = pile.totalSessions;
     data["totalDuration"] = pile.totalDuration;
+    return ok(data);
+}
+
+QJsonObject RequestDispatcher::handleQueryStationDetail(const QJsonObject &params)
+{
+    if (!params.contains("stationId")) return fail(1, "缺少stationId参数");
+
+    const int stationId = params.value("stationId").toInt();
+    StationInfo station;
+    if (!Database::getStationById(stationId, &station)) {
+        return fail(2, "找不到该充电站");
+    }
+
+    QJsonObject data;
+    data["stationId"] = station.id;
+    data["name"] = station.name;
+    data["address"] = station.address;
+    data["longitude"] = station.longitude;
+    data["latitude"] = station.latitude;
+    data["price"] = station.price;
+    data["pileCount"] = station.pileCount;
+    data["freePileCount"] = Database::getFreePileCount(station.id);
+    data["onlineRate"] = Database::getStationOnlineRate(station.id);
+
+    QJsonArray piles;
+    for (const PileInfo &pile : Database::getPilesByStation(station.id)) {
+        QJsonObject item;
+        item["pileId"] = pile.id;
+        item["code"] = pile.code;
+        item["type"] = pile.type;
+        item["power"] = pile.power;
+        item["status"] = pile.status;
+        item["totalSessions"] = pile.totalSessions;
+        item["totalDuration"] = pile.totalDuration;
+        piles.append(item);
+    }
+    data["piles"] = piles;
     return ok(data);
 }
 
