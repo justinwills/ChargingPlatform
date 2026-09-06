@@ -7,7 +7,7 @@
 #include <QPair>
 #include <QSqlDatabase>
 
-// ===== 数据结构：对应《概要设计说明书》3.3节的5张表 =====
+// ===== 数据结构：对应《概要设计说明书》里的数据库表 =====
 // 用途：查询结果的载体。充电用户端 / PC服务器端拿到这些结构体后，
 // 既可以直接绑定到界面控件，也可以按字段组包成4.2节里定义的JSON报文（data字段）。
 
@@ -58,12 +58,23 @@ struct LoginLogInfo {
     int id = -1;
     QString phone;
     QString loginTime;
+    QString ipAddress;
+};
+
+struct OperationLogInfo {
+    int id = -1;
+    int operatorId = -1;
+    QString operatorType;
+    QString operationType;
+    QString targetTable;
+    int targetId = -1;
+    QString content;
+    QString operationTime;
 };
 
 // 数据库连接与初始化工具类。
-// 充电用户端和PC服务器端两个项目都应各自复制这一份 database.h / database.cpp，
-// 并在各自的 main.cpp 最开头调用 Database::init()，两边指向同一个 charging.db 路径，
-// 才能共享同一份数据（详见 README）。
+// database.h / database.cpp 放在仓库根目录的 db/ 下，其他 Qt 项目通过 INCLUDEPATH 和
+// ../db/database.cpp 引用同一份源码，避免多份拷贝后字段或函数实现不一致。
 //
 // 下面每个函数对应需求矩阵里的一项具体功能，函数名旁边的注释标了是第几项、
 // 归哪个模块负责，方便对照《需求进度管理表》去调用。
@@ -89,8 +100,15 @@ public:
     // ---------- 登录记录（数据库端 第31项，新增子模块）----------
     // phoneLogin内部每次登录成功（不管新老用户）都会自动调用这个函数记一笔，
     // 调用方一般不需要手动调，这里公开出来是方便PC服务器端以后要做"登录记录查询"时直接用
-    static bool logLoginRecord(const QString &phone);
+    static bool logLoginRecord(const QString &phone, const QString &ipAddress = QString());
     static QList<LoginLogInfo> getLoginHistory(const QString &phone = QString(), int limit = 50);
+
+    static bool logOperation(int operatorId, const QString &operatorType,
+                             const QString &operationType, const QString &targetTable,
+                             int targetId, const QString &content);
+    static QList<OperationLogInfo> getOperationLogs(const QString &targetTable = QString(),
+                                                     int operatorId = -1,
+                                                     int limit = 50);
 
     // ---------- 用户管理（PC服务器端 第22-24项） ----------
     // phoneKeyword 留空返回全部用户；非空则按手机号模糊搜索（第24项）

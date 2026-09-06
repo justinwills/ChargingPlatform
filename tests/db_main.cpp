@@ -4,8 +4,7 @@
 
 // 这个 main.cpp 只是用来测试 database.h/database.cpp 能不能正常工作，
 // 不是充电用户端或PC服务器端的正式代码。
-// 确认没问题后，把 database.h 和 database.cpp 这两个文件复制到
-// 真正的充电用户端项目和PC服务器端项目里就可以直接用了（见 README）。
+// 正式项目应通过 .pro 引用 ../db/database.h 和 ../db/database.cpp 这一份共享数据库层。
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
@@ -41,6 +40,10 @@ int main(int argc, char *argv[])
     if (!newUserLogs.isEmpty()) {
         qDebug().noquote() << QString("手机号13912345678最近一次登录时间：%1").arg(newUserLogs.first().loginTime);
     }
+
+    Database::logOperation(existingUser.id, "用户", "查询", "login_logs", 0, "测试查询登录记录");
+    const auto operationLogs = Database::getOperationLogs("login_logs", existingUser.id);
+    qDebug().noquote() << QString("操作记录数量：%1").arg(operationLogs.size());
 
     // ===== 3. 充电站列表 + 空闲电桩数（充电用户端 第2项） =====
     qDebug() << "\n===== 充电站列表 =====";

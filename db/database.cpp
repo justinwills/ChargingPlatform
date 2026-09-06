@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QThread>
+#include <QStringList>
 
 QString Database::s_dbPath;
 
@@ -55,7 +56,7 @@ bool Database::init(const QString &dbPath)
     return true;
 }
 
-// 建立全部5张表，对应《概要设计说明书》第3.3节的字段设计
+// 建立全部7张表，对应《概要设计说明书》的字段设计
 void Database::createTables()
 {
     QSqlQuery query(currentThreadDb());
@@ -115,7 +116,21 @@ void Database::createTables()
     query.exec("create table if not exists login_logs("
                "id integer primary key autoincrement, "
                "phone text not null, "
-               "login_time datetime default current_timestamp)");
+               "login_time datetime default current_timestamp, "
+               "ip_address text)");
+
+    query.exec("create table if not exists operation_logs("
+               "id integer primary key autoincrement, "
+               "operator_id integer, "
+               "operator_type text, "
+               "operation_type text, "
+               "target_table text, "
+               "target_id integer, "
+               "content text, "
+               "operation_time datetime default current_timestamp)");
+
+    // Keep older local SQLite files compatible after this schema update.
+    query.exec("alter table login_logs add column ip_address text");
 }
 
 // 插入少量测试数据，只在表为空时插入一次（避免每次运行程序都重复插入）。
@@ -224,11 +239,12 @@ bool Database::phoneLogin(const QString &phone, UserInfo *outUser)
 }
 
 // ---------- 登录记录（第31项）----------
-bool Database::logLoginRecord(const QString &phone)
+bool Database::logLoginRecord(const QString &phone, const QString &ipAddress)
 {
     QSqlQuery query(currentThreadDb());
-    query.prepare("insert into login_logs(phone) values(?)");
+    query.prepare("insert into login_logs(phone, ip_address) values(?, ?)");
     query.addBindValue(phone);
+    query.addBindValue(ipAddress);
     if (!query.exec()) {
         qDebug() << "logLoginRecord 写入失败：" << query.lastError().text();
         return false;
@@ -241,11 +257,11 @@ QList<LoginLogInfo> Database::getLoginHistory(const QString &phone, int limit)
     QList<LoginLogInfo> list;
     QSqlQuery query(currentThreadDb());
     if (phone.isEmpty()) {
-        query.prepare("select id, phone, login_time from login_logs "
+        query.prepare("select id, phone, login_time, ip_address from login_logs "
                        "order by login_time desc limit ?");
         query.addBindValue(limit);
     } else {
-        query.prepare("select id, phone, login_time from login_logs "
+        query.prepare("select id, phone, login_time, ip_address from login_logs "
                        "where phone = ? order by login_time desc limit ?");
         query.addBindValue(phone);
         query.addBindValue(limit);
@@ -259,6 +275,77 @@ QList<LoginLogInfo> Database::getLoginHistory(const QString &phone, int limit)
         info.id = query.value(0).toInt();
         info.phone = query.value(1).toString();
         info.loginTime = query.value(2).toString();
+        info.ipAddress = query.value(3).toString();
+        list.append(info);
+    }
+    return list;
+}
+
+bool Database::logOperation(int operatorId, const QString &operatorType,
+                            const QString &operationType, const QString &targetTable,
+                            int targetId, const QString &content)
+{
+    QSqlQuery query(currentThreadDb());
+    query.prepare("insert into operation_logs(operator_id, operator_type, operation_type, "
+                  "target_table, target_id, content) values(?, ?, ?, ?, ?, ?)");
+    query.addBindValue(operatorId);
+    query.addBindValue(operatorType);
+    query.addBindValue(operationType);
+    query.addBindValue(targetTable);
+    query.addBindValue(targetId);
+    query.addBindValue(content);
+    if (!query.exec()) {
+        qDebug() << "logOperation 写入失败：" << query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+QList<OperationLogInfo> Database::getOperationLogs(const QString &targetTable,
+                                                    int operatorId,
+                                                    int limit)
+{
+    QList<OperationLogInfo> list;
+    QSqlQuery query(currentThreadDb());
+
+    QString sql = "select id, operator_id, operator_type, operation_type, target_table, "
+                  "target_id, content, operation_time from operation_logs";
+    QStringList conditions;
+    if (!targetTable.isEmpty()) {
+        conditions << "target_table = ?";
+    }
+    if (operatorId >= 0) {
+        conditions << "operator_id = ?";
+    }
+    if (!conditions.isEmpty()) {
+        sql += " where " + conditions.join(" and ");
+    }
+    sql += " order by operation_time desc limit ?";
+
+    query.prepare(sql);
+    if (!targetTable.isEmpty()) {
+        query.addBindValue(targetTable);
+    }
+    if (operatorId >= 0) {
+        query.addBindValue(operatorId);
+    }
+    query.addBindValue(limit);
+
+    if (!query.exec()) {
+        qDebug() << "getOperationLogs 查询失败：" << query.lastError().text();
+        return list;
+    }
+
+    while (query.next()) {
+        OperationLogInfo info;
+        info.id = query.value(0).toInt();
+        info.operatorId = query.value(1).toInt();
+        info.operatorType = query.value(2).toString();
+        info.operationType = query.value(3).toString();
+        info.targetTable = query.value(4).toString();
+        info.targetId = query.value(5).toInt();
+        info.content = query.value(6).toString();
+        info.operationTime = query.value(7).toString();
         list.append(info);
     }
     return list;

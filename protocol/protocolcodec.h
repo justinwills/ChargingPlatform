@@ -5,12 +5,11 @@
 #include <QByteArray>
 #include <QJsonObject>
 
-// ChargingProtocol 的底层"打包/拆包"工具，客户端和服务端两边都用同一份，
+// protocol/ 的底层"打包/拆包"工具，客户端和服务端两边都用同一份，
 // 保证双方对"一条消息在字节流里长什么样"的理解完全一致。
 //
 // 报文格式（对应《概要设计说明书》4.2节的JSON请求/响应，外面再包一层长度前缀，
-// 解决JSON文本在TCP流里的粘包/拆包问题——这跟ChargingDB/FileTransferTool里
-// 处理文件数据粘包用的是同一个思路，只是这里包的是JSON而不是文件字节）：
+// 解决JSON文本在TCP流里的粘包/拆包问题：
 //
 //   [4字节 大端序 消息长度N][N字节 UTF-8编码的JSON文本]
 //

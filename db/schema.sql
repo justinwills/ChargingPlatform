@@ -57,5 +57,17 @@ create table if not exists admins(
 create table if not exists login_logs(
     id integer primary key autoincrement,
     phone text not null,
-    login_time datetime default current_timestamp
+    login_time datetime default current_timestamp,
+    ip_address text
+);
+
+create table if not exists operation_logs(
+    id integer primary key autoincrement,
+    operator_id integer,
+    operator_type text,
+    operation_type text,
+    target_table text,
+    target_id integer,
+    content text,
+    operation_time datetime default current_timestamp
 );
