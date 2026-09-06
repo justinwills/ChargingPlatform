@@ -58,6 +58,9 @@ void MainWindow::on_BtnHome_clicked()
 void MainWindow::on_BtnCharge_clicked()
 {
     ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+    if (connection->isConnected()) {
+        on_BtnLoadOrderStation_clicked();
+    }
 }
 
 
@@ -88,10 +91,31 @@ void MainWindow::on_BtnStartCharging_clicked()
         QMessageBox::warning(this, tr("提示"), tr("请先登录"));
         return;
     }
+    if (ui->comboPile->currentIndex() < 0) {
+        QMessageBox::warning(this, tr("提示"), tr("请先选择充电站和电桩"));
+        return;
+    }
 
     connection->sendRequest(QStringLiteral("start_charging"), {
         {"userId", userId},
-        {"pileId", ui->spinPileId->value()}
+        {"pileId", ui->comboPile->currentData().toInt()}
+    });
+}
+
+void MainWindow::on_BtnPileDetail_clicked()
+{
+    if (ui->comboPile->currentIndex() < 0) {
+        return;
+    }
+    connection->sendRequest(QStringLiteral("query_pile_detail"), {
+        {"pileId", ui->comboPile->currentData().toInt()}
+    });
+}
+
+void MainWindow::on_BtnLoadOrderStation_clicked()
+{
+    connection->sendRequest(QStringLiteral("query_station_detail"), {
+        {"stationId", ui->spinOrderStationId->value()}
     });
 }
 
@@ -116,8 +140,8 @@ void MainWindow::on_BtnSettleOrder_clicked()
 
     connection->sendRequest(QStringLiteral("settle_order"), {
         {"orderId", activeOrderId},
-        {"amount", ui->spinAmount->value()},
-        {"fee", ui->spinFee->value()}
+        {"amount", currentAmount},
+        {"fee", currentFee}
     });
 }
 
@@ -179,13 +203,13 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
     if (data.contains("piles") && data.contains("stationId")) {
         QStringList lines;
-        lines << tr("充电站：%1\n地址：%2\n价格：%3 元/度\n空闲电桩：%4/%5\n在线率：%6%")
-                      .arg(data.value("name").toString())
-                      .arg(data.value("address").toString())
-                      .arg(data.value("price").toDouble(), 0, 'f', 2)
-                      .arg(data.value("freePileCount").toInt())
-                      .arg(data.value("pileCount").toInt())
-                      .arg(data.value("onlineRate").toDouble(), 0, 'f', 1);
+        const QString stationName = data.value("name").toString(
+            data.value("stationName").toString());
+        lines << tr("充电站：%1\n地址：%2\n价格：%3 元/度")
+                      .arg(stationName)
+                      .arg(data.value("address").toString(
+                          data.value("stationAddress").toString()))
+                      .arg(data.value("price").toDouble(), 0, 'f', 2);
         lines << QStringLiteral("\n电桩列表：");
         for (const QJsonValue &value : data.value("piles").toArray()) {
             const QJsonObject pile = value.toObject();
@@ -195,7 +219,49 @@ void MainWindow::onServerResponse(const QJsonObject &response)
                           .arg(pile.value("power").toDouble(), 0, 'f', 1)
                           .arg(pile.value("status").toString());
         }
-        ui->stationResults->setPlainText(lines.join(QStringLiteral("\n")));
+                ui->stationResults->setPlainText(lines.join(QStringLiteral("\n")));
+        QStringList orderDetails;
+        bool selectedIdlePile = false;
+        ui->comboPile->clear();
+        orderDetails << tr("站点：%1\n地址：%2\n价格：%3 元/度")
+                            .arg(stationName)
+                            .arg(data.value("address").toString(
+                                data.value("stationAddress").toString()))
+                            .arg(data.value("price").toDouble(), 0, 'f', 2);
+        orderDetails << QStringLiteral("电桩：");
+        for (const QJsonValue &value : data.value("piles").toArray()) {
+            const QJsonObject pile = value.toObject();
+            orderDetails << tr("%1(%2) %3")
+                                .arg(pile.value("code").toString())
+                                .arg(pile.value("type").toString())
+                                .arg(pile.value("status").toString());
+
+            const QString pileDescription = tr("%1 | %2 | %3 kW | %4")
+                .arg(pile.value("code").toString())
+                .arg(pile.value("type").toString())
+                .arg(pile.value("power").toDouble(), 0, 'f', 1)
+                .arg(pile.value("status").toString());
+            ui->comboPile->addItem(pileDescription, pile.value("pileId"));
+
+            if (!selectedIdlePile
+                && pile.value("status").toString() == QStringLiteral("闲置")) {
+                ui->comboPile->setCurrentIndex(ui->comboPile->count() - 1);
+                selectedIdlePile = true;
+            }
+        }
+        ui->labelOrderStationDetails->setPlainText(orderDetails.join(QStringLiteral("\n")));
+        if (data.contains("pileId") && data.value("pileId").toInt() > 0) {
+            ui->labelPileStation->setText(
+                tr("当前选择：%1（站点ID：%2，电桩ID：%3）")
+                    .arg(stationName)
+                    .arg(data.value("stationId").toInt())
+                    .arg(data.value("pileId").toInt()));
+        } else {
+            ui->labelPileStation->setText(
+                tr("已选择站点：%1（站点ID：%2）")
+                    .arg(stationName)
+                    .arg(data.value("stationId").toInt()));
+        }
         return;
     }
 
@@ -230,8 +296,8 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             activeOrderStartTime = QDateTime::fromString(
                 data.value("startTime").toString(),
                 QStringLiteral("yyyy-MM-dd HH:mm:ss"));
-            ui->spinAmount->setValue(data.value("estimatedAmount").toDouble());
-            ui->spinFee->setValue(data.value("estimatedFee").toDouble());
+            currentAmount = data.value("estimatedAmount").toDouble();
+            currentFee = data.value("estimatedFee").toDouble();
             displayTimer.start();
         }
         if (status == QStringLiteral("已结算")) {

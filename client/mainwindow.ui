@@ -350,22 +350,35 @@
      <property name="geometry">
       <rect>
        <x>30</x>
-       <y>80</y>
+      <y>85</y>
        <width>100</width>
        <height>20</height>
       </rect>
      </property>
      <property name="text">
-      <string>电桩编号：</string>
+      <string>选择电桩：</string>
      </property>
     </widget>
-    <widget class="QSpinBox" name="spinPileId">
+    <widget class="QLabel" name="labelOrderStationId">
      <property name="geometry">
       <rect>
-       <x>140</x>
-       <y>78</y>
+       <x>30</x>
+      <y>50</y>
        <width>80</width>
-       <height>24</height>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>站点编号：</string>
+     </property>
+    </widget>
+    <widget class="QSpinBox" name="spinOrderStationId">
+     <property name="geometry">
+      <rect>
+       <x>115</x>
+      <y>47</y>
+       <width>70</width>
+       <height>25</height>
       </rect>
      </property>
      <property name="minimum">
@@ -375,11 +388,66 @@
       <number>1</number>
      </property>
     </widget>
+    <widget class="QPushButton" name="BtnLoadOrderStation">
+     <property name="geometry">
+      <rect>
+       <x>195</x>
+      <y>45</y>
+       <width>120</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>选择充电站</string>
+     </property>
+    </widget>
+    <widget class="QComboBox" name="comboPile">
+     <property name="geometry">
+      <rect>
+       <x>140</x>
+       <y>82</y>
+       <width>180</width>
+       <height>24</height>
+      </rect>
+     </property>
+     <property name="placeholderText">
+      <string>先选择充电站</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="labelPileStation">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+      <y>115</y>
+       <width>300</width>
+       <height>25</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>请选择电桩查看所属充电站</string>
+     </property>
+    </widget>
+    <widget class="QPlainTextEdit" name="labelOrderStationDetails">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+      <y>140</y>
+       <width>320</width>
+       <height>105</height>
+      </rect>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="plainText">
+      <string>请选择站点查看站点和电桩信息</string>
+     </property>
+    </widget>
     <widget class="QPushButton" name="BtnStartCharging">
      <property name="geometry">
       <rect>
-       <x>230</x>
-       <y>76</y>
+         <x>220</x>
+         <y>250</y>
        <width>100</width>
        <height>29</height>
       </rect>
@@ -392,9 +460,9 @@
      <property name="geometry">
       <rect>
        <x>30</x>
-       <y>130</y>
+         <y>285</y>
        <width>300</width>
-       <height>40</height>
+         <height>30</height>
       </rect>
      </property>
      <property name="text">
@@ -405,7 +473,7 @@
      <property name="geometry">
       <rect>
        <x>30</x>
-       <y>165</y>
+      <y>320</y>
        <width>300</width>
        <height>20</height>
       </rect>
@@ -418,7 +486,7 @@
      <property name="geometry">
       <rect>
        <x>30</x>
-       <y>195</y>
+         <y>345</y>
        <width>100</width>
        <height>29</height>
       </rect>
@@ -427,69 +495,11 @@
       <string>刷新订单</string>
      </property>
     </widget>
-    <widget class="QLabel" name="labelAmount">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-       <y>240</y>
-       <width>80</width>
-       <height>20</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>充电量：</string>
-     </property>
-    </widget>
-    <widget class="QDoubleSpinBox" name="spinAmount">
-     <property name="geometry">
-      <rect>
-       <x>110</x>
-       <y>238</y>
-       <width>90</width>
-       <height>24</height>
-      </rect>
-     </property>
-     <property name="maximum">
-      <double>999999.000000000000000</double>
-     </property>
-     <property name="decimals">
-      <number>2</number>
-     </property>
-    </widget>
-    <widget class="QLabel" name="labelFee">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-       <y>275</y>
-       <width>80</width>
-       <height>20</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>费用：</string>
-     </property>
-    </widget>
-    <widget class="QDoubleSpinBox" name="spinFee">
-     <property name="geometry">
-      <rect>
-       <x>110</x>
-       <y>273</y>
-       <width>90</width>
-       <height>24</height>
-      </rect>
-     </property>
-     <property name="maximum">
-      <double>999999.000000000000000</double>
-     </property>
-     <property name="decimals">
-      <number>2</number>
-     </property>
-    </widget>
     <widget class="QPushButton" name="BtnSettleOrder">
      <property name="geometry">
       <rect>
        <x>220</x>
-       <y>255</y>
+       <y>380</y>
        <width>110</width>
        <height>29</height>
       </rect>
