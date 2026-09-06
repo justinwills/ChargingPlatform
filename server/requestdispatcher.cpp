@@ -176,13 +176,26 @@ QJsonObject RequestDispatcher::handleAdminLogin(const QJsonObject &params)
 QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
 {
     const QString addressKeyword = params.value("address").toString().trimmed();
-    if (addressKeyword.isEmpty()) return fail(1, "缺少address参数");
-
     GeocodedLocation location;
-    QString geocodeError;
-    const bool hasLocation = geocodeAddress(addressKeyword, &location, &geocodeError);
-    if (!hasLocation && !qEnvironmentVariable("TENCENT_MAP_KEY").isEmpty()) {
-        return fail(3, QStringLiteral("地址解析失败：%1").arg(geocodeError));
+    bool hasLocation = false;
+
+    if (params.contains("latitude") && params.contains("longitude")) {
+        location.latitude = params.value("latitude").toDouble();
+        location.longitude = params.value("longitude").toDouble();
+        if (!qIsFinite(location.latitude) || !qIsFinite(location.longitude)
+            || location.latitude < -90 || location.latitude > 90
+            || location.longitude < -180 || location.longitude > 180) {
+            return fail(1, "latitude或longitude参数无效");
+        }
+        hasLocation = true;
+    } else if (!addressKeyword.isEmpty()) {
+        QString geocodeError;
+        hasLocation = geocodeAddress(addressKeyword, &location, &geocodeError);
+        if (!hasLocation && !qEnvironmentVariable("TENCENT_MAP_KEY").isEmpty()) {
+            return fail(3, QStringLiteral("地址解析失败：%1").arg(geocodeError));
+        }
+    } else {
+        return fail(1, "需要latitude/longitude或address参数");
     }
 
     struct StationResult {
@@ -208,7 +221,9 @@ QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
     }
 
     QJsonArray arr;
-    for (const StationResult &result : results) {
+    const int resultCount = qMin(results.size(), 5);
+    for (int index = 0; index < resultCount; ++index) {
+        const StationResult &result = results.at(index);
         const auto &s = result.station;
         QJsonObject o;
         o["stationId"] = s.id;
@@ -225,7 +240,8 @@ QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
     }
     QJsonObject data;
     data["stations"] = arr;
-    data["geocoded"] = hasLocation;
+    data["sortedByDistance"] = hasLocation;
+    data["count"] = arr.size();
     return ok(data);
 }
 

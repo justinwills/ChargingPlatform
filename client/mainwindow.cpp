@@ -161,9 +161,13 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         QStringList lines;
         for (const QJsonValue &value : stations) {
             const QJsonObject station = value.toObject();
-            lines << tr("%1\n地址：%2\n空闲电桩：%3/%4\n在线率：%5%\n单价：%6 元/度")
+            const QString distance = station.contains("distanceKm")
+                ? tr("距离：%1 公里\n").arg(station.value("distanceKm").toDouble(), 0, 'f', 2)
+                : QString();
+            lines << tr("%1\n地址：%2\n%3空闲电桩：%4/%5\n在线率：%6%\n单价：%7 元/度")
                           .arg(station.value("name").toString())
                           .arg(station.value("address").toString())
+                          .arg(distance)
                           .arg(station.value("freePileCount").toInt())
                           .arg(station.value("pileCount").toInt())
                           .arg(station.value("onlineRate").toDouble(), 0, 'f', 1)

@@ -1,5 +1,6 @@
 #include <QCoreApplication>
 #include <QDebug>
+#include <QtGlobal>
 
 #include "database.h"
 #include "serverlistener.h"
@@ -12,6 +13,10 @@ int main(int argc, char *argv[])
         qCritical() << "数据库初始化失败";
         return 1;
     }
+
+    qInfo() << (qEnvironmentVariableIsSet("TENCENT_MAP_KEY")
+                    ? "Tencent geocoding: enabled"
+                    : "Tencent geocoding: disabled (using local address matching)");
 
     ServerListener server;
     QObject::connect(&server, &ServerListener::clientLog,
