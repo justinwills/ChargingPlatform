@@ -1,8 +1,105 @@
 #include "requestdispatcher.h"
 #include "database.h"
+#include <QEventLoop>
 #include <QJsonArray>
+#include <QJsonDocument>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QTimer>
+#include <QUrlQuery>
 #include <QDateTime>
 #include <QtGlobal>
+#include <algorithm>
+#include <cmath>
+
+namespace {
+
+struct GeocodedLocation {
+    double latitude = 0;
+    double longitude = 0;
+};
+
+bool geocodeAddress(const QString &address, GeocodedLocation *location, QString *error)
+{
+    const QString key = qEnvironmentVariable("TENCENT_MAP_KEY").trimmed();
+    if (key.isEmpty()) {
+        if (error) *error = QStringLiteral("未配置TENCENT_MAP_KEY");
+        return false;
+    }
+
+    QUrl url(QStringLiteral("https://apis.map.qq.com/ws/geocoder/v1/"));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("address"), address);
+    query.addQueryItem(QStringLiteral("key"), key);
+    url.setQuery(query);
+
+    QNetworkAccessManager manager;
+    QNetworkReply *reply = manager.get(QNetworkRequest(url));
+    QEventLoop loop;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+    timeout.setInterval(5000);
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    timeout.start();
+    loop.exec();
+
+    if (!reply->isFinished()) {
+        reply->abort();
+        if (error) *error = QStringLiteral("地图服务请求超时");
+        reply->deleteLater();
+        return false;
+    }
+    if (reply->error() != QNetworkReply::NoError) {
+        if (error) *error = reply->errorString();
+        reply->deleteLater();
+        return false;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(reply->readAll(), &parseError);
+    reply->deleteLater();
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        if (error) *error = QStringLiteral("地图服务返回了无效数据");
+        return false;
+    }
+
+    const QJsonObject response = document.object();
+    if (response.value("status").toInt(-1) != 0) {
+        if (error) *error = response.value("message").toString();
+        return false;
+    }
+    const QJsonObject result = response.value("result").toObject();
+    const QJsonObject point = result.value("location").toObject();
+    if (!point.contains("lat") || !point.contains("lng")) {
+        if (error) *error = QStringLiteral("地址未解析出经纬度");
+        return false;
+    }
+
+    location->latitude = point.value("lat").toDouble();
+    location->longitude = point.value("lng").toDouble();
+    return true;
+}
+
+double distanceKm(double latitude1, double longitude1,
+                  double latitude2, double longitude2)
+{
+    constexpr double earthRadiusKm = 6371.0;
+    constexpr double pi = 3.14159265358979323846;
+    const auto radians = [pi](double value) { return value * pi / 180.0; };
+    const double lat1 = radians(latitude1);
+    const double lat2 = radians(latitude2);
+    const double deltaLat = lat2 - lat1;
+    const double deltaLon = radians(longitude2 - longitude1);
+    const double sineLat = std::sin(deltaLat / 2.0);
+    const double sineLon = std::sin(deltaLon / 2.0);
+    const double a = sineLat * sineLat
+        + std::cos(lat1) * std::cos(lat2) * sineLon * sineLon;
+    return earthRadiusKm * 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0 - a));
+}
+
+}
 
 QJsonObject RequestDispatcher::ok(const QJsonObject &data)
 {
@@ -78,15 +175,41 @@ QJsonObject RequestDispatcher::handleAdminLogin(const QJsonObject &params)
 
 QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
 {
-    QJsonArray arr;
     const QString addressKeyword = params.value("address").toString().trimmed();
-    const auto stations = Database::getAllStations();
-    for (const auto &s : stations) {
-        if (!addressKeyword.isEmpty()
-            && !s.name.contains(addressKeyword, Qt::CaseInsensitive)
-            && !s.address.contains(addressKeyword, Qt::CaseInsensitive)) {
-            continue;
+    if (addressKeyword.isEmpty()) return fail(1, "缺少address参数");
+
+    GeocodedLocation location;
+    QString geocodeError;
+    const bool hasLocation = geocodeAddress(addressKeyword, &location, &geocodeError);
+    if (!hasLocation && !qEnvironmentVariable("TENCENT_MAP_KEY").isEmpty()) {
+        return fail(3, QStringLiteral("地址解析失败：%1").arg(geocodeError));
+    }
+
+    struct StationResult {
+        StationInfo station;
+        double distance = -1;
+    };
+    QList<StationResult> results;
+    for (const auto &s : Database::getAllStations()) {
+        if (hasLocation) {
+            results.append({s, distanceKm(location.latitude, location.longitude,
+                                          s.latitude, s.longitude)});
+        } else if (s.name.contains(addressKeyword, Qt::CaseInsensitive)
+                   || s.address.contains(addressKeyword, Qt::CaseInsensitive)) {
+            results.append({s, -1});
         }
+    }
+
+    if (hasLocation) {
+        std::sort(results.begin(), results.end(),
+                  [](const StationResult &left, const StationResult &right) {
+                      return left.distance < right.distance;
+                  });
+    }
+
+    QJsonArray arr;
+    for (const StationResult &result : results) {
+        const auto &s = result.station;
         QJsonObject o;
         o["stationId"] = s.id;
         o["name"] = s.name;
@@ -97,10 +220,12 @@ QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
         o["pileCount"] = s.pileCount;
         o["freePileCount"] = Database::getFreePileCount(s.id);
         o["onlineRate"] = Database::getStationOnlineRate(s.id);
+        if (result.distance >= 0) o["distanceKm"] = result.distance;
         arr.append(o);
     }
     QJsonObject data;
     data["stations"] = arr;
+    data["geocoded"] = hasLocation;
     return ok(data);
 }
 
