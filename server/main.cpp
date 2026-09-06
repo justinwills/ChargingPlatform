@@ -1,4 +1,5 @@
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDebug>
 #include <QtGlobal>
 
@@ -14,9 +15,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    qInfo() << (qEnvironmentVariableIsSet("TENCENT_MAP_KEY")
-                    ? "Tencent geocoding: enabled"
-                    : "Tencent geocoding: disabled (using local address matching)");
+    const QString mapKey = qEnvironmentVariable("TENCENT_MAP_KEY").trimmed();
+    if (mapKey.isEmpty()) {
+        qInfo() << "Tencent geocoding: disabled (using local address matching)";
+    } else {
+        const QByteArray keyHash = QCryptographicHash::hash(
+            mapKey.toUtf8(), QCryptographicHash::Sha256).toHex().left(8);
+        qInfo().noquote() << QStringLiteral("Tencent geocoding: enabled (key fingerprint %1, suffix ...%2)")
+                                 .arg(QString::fromLatin1(keyHash))
+                                 .arg(mapKey.right(4));
+    }
 
     ServerListener server;
     QObject::connect(&server, &ServerListener::clientLog,

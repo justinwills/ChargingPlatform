@@ -13,7 +13,7 @@
 //   login         手机号登录/自动注册      params: {phone}
 //   admin_login   管理员登录（补充项）      params: {username, password}
 //   query_stations 查询充电站列表           params: {}
-//   query_pile_detail 电桩详情              params: {pileId}
+//   query_pile_detail 电桩详情与所属站点电桩列表 params: {pileId}
 //   start_charging 发起充电                params: {userId, pileId}
 //   query_order    查询订单                params: {orderId}
 //   settle_order   结算                    params: {orderId, amount, fee}

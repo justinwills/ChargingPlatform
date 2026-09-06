@@ -254,16 +254,38 @@ QJsonObject RequestDispatcher::handleQueryPileDetail(const QJsonObject &params)
     if (!Database::getPileById(pileId, &pile)) {
         return fail(2, "找不到该电桩");
     }
+
+    StationInfo station;
+    if (!Database::getStationById(pile.stationId, &station)) {
+        return fail(3, "找不到该电桩所属充电站");
+    }
+
     QJsonObject data;
     data["pileId"] = pile.id;
     data["stationId"] = pile.stationId;
     data["stationName"] = pile.stationName;
+    data["stationAddress"] = station.address;
+    data["price"] = station.price;
     data["code"] = pile.code;
     data["type"] = pile.type;
     data["power"] = pile.power;
     data["status"] = pile.status;
     data["totalSessions"] = pile.totalSessions;
     data["totalDuration"] = pile.totalDuration;
+
+    QJsonArray piles;
+    for (const PileInfo &stationPile : Database::getPilesByStation(pile.stationId)) {
+        QJsonObject item;
+        item["pileId"] = stationPile.id;
+        item["code"] = stationPile.code;
+        item["type"] = stationPile.type;
+        item["power"] = stationPile.power;
+        item["status"] = stationPile.status;
+        item["totalSessions"] = stationPile.totalSessions;
+        item["totalDuration"] = stationPile.totalDuration;
+        piles.append(item);
+    }
+    data["piles"] = piles;
     return ok(data);
 }
 
