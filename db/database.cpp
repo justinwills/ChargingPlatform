@@ -162,6 +162,40 @@ void Database::seedTestData()
                     "values(2, 'B01', '快充', 60, '闲置')");
         query.exec("insert into piles(station_id, code, type, power, status) "
                     "values(2, 'B02', '慢充', 7, '闲置')");
+
+        query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
+                "values('北京朝阳充电站', '北京市朝阳区建国路88号', 116.466, 39.908, 1.8, 3)");
+        query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
+                "values('北京海淀充电站', '北京市海淀区中关村大街1号', 116.316, 39.983, 1.6, 2)");
+        query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
+                "values('北京丰台充电站', '北京市丰台区南四环西路188号', 116.291, 39.850, 1.7, 2)");
+        query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
+                "values('北京顺义充电站', '北京市顺义区新顺南大街18号', 116.654, 40.130, 1.5, 2)");
+        query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
+                "values('北京通州充电站', '北京市通州区新华西街58号', 116.657, 39.909, 1.9, 2)");
+
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(3, 'BJ-C01', '快充', 60, '闲置')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(3, 'BJ-C02', '快充', 60, '在用')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(3, 'BJ-C03', '慢充', 7, '故障')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(4, 'BJ-H01', '快充', 60, '闲置')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(4, 'BJ-H02', '慢充', 7, '闲置')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(5, 'BJ-F01', '快充', 60, '闲置')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(5, 'BJ-F02', '慢充', 7, '闲置')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(6, 'BJ-S01', '快充', 60, '闲置')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(6, 'BJ-S02', '慢充', 7, '闲置')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(7, 'BJ-T01', '快充', 60, '闲置')");
+        query.exec("insert into piles(station_id, code, type, power, status) "
+                "values(7, 'BJ-T02', '慢充', 7, '闲置')");
     }
 
     // 1个测试用户
@@ -170,6 +204,7 @@ void Database::seedTestData()
         query.exec("insert into users(phone, nickname, balance) "
                     "values('13800000001', '用户0001', 100.0)");
     }
+
 }
 
 // ================= 管理员 =================
