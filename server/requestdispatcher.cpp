@@ -1,6 +1,7 @@
 #include "requestdispatcher.h"
 #include "database.h"
 #include <QJsonArray>
+#include <QDateTime>
 
 QJsonObject RequestDispatcher::ok(const QJsonObject &data)
 {
@@ -53,6 +54,11 @@ QJsonObject RequestDispatcher::handleLogin(const QJsonObject &params)
     data["balance"] = user.balance;
     data["status"] = user.status;
     data["createdAt"] = user.createdAt;
+
+    int ongoingOrderId = -1;
+    if (Database::hasOngoingOrder(user.id, &ongoingOrderId)) {
+        data["ongoingOrderId"] = ongoingOrderId;
+    }
     return ok(data);
 }
 
@@ -152,6 +158,23 @@ QJsonObject RequestDispatcher::handleQueryOrder(const QJsonObject &params)
     data["amount"] = order.amount;
     data["fee"] = order.fee;
     data["status"] = order.status;
+
+    if (order.status == QStringLiteral("充电中")) {
+        PileInfo pile;
+        StationInfo station;
+        if (Database::getPileById(order.pileId, &pile)
+            && Database::getStationById(pile.stationId, &station)) {
+            const auto startTime = QDateTime::fromString(
+                order.startTime, QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+            const int durationMinutes = qMax(0, static_cast<int>(
+                startTime.secsTo(QDateTime::currentDateTime()) / 60));
+            const double estimatedAmount = pile.power * durationMinutes / 60.0;
+            const double estimatedFee = estimatedAmount * station.price;
+            data["durationMinutes"] = durationMinutes;
+            data["estimatedAmount"] = estimatedAmount;
+            data["estimatedFee"] = estimatedFee;
+        }
+    }
     return ok(data);
 }
 

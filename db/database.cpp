@@ -691,13 +691,24 @@ bool Database::startCharging(int userId, int pileId, int *outOrderId)
 
 bool Database::settleOrder(int orderId, double amount, double fee)
 {
+    QSqlDatabase db = currentThreadDb();
+    if (!db.transaction()) {
+        qDebug() << "settleOrder 失败：无法开启事务";
+        return false;
+    }
+
+    auto rollback = [&db]() {
+        db.rollback();
+        return false;
+    };
+
     // 取出订单，确认存在且还没结算过
-    QSqlQuery orderQuery(currentThreadDb());
+    QSqlQuery orderQuery(db);
     orderQuery.prepare("select user_id, pile_id, start_time, status from orders where id = ?");
     orderQuery.addBindValue(orderId);
     if (!orderQuery.exec() || !orderQuery.next()) {
         qDebug() << "settleOrder 失败：找不到该订单";
-        return false;
+        return rollback();
     }
     int userId = orderQuery.value(0).toInt();
     int pileId = orderQuery.value(1).toInt();
@@ -705,21 +716,21 @@ bool Database::settleOrder(int orderId, double amount, double fee)
     QString status = orderQuery.value(3).toString();
     if (status == "已结算") {
         qDebug() << "settleOrder 失败：该订单已经结算过";
-        return false;
+        return rollback();
     }
 
     // 校验钱包余额是否足够（对应《概要设计说明书》第五章"结算时余额不足"的错误处理要求）
-    QSqlQuery balanceQuery(currentThreadDb());
+    QSqlQuery balanceQuery(db);
     balanceQuery.prepare("select balance from users where id = ?");
     balanceQuery.addBindValue(userId);
     if (!balanceQuery.exec() || !balanceQuery.next()) {
         qDebug() << "settleOrder 失败：找不到该用户";
-        return false;
+        return rollback();
     }
     double balance = balanceQuery.value(0).toDouble();
     if (balance < fee) {
         qDebug() << "settleOrder 失败：钱包余额不足";
-        return false;
+        return rollback();
     }
 
     QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
@@ -730,7 +741,7 @@ bool Database::settleOrder(int orderId, double amount, double fee)
         durationMinutes = 0;
     }
 
-    QSqlQuery updateOrder(currentThreadDb());
+    QSqlQuery updateOrder(db);
     updateOrder.prepare("update orders set end_time = ?, amount = ?, fee = ?, status = '已结算' "
                          "where id = ?");
     updateOrder.addBindValue(now);
@@ -739,22 +750,34 @@ bool Database::settleOrder(int orderId, double amount, double fee)
     updateOrder.addBindValue(orderId);
     if (!updateOrder.exec()) {
         qDebug() << "settleOrder 更新订单失败：" << updateOrder.lastError().text();
-        return false;
+        return rollback();
     }
 
-    QSqlQuery deductBalance(currentThreadDb());
+    QSqlQuery deductBalance(db);
     deductBalance.prepare("update users set balance = balance - ? where id = ?");
     deductBalance.addBindValue(fee);
     deductBalance.addBindValue(userId);
-    deductBalance.exec();
+    if (!deductBalance.exec()) {
+        qDebug() << "settleOrder 扣款失败：" << deductBalance.lastError().text();
+        return rollback();
+    }
 
-    QSqlQuery freePile(currentThreadDb());
+    QSqlQuery freePile(db);
     freePile.prepare("update piles set status = '闲置', "
                       "total_sessions = total_sessions + 1, "
                       "total_duration = total_duration + ? where id = ?");
     freePile.addBindValue(durationMinutes);
     freePile.addBindValue(pileId);
-    freePile.exec();
+    if (!freePile.exec()) {
+        qDebug() << "settleOrder 更新电桩失败：" << freePile.lastError().text();
+        return rollback();
+    }
+
+    if (!db.commit()) {
+        qDebug() << "settleOrder 提交事务失败：" << db.lastError().text();
+        db.rollback();
+        return false;
+    }
 
     return true;
 }

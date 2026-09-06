@@ -61,9 +61,6 @@
         <height>20</height>
        </rect>
       </property>
-      <property name="styleSheet">
-       <string notr="true"/>
-      </property>
       <property name="text">
        <string>手机号</string>
       </property>
@@ -76,9 +73,6 @@
         <width>101</width>
         <height>21</height>
        </rect>
-      </property>
-      <property name="styleSheet">
-       <string notr="true"/>
       </property>
       <property name="text">
        <string>登入界面</string>
@@ -93,9 +87,9 @@
         <height>29</height>
        </rect>
       </property>
-      <property name="text">
+    <property name="text">
        <string>登录</string>
-      </property>
+    </property>
      </widget>
     </widget>
     <widget class="QWidget" name="pageHome">
@@ -108,9 +102,9 @@
         <height>20</height>
        </rect>
       </property>
-      <property name="text">
+       <property name="text">
        <string>首页</string>
-      </property>
+       </property>
      </widget>
     </widget>
     <widget class="QWidget" name="pageMine">
@@ -255,6 +249,158 @@
        <string>订单页</string>
       </property>
      </widget>
+    <widget class="QLabel" name="labelPileId">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>80</y>
+       <width>100</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>电桩编号：</string>
+     </property>
+    </widget>
+    <widget class="QSpinBox" name="spinPileId">
+     <property name="geometry">
+      <rect>
+       <x>140</x>
+       <y>78</y>
+       <width>80</width>
+       <height>24</height>
+      </rect>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="value">
+      <number>1</number>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="BtnStartCharging">
+     <property name="geometry">
+      <rect>
+       <x>230</x>
+       <y>76</y>
+       <width>100</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>开始充电</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="labelOrderStatus">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>130</y>
+       <width>300</width>
+       <height>40</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>请选择电桩并开始充电</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="labelElapsedTime">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>165</y>
+       <width>300</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>已充电时间：00:00:00</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="BtnRefreshOrder">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>195</y>
+       <width>100</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>刷新订单</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="labelAmount">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>240</y>
+       <width>80</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>充电量：</string>
+     </property>
+    </widget>
+    <widget class="QDoubleSpinBox" name="spinAmount">
+     <property name="geometry">
+      <rect>
+       <x>110</x>
+       <y>238</y>
+       <width>90</width>
+       <height>24</height>
+      </rect>
+     </property>
+     <property name="maximum">
+      <double>999999.000000000000000</double>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+    </widget>
+    <widget class="QLabel" name="labelFee">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>275</y>
+       <width>80</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>费用：</string>
+     </property>
+    </widget>
+    <widget class="QDoubleSpinBox" name="spinFee">
+     <property name="geometry">
+      <rect>
+       <x>110</x>
+       <y>273</y>
+       <width>90</width>
+       <height>24</height>
+      </rect>
+     </property>
+     <property name="maximum">
+      <double>999999.000000000000000</double>
+     </property>
+     <property name="decimals">
+      <number>2</number>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="BtnSettleOrder">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>255</y>
+       <width>110</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>结束充电</string>
+     </property>
+    </widget>
     </widget>
    </widget>
    <widget class="QWidget" name="widgetNavigation" native="true">
