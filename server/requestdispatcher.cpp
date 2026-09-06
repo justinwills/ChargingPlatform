@@ -2,6 +2,7 @@
 #include "database.h"
 #include <QJsonArray>
 #include <QDateTime>
+#include <QtGlobal>
 
 QJsonObject RequestDispatcher::ok(const QJsonObject &data)
 {
@@ -230,6 +231,11 @@ QJsonObject RequestDispatcher::handleSettleOrder(const QJsonObject &params)
     int orderId = params.value("orderId").toInt();
     double amount = params.value("amount").toDouble();
     double fee = params.value("fee").toDouble();
+
+    if (orderId <= 0 || amount < 0 || fee < 0
+        || !qIsFinite(amount) || !qIsFinite(fee)) {
+        return fail(1, "orderId、amount或fee参数无效");
+    }
 
     if (!Database::settleOrder(orderId, amount, fee)) {
         return fail(2, "结算失败：订单不存在、已结算过、或余额不足");

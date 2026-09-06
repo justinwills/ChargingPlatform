@@ -217,7 +217,7 @@ bool Database::phoneLogin(const QString &phone, UserInfo *outUser)
     QString defaultNickname = "用户" + phone.right(4);
     QSqlQuery insertQuery(currentThreadDb());
     insertQuery.prepare("insert into users(phone, nickname, balance, status) "
-                         "values(?, ?, 0, '正常')");
+                         "values(?, ?, 100.0, '正常')");
     insertQuery.addBindValue(phone);
     insertQuery.addBindValue(defaultNickname);
     if (!insertQuery.exec()) {
@@ -652,22 +652,42 @@ bool Database::hasOngoingOrder(int userId, int *outOrderId)
 
 bool Database::startCharging(int userId, int pileId, int *outOrderId)
 {
-    // 先确认电桩存在且是"闲置"状态，避免同一根电桩被重复下单占用
-    QSqlQuery checkQuery(currentThreadDb());
-    checkQuery.prepare("select status from piles where id = ?");
-    checkQuery.addBindValue(pileId);
-    if (!checkQuery.exec() || !checkQuery.next()) {
-        qDebug() << "startCharging 失败：找不到该电桩";
+    QSqlDatabase db = currentThreadDb();
+    if (!db.transaction()) {
+        qDebug() << "startCharging 失败：无法开启事务";
         return false;
     }
-    if (checkQuery.value(0).toString() != "闲置") {
-        qDebug() << "startCharging 失败：电桩当前不是闲置状态";
+
+    auto rollback = [&db]() {
+        db.rollback();
         return false;
+    };
+
+    QSqlQuery userQuery(db);
+    userQuery.prepare("select id from users where id = ? and status = '正常'");
+    userQuery.addBindValue(userId);
+    if (!userQuery.exec() || !userQuery.next()) {
+        qDebug() << "startCharging 失败：找不到该用户或用户已被冻结";
+        return rollback();
+    }
+
+    // 条件更新同时完成"检查闲置"和"占用电桩"，避免并发请求重复占用。
+    QSqlQuery occupyQuery(db);
+    occupyQuery.prepare("update piles set status = '在用' "
+                        "where id = ? and status = '闲置'");
+    occupyQuery.addBindValue(pileId);
+    if (!occupyQuery.exec()) {
+        qDebug() << "startCharging 占用电桩失败：" << occupyQuery.lastError().text();
+        return rollback();
+    }
+    if (occupyQuery.numRowsAffected() != 1) {
+        qDebug() << "startCharging 失败：电桩不存在或当前不是闲置状态";
+        return rollback();
     }
 
     QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
 
-    QSqlQuery insertQuery(currentThreadDb());
+    QSqlQuery insertQuery(db);
     insertQuery.prepare("insert into orders(user_id, pile_id, start_time, status) "
                          "values(?, ?, ?, '充电中')");
     insertQuery.addBindValue(userId);
@@ -675,16 +695,17 @@ bool Database::startCharging(int userId, int pileId, int *outOrderId)
     insertQuery.addBindValue(now);
     if (!insertQuery.exec()) {
         qDebug() << "startCharging 建单失败：" << insertQuery.lastError().text();
-        return false;
+        return rollback();
     }
-
-    QSqlQuery updateQuery(currentThreadDb());
-    updateQuery.prepare("update piles set status = '在用' where id = ?");
-    updateQuery.addBindValue(pileId);
-    updateQuery.exec();
 
     if (outOrderId) {
         *outOrderId = insertQuery.lastInsertId().toInt();
+    }
+
+    if (!db.commit()) {
+        qDebug() << "startCharging 提交事务失败：" << db.lastError().text();
+        db.rollback();
+        return false;
     }
     return true;
 }
@@ -714,8 +735,8 @@ bool Database::settleOrder(int orderId, double amount, double fee)
     int pileId = orderQuery.value(1).toInt();
     QString startTime = orderQuery.value(2).toString();
     QString status = orderQuery.value(3).toString();
-    if (status == "已结算") {
-        qDebug() << "settleOrder 失败：该订单已经结算过";
+    if (status != "充电中") {
+        qDebug() << "settleOrder 失败：订单当前不是充电中状态";
         return rollback();
     }
 
@@ -748,7 +769,7 @@ bool Database::settleOrder(int orderId, double amount, double fee)
     updateOrder.addBindValue(amount);
     updateOrder.addBindValue(fee);
     updateOrder.addBindValue(orderId);
-    if (!updateOrder.exec()) {
+    if (!updateOrder.exec() || updateOrder.numRowsAffected() != 1) {
         qDebug() << "settleOrder 更新订单失败：" << updateOrder.lastError().text();
         return rollback();
     }
@@ -757,7 +778,7 @@ bool Database::settleOrder(int orderId, double amount, double fee)
     deductBalance.prepare("update users set balance = balance - ? where id = ?");
     deductBalance.addBindValue(fee);
     deductBalance.addBindValue(userId);
-    if (!deductBalance.exec()) {
+    if (!deductBalance.exec() || deductBalance.numRowsAffected() != 1) {
         qDebug() << "settleOrder 扣款失败：" << deductBalance.lastError().text();
         return rollback();
     }
@@ -768,7 +789,7 @@ bool Database::settleOrder(int orderId, double amount, double fee)
                       "total_duration = total_duration + ? where id = ?");
     freePile.addBindValue(durationMinutes);
     freePile.addBindValue(pileId);
-    if (!freePile.exec()) {
+    if (!freePile.exec() || freePile.numRowsAffected() != 1) {
         qDebug() << "settleOrder 更新电桩失败：" << freePile.lastError().text();
         return rollback();
     }
