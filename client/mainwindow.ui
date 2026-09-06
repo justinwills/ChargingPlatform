@@ -91,6 +91,19 @@
        <string>登录</string>
     </property>
      </widget>
+    <widget class="QPushButton" name="BtnAdmin">
+     <property name="geometry">
+      <rect>
+       <x>100</x>
+       <y>120</y>
+       <width>110</width>
+       <height>29</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>管理员入口</string>
+     </property>
+    </widget>
     </widget>
     <widget class="QWidget" name="pageHome">
      <widget class="QLabel" name="label_2">

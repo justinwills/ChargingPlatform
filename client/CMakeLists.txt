@@ -24,6 +24,8 @@ add_executable(ChargingClient
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
+    admin/adminwindow.cpp
+    admin/adminwindow.h
     clientconnection.cpp
     clientconnection.h
 )

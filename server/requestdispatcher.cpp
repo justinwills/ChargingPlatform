@@ -126,6 +126,12 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
 
     if (action == "login")              return handleLogin(params);
     if (action == "admin_login")        return handleAdminLogin(params);
+    if (action == "query_users")        return handleQueryUsers(params);
+    if (action == "set_user_status")    return handleSetUserStatus(params);
+    if (action == "admin_query_stations") return handleAdminQueryStations(params);
+    if (action == "admin_query_piles")  return handleAdminQueryPiles(params);
+    if (action == "admin_restart_pile") return handleAdminRestartPile(params);
+    if (action == "admin_stats")        return handleAdminStats(params);
     if (action == "query_stations")     return handleQueryStations(params);
     if (action == "query_station_detail") return handleQueryStationDetail(params);
     if (action == "query_pile_detail")  return handleQueryPileDetail(params);
@@ -171,6 +177,89 @@ QJsonObject RequestDispatcher::handleAdminLogin(const QJsonObject &params)
         return fail(2, "账号或密码错误");
     }
     return ok(QJsonObject());
+}
+
+QJsonObject RequestDispatcher::handleQueryUsers(const QJsonObject &params)
+{
+    QJsonArray users;
+    for (const UserInfo &user : Database::getAllUsers(params.value("phoneKeyword").toString().trimmed())) {
+        users.append(QJsonObject{
+            {"userId", user.id}, {"phone", user.phone}, {"nickname", user.nickname},
+            {"balance", user.balance}, {"status", user.status}, {"createdAt", user.createdAt}
+        });
+    }
+    return ok({{"users", users}, {"count", users.size()}});
+}
+
+QJsonObject RequestDispatcher::handleSetUserStatus(const QJsonObject &params)
+{
+    if (!params.contains("userId") || !params.contains("status")) {
+        return fail(1, "缺少userId或status参数");
+    }
+    const QString status = params.value("status").toString();
+    if (status != QStringLiteral("正常") && status != QStringLiteral("冻结")) {
+        return fail(1, "status参数无效");
+    }
+    if (!Database::setUserStatus(params.value("userId").toInt(), status)) {
+        return fail(2, "用户不存在或状态更新失败");
+    }
+    return ok(QJsonObject());
+}
+
+QJsonObject RequestDispatcher::handleAdminQueryStations(const QJsonObject &)
+{
+    QJsonArray stations;
+    for (const StationInfo &station : Database::getAllStations()) {
+        stations.append(QJsonObject{
+            {"stationId", station.id}, {"name", station.name}, {"address", station.address},
+            {"price", station.price}, {"pileCount", station.pileCount},
+            {"freePileCount", Database::getFreePileCount(station.id)},
+            {"onlineRate", Database::getStationOnlineRate(station.id)}
+        });
+    }
+    return ok({{"stations", stations}});
+}
+
+QJsonObject RequestDispatcher::handleAdminQueryPiles(const QJsonObject &)
+{
+    QJsonArray piles;
+    for (const PileInfo &pile : Database::getAllPiles()) {
+        piles.append(QJsonObject{
+            {"pileId", pile.id}, {"stationId", pile.stationId}, {"stationName", pile.stationName},
+            {"code", pile.code}, {"type", pile.type}, {"power", pile.power},
+            {"status", pile.status}, {"totalSessions", pile.totalSessions},
+            {"totalDuration", pile.totalDuration}
+        });
+    }
+    return ok({{"piles", piles}});
+}
+
+QJsonObject RequestDispatcher::handleAdminRestartPile(const QJsonObject &params)
+{
+    if (!params.contains("pileId")) return fail(1, "缺少pileId参数");
+    if (!Database::restartPile(params.value("pileId").toInt())) {
+        return fail(2, "电桩不存在或重启失败");
+    }
+    return ok(QJsonObject());
+}
+
+QJsonObject RequestDispatcher::handleAdminStats(const QJsonObject &)
+{
+    QJsonObject pileStatus;
+    const QMap<QString, int> stats = Database::getPileStatusStats();
+    for (auto it = stats.cbegin(); it != stats.cend(); ++it) {
+        pileStatus[it.key()] = it.value();
+    }
+    QJsonArray trend;
+    for (const auto &point : Database::getRevenueTrend(7)) {
+        trend.append(QJsonObject{{"date", point.first}, {"revenue", point.second}});
+    }
+    return ok({
+        {"revenueToday", Database::getRevenueToday()},
+        {"revenueThisMonth", Database::getRevenueThisMonth()},
+        {"revenueTotal", Database::getRevenueTotal()},
+        {"pileStatus", pileStatus}, {"revenueTrend", trend}
+    });
 }
 
 QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)

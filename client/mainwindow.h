@@ -43,6 +43,8 @@ private slots:
 
     void on_BtnStationDetail_clicked();
 
+    void on_BtnAdmin_clicked();
+
     void onServerResponse(const QJsonObject &response);
 
     void onConnectionError(const QString &message);

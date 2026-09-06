@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "admin/adminwindow.h"
 
 #include <QMessageBox>
 #include <QJsonArray>
@@ -67,6 +68,13 @@ void MainWindow::on_BtnCharge_clicked()
 void MainWindow::on_BtnMine_clicked()
 {
     ui->stackedWidget->setCurrentWidget(ui->pageMine);
+}
+
+void MainWindow::on_BtnAdmin_clicked()
+{
+    auto *adminWindow = new AdminWindow(this);
+    adminWindow->setAttribute(Qt::WA_DeleteOnClose);
+    adminWindow->show();
 }
 
 // 登录按钮
