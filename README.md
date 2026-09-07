@@ -4,17 +4,16 @@
 
 - `db/` - shared SQLite database layer and schema.
 - `protocol/` - JSON frame encoding/decoding for TCP messages.
-- `server/` - backend listener, client thread, and request dispatcher.
+- `server/` - listener, client thread, and request dispatcher.
 - `client/` - client-side TCP connection wrapper.
 - `tests/` - standalone Qt console test projects.
 
 ## Source Layout
 
 The root `db/`, `protocol/`, `server/`, and `client/` directories are the active
-CMake targets used by the root `CMakeLists.txt`. The `backend/` directory is a
-tracked backend source mirror kept for the alternate backend layout; it is not
-added by the root CMake build. Make changes to the root targets unless you are
-specifically maintaining that mirror as well.
+CMake targets used by the root `CMakeLists.txt`. The client admin page is in
+`client/admin/` and is built as part of `ChargingClient`. Use the root targets
+for development; the unused mirror directory is not part of the build.
 
 Generated build output belongs in `build/`, and local SQLite runtime/test files
 are ignored by Git.
