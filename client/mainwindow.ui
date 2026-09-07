@@ -523,58 +523,6 @@
     </widget>
     </widget>
    </widget>
-   <widget class="QWidget" name="widgetNavigation" native="true">
-    <property name="geometry">
-     <rect>
-      <x>0</x>
-      <y>460</y>
-      <width>361</width>
-      <height>51</height>
-     </rect>
-    </property>
-    <widget class="QWidget" name="layoutWidget">
-     <property name="geometry">
-      <rect>
-       <x>0</x>
-       <y>10</y>
-       <width>351</width>
-       <height>31</height>
-      </rect>
-     </property>
-     <layout class="QHBoxLayout" name="horizontalLayout">
-      <item>
-       <widget class="QPushButton" name="BtnHome">
-        <property name="text">
-         <string>首页</string>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">buttonNavigation</string>
-        </attribute>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="BtnCharge">
-        <property name="text">
-         <string>订单</string>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">buttonNavigation</string>
-        </attribute>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="BtnMine">
-        <property name="text">
-         <string>我的</string>
-        </property>
-        <attribute name="buttonGroup">
-         <string notr="true">buttonNavigation</string>
-        </attribute>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -590,7 +538,4 @@
  </widget>
  <resources/>
  <connections/>
- <buttongroups>
-  <buttongroup name="buttonNavigation"/>
- </buttongroups>
 </ui>

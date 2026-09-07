@@ -6,15 +6,7 @@
 #include <QJsonArray>
 #include <QRegularExpression>
 #include <QtGlobal>
-#include <QPushButton>
-#include <QLayout>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QNetworkRequest>
-#include <QJsonDocument>
 #include <QJsonObject>
-#include <QUrlQuery>
-#include <QUrl>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -24,51 +16,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     ui->stackedWidget->setCurrentWidget(ui->pageLogin);
-    ui->widgetNavigation->hide();
-
-    auto *btnNavigate = new QPushButton(QStringLiteral("一键导航"), ui->pageHome);
-    btnNavigate->setGeometry(6, 436, 130, 22);
-    btnNavigate->show();
-    connect(btnNavigate, &QPushButton::clicked, this, [this]() {
-        if (m_lastStationName.isEmpty()) {
-            QMessageBox::information(this, tr("提示"), tr("请先点击\u201c查看站点详情\u201d"));
-            return;
-        }
-        if (!m_navWidget) {
-            m_navWidget = new NavigationWidget(this);
-            m_navWidget->setWindowFlag(Qt::Window);
-            connect(m_navWidget, &NavigationWidget::navigationClosed, m_navWidget, &QWidget::hide);
-        }
-        if (!m_networkManager) {
-            m_networkManager = new QNetworkAccessManager(this);
-        }
-        const double fallbackLat = 39.737562;  // BIT Liangxiang campus, dipakai kalau IP lookup gagal
-        const double fallbackLng = 116.176621;
-        QUrl ipLocUrl(QStringLiteral("https://apis.map.qq.com/ws/location/v1/ip"));
-        QUrlQuery ipLocQuery;
-        ipLocQuery.addQueryItem(QStringLiteral("key"), NavigationWidget::mapKey());
-        ipLocUrl.setQuery(ipLocQuery);
-        QNetworkReply *ipReply = m_networkManager->get(QNetworkRequest(ipLocUrl));
-        connect(ipReply, &QNetworkReply::finished, this, [this, ipReply, fallbackLat, fallbackLng]() {
-            ipReply->deleteLater();
-            double lat = fallbackLat;
-            double lng = fallbackLng;
-            if (ipReply->error() == QNetworkReply::NoError) {
-                const QJsonObject obj = QJsonDocument::fromJson(ipReply->readAll()).object();
-                if (obj.value(QStringLiteral("status")).toInt() == 0) {
-                    const QJsonObject loc = obj.value(QStringLiteral("result")).toObject()
-                                                .value(QStringLiteral("location")).toObject();
-                    lat = loc.value(QStringLiteral("lat")).toDouble();
-                    lng = loc.value(QStringLiteral("lng")).toDouble();
-                }
-            }
-            m_navWidget->startNavigation(lat, lng, QStringLiteral("\u6211\u7684\u4f4d\u7f6e"),
-                                          m_lastStationLat, m_lastStationLng, m_lastStationName);
-            m_navWidget->resize(900, 700);
-            m_navWidget->show();
-        });
-    });
-
         connect(connection, &ClientConnection::responseReceived,
             this, &MainWindow::onServerResponse);
         connect(connection, &ClientConnection::connectionError,
@@ -100,26 +47,6 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
-}
-
-void MainWindow::on_BtnHome_clicked()
-{
-    ui->stackedWidget->setCurrentWidget(ui->pageHome);
-}
-
-
-void MainWindow::on_BtnCharge_clicked()
-{
-    ui->stackedWidget->setCurrentWidget(ui->pageCharge);
-    if (connection->isConnected()) {
-        on_BtnLoadOrderStation_clicked();
-    }
-}
-
-
-void MainWindow::on_BtnMine_clicked()
-{
-    ui->stackedWidget->setCurrentWidget(ui->pageMine);
 }
 
 void MainWindow::on_BtnAdmin_clicked()
@@ -262,11 +189,6 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
     if (data.contains("piles") && data.contains("stationId")) {
-        m_lastStationLat = data.value("latitude").toDouble();
-        m_lastStationLng = data.value("longitude").toDouble();
-        m_lastStationName = data.value("name").toString(
-            data.value("stationName").toString());
-
         QStringList lines;
         const QString stationName = data.value("name").toString(
             data.value("stationName").toString());
@@ -336,7 +258,6 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         ui->editPhoneNumber->setText(data.value("phone").toString());
         ui->editMoney->setText(QString::number(data.value("balance").toDouble()));
         ui->stackedWidget->setCurrentWidget(ui->pageHome);
-        ui->widgetNavigation->show();
 
         if (data.contains("ongoingOrderId")) {
             activeOrderId = data.value("ongoingOrderId").toInt();

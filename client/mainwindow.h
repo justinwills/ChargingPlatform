@@ -4,9 +4,7 @@
 #include <QMainWindow>
 #include <QDateTime>
 #include <QTimer>
-#include <QNetworkAccessManager>
 #include "clientconnection.h"
-#include "navigationwidget.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -23,12 +21,6 @@ public:
     ~MainWindow() override;
 
 private slots:
-    void on_BtnHome_clicked();
-
-    void on_BtnCharge_clicked();
-
-    void on_BtnMine_clicked();
-
     void on_Btnlogin_clicked();
 
     void on_BtnStartCharging_clicked();
@@ -63,11 +55,5 @@ private:
     double currentFee = 0;
     QDateTime activeOrderStartTime;
     QString phoneNumber;
-
-    NavigationWidget *m_navWidget = nullptr;
-    QNetworkAccessManager *m_networkManager = nullptr;
-    double m_lastStationLat = 0.0;
-    double m_lastStationLng = 0.0;
-    QString m_lastStationName;
 };
 #endif // MAINWINDOW_H
