@@ -6,6 +6,8 @@
 #include <QJsonArray>
 #include <QRegularExpression>
 #include <QtGlobal>
+#include <QPushButton>
+#include <QLayout>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -16,6 +18,25 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->stackedWidget->setCurrentWidget(ui->pageLogin);
     ui->widgetNavigation->hide();
+
+    auto *btnNavigate = new QPushButton(QStringLiteral("一键导航"), ui->pageHome);
+    btnNavigate->setGeometry(6, 436, 130, 22);
+    btnNavigate->show();
+    connect(btnNavigate, &QPushButton::clicked, this, [this]() {
+        if (m_lastStationName.isEmpty()) {
+            QMessageBox::information(this, tr("提示"), tr("请先点击\u201c查看站点详情\u201d"));
+            return;
+        }
+        if (!m_navWidget) {
+            m_navWidget = new NavigationWidget(this);
+            m_navWidget->setWindowFlag(Qt::Window);
+            connect(m_navWidget, &NavigationWidget::navigationClosed, m_navWidget, &QWidget::hide);
+        }
+        m_navWidget->startNavigation(39.9042, 116.4074, QStringLiteral("我的位置"),
+                                      m_lastStationLat, m_lastStationLng, m_lastStationName);
+        m_navWidget->resize(900, 700);
+        m_navWidget->show();
+    });
 
         connect(connection, &ClientConnection::responseReceived,
             this, &MainWindow::onServerResponse);
@@ -210,6 +231,11 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
     if (data.contains("piles") && data.contains("stationId")) {
+        m_lastStationLat = data.value("latitude").toDouble();
+        m_lastStationLng = data.value("longitude").toDouble();
+        m_lastStationName = data.value("name").toString(
+            data.value("stationName").toString());
+
         QStringList lines;
         const QString stationName = data.value("name").toString(
             data.value("stationName").toString());
