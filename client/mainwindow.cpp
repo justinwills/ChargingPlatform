@@ -7,6 +7,10 @@
 #include <QRegularExpression>
 #include <QtGlobal>
 #include <QJsonObject>
+#include <QFileDialog>
+#include <QPixmap>
+#include <QPushButton>
+#include <QInputDialog>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -16,6 +20,19 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     ui->stackedWidget->setCurrentWidget(ui->pageLogin);
+    auto *rechargeButton = new QPushButton(tr("充值"), ui->pageMine);
+    rechargeButton->setGeometry(220, 175, 90, 30);
+    connect(rechargeButton, &QPushButton::clicked, this, [this]() {
+        bool ok = false;
+        const double amount = QInputDialog::getDouble(
+            this, tr("充值"), tr("充值金额"), 50.0, 1.0, 100000.0, 2, &ok);
+        if (ok) {
+            pendingAction = QStringLiteral("recharge_balance");
+            connection->sendRequest(QStringLiteral("recharge_balance"), {
+                {"userId", userId}, {"amount", amount}
+            });
+        }
+    });
         connect(connection, &ClientConnection::responseReceived,
             this, &MainWindow::onServerResponse);
         connect(connection, &ClientConnection::connectionError,
@@ -257,6 +274,18 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         ui->editUserName->setText(data.value("nickname").toString());
         ui->editPhoneNumber->setText(data.value("phone").toString());
         ui->editMoney->setText(QString::number(data.value("balance").toDouble()));
+        const QString avatarPath = data.value("avatarPath").toString();
+        if (!avatarPath.isEmpty()) {
+            QPixmap avatar(avatarPath);
+            if (!avatar.isNull()) {
+                ui->labelPhoto->setPixmap(avatar.scaled(
+                    ui->labelPhoto->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            }
+        }
+        if (pendingAction == QStringLiteral("recharge_balance")) {
+            pendingAction.clear();
+            QMessageBox::information(this, tr("充值成功"), tr("余额已更新"));
+        }
         ui->stackedWidget->setCurrentWidget(ui->pageHome);
 
         if (data.contains("ongoingOrderId")) {
@@ -318,6 +347,22 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         });
         connection->sendRequest(QStringLiteral("login"), {{"phone", phoneNumber}});
     }
+}
+
+void MainWindow::on_BtnSetting_clicked()
+{
+    const QString nickname = QInputDialog::getText(
+        this, tr("修改资料"), tr("昵称"), QLineEdit::Normal, ui->editUserName->text());
+    if (nickname.trimmed().isEmpty()) {
+        return;
+    }
+    const QString avatarPath = QFileDialog::getOpenFileName(
+        this, tr("选择头像"), QString(), tr("图片 (*.png *.jpg *.jpeg)"));
+    pendingAction = QStringLiteral("update_user_profile");
+    connection->sendRequest(QStringLiteral("update_user_profile"), {
+        {"userId", userId}, {"nickname", nickname.trimmed()},
+        {"avatarPath", avatarPath.isEmpty() ? selectedAvatarPath : avatarPath}
+    });
 }
 
 void MainWindow::onConnectionError(const QString &message)

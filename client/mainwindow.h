@@ -38,6 +38,7 @@ private slots:
     void on_BtnStationDetail_clicked();
 
     void on_BtnAdmin_clicked();
+    void on_BtnSetting_clicked();
 
     void onServerResponse(const QJsonObject &response);
 
@@ -55,5 +56,7 @@ private:
     double currentFee = 0;
     QDateTime activeOrderStartTime;
     QString phoneNumber;
+    QString selectedAvatarPath;
+    QString pendingAction;
 };
 #endif // MAINWINDOW_H

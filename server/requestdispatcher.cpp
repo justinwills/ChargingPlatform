@@ -125,6 +125,8 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
     QJsonObject params = request.value("params").toObject();
 
     if (action == "login")              return handleLogin(params);
+    if (action == "update_user_profile") return handleUpdateUserProfile(params);
+    if (action == "recharge_balance")   return handleRechargeBalance(params);
     if (action == "admin_login")        return handleAdminLogin(params);
     if (action == "query_users")        return handleQueryUsers(params);
     if (action == "set_user_status")    return handleSetUserStatus(params);
@@ -167,6 +169,53 @@ QJsonObject RequestDispatcher::handleLogin(const QJsonObject &params)
         data["ongoingOrderId"] = ongoingOrderId;
     }
     return ok(data);
+}
+
+QJsonObject RequestDispatcher::handleUpdateUserProfile(const QJsonObject &params)
+{
+    const int userId = params.value("userId").toInt();
+    const QString nickname = params.value("nickname").toString().trimmed();
+    const QString avatarPath = params.value("avatarPath").toString();
+    if (userId <= 0 || nickname.isEmpty()) {
+        return fail(1, "用户id或昵称无效");
+    }
+    if (!Database::updateUserProfile(userId, nickname, avatarPath)) {
+        return fail(2, "更新用户信息失败");
+    }
+
+    UserInfo user;
+    if (!Database::getUserById(userId, &user)) {
+        return fail(3, "读取更新后的用户信息失败");
+    }
+    return ok({
+        {"userId", user.id}, {"phone", user.phone},
+        {"nickname", user.nickname}, {"avatarPath", user.avatarPath},
+        {"balance", user.balance}, {"status", user.status},
+        {"createdAt", user.createdAt}
+    });
+}
+
+QJsonObject RequestDispatcher::handleRechargeBalance(const QJsonObject &params)
+{
+    const int userId = params.value("userId").toInt();
+    const double amount = params.value("amount").toDouble();
+    if (userId <= 0 || amount <= 0) {
+        return fail(1, "用户ID或充值金额无效");
+    }
+    if (!Database::rechargeBalance(userId, amount)) {
+        return fail(2, "充值失败");
+    }
+
+    UserInfo user;
+    if (!Database::getUserById(userId, &user)) {
+        return fail(3, "读取充值后的用户信息失败");
+    }
+    return ok({
+        {"userId", user.id}, {"phone", user.phone},
+        {"nickname", user.nickname}, {"avatarPath", user.avatarPath},
+        {"balance", user.balance}, {"status", user.status},
+        {"createdAt", user.createdAt}
+    });
 }
 
 QJsonObject RequestDispatcher::handleAdminLogin(const QJsonObject &params)

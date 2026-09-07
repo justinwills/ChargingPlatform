@@ -27,6 +27,8 @@ public:
 
 private:
     static QJsonObject handleLogin(const QJsonObject &params);
+    static QJsonObject handleUpdateUserProfile(const QJsonObject &params);
+    static QJsonObject handleRechargeBalance(const QJsonObject &params);
     static QJsonObject handleAdminLogin(const QJsonObject &params);
     static QJsonObject handleQueryUsers(const QJsonObject &params);
     static QJsonObject handleSetUserStatus(const QJsonObject &params);
