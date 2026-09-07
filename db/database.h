@@ -89,6 +89,9 @@ class Database
 public:
     static bool init(const QString &dbPath = "charging.db");
 
+    // Release the SQLite connection owned by the current worker thread.
+    static void closeCurrentThreadConnection();
+
     // ---------- 管理员登录（PC服务器端 第13项） ----------
     static bool checkAdminLogin(const QString &username, const QString &password);
 

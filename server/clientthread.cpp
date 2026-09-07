@@ -1,4 +1,5 @@
 #include "clientthread.h"
+#include "database.h"
 #include "protocolcodec.h"
 #include "requestdispatcher.h"
 #include <QTcpSocket>
@@ -73,6 +74,8 @@ void ClientThread::run()
     // 起这个线程自己的事件循环，socket的readyRead等信号才能被处理；
     // exec()会一直阻塞在这里，直到上面disconnected触发quit()为止
     exec();
+
+    Database::closeCurrentThreadConnection();
 
     emit logMessage(QStringLiteral("[线程%1] 客户端已断开，线程结束")
                          .arg(quintptr(QThread::currentThreadId())));

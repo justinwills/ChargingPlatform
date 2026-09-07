@@ -41,6 +41,23 @@ QSqlDatabase Database::currentThreadDb()
     return db;
 }
 
+void Database::closeCurrentThreadConnection()
+{
+    const QString connName = QStringLiteral("conn_%1")
+        .arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+    if (!QSqlDatabase::contains(connName)) {
+        return;
+    }
+
+    {
+        QSqlDatabase db = QSqlDatabase::database(connName, false);
+        if (db.isOpen()) {
+            db.close();
+        }
+    }
+    QSqlDatabase::removeDatabase(connName);
+}
+
 bool Database::init(const QString &dbPath)
 {
     s_dbPath = dbPath;
