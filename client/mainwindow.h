@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QDateTime>
 #include <QTimer>
+#include <QNetworkAccessManager>
 #include "clientconnection.h"
 #include "navigationwidget.h"
 
@@ -64,6 +65,7 @@ private:
     QString phoneNumber;
 
     NavigationWidget *m_navWidget = nullptr;
+    QNetworkAccessManager *m_networkManager = nullptr;
     double m_lastStationLat = 0.0;
     double m_lastStationLng = 0.0;
     QString m_lastStationName;

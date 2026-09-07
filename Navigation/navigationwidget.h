@@ -36,6 +36,8 @@ public:
 
     TravelMode currentMode() const { return m_mode; }
 
+    static QString mapKey() { return TENCENT_MAP_KEY; }
+
 signals:
     // 用户点击"关闭导航"时发出，外层（电站详情页）收到后应收起本控件、恢复详情页显示
     void navigationClosed();

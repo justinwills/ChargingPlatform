@@ -8,6 +8,13 @@
 #include <QtGlobal>
 #include <QPushButton>
 #include <QLayout>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QUrlQuery>
+#include <QUrl>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -32,10 +39,34 @@ MainWindow::MainWindow(QWidget *parent)
             m_navWidget->setWindowFlag(Qt::Window);
             connect(m_navWidget, &NavigationWidget::navigationClosed, m_navWidget, &QWidget::hide);
         }
-        m_navWidget->startNavigation(39.9042, 116.4074, QStringLiteral("我的位置"),
-                                      m_lastStationLat, m_lastStationLng, m_lastStationName);
-        m_navWidget->resize(900, 700);
-        m_navWidget->show();
+        if (!m_networkManager) {
+            m_networkManager = new QNetworkAccessManager(this);
+        }
+        const double fallbackLat = 39.737562;  // BIT Liangxiang campus, dipakai kalau IP lookup gagal
+        const double fallbackLng = 116.176621;
+        QUrl ipLocUrl(QStringLiteral("https://apis.map.qq.com/ws/location/v1/ip"));
+        QUrlQuery ipLocQuery;
+        ipLocQuery.addQueryItem(QStringLiteral("key"), NavigationWidget::mapKey());
+        ipLocUrl.setQuery(ipLocQuery);
+        QNetworkReply *ipReply = m_networkManager->get(QNetworkRequest(ipLocUrl));
+        connect(ipReply, &QNetworkReply::finished, this, [this, ipReply, fallbackLat, fallbackLng]() {
+            ipReply->deleteLater();
+            double lat = fallbackLat;
+            double lng = fallbackLng;
+            if (ipReply->error() == QNetworkReply::NoError) {
+                const QJsonObject obj = QJsonDocument::fromJson(ipReply->readAll()).object();
+                if (obj.value(QStringLiteral("status")).toInt() == 0) {
+                    const QJsonObject loc = obj.value(QStringLiteral("result")).toObject()
+                                                .value(QStringLiteral("location")).toObject();
+                    lat = loc.value(QStringLiteral("lat")).toDouble();
+                    lng = loc.value(QStringLiteral("lng")).toDouble();
+                }
+            }
+            m_navWidget->startNavigation(lat, lng, QStringLiteral("\u6211\u7684\u4f4d\u7f6e"),
+                                          m_lastStationLat, m_lastStationLng, m_lastStationName);
+            m_navWidget->resize(900, 700);
+            m_navWidget->show();
+        });
     });
 
         connect(connection, &ClientConnection::responseReceived,
