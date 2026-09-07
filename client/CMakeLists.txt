@@ -9,13 +9,20 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Network)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Network WebEngineWidgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network WebEngineWidgets)
 
 if(NOT TARGET protocol)
     add_subdirectory(
         ${CMAKE_CURRENT_SOURCE_DIR}/../protocol
         ${CMAKE_CURRENT_BINARY_DIR}/protocol-build
+    )
+endif()
+
+if(NOT TARGET navigation)
+    add_subdirectory(
+        ${CMAKE_CURRENT_SOURCE_DIR}/../Navigation
+        ${CMAKE_CURRENT_BINARY_DIR}/navigation-build
     )
 endif()
 
@@ -32,6 +39,7 @@ add_executable(ChargingClient
 
 target_include_directories(ChargingClient PRIVATE
     ../protocol
+    ../Navigation
 )
 
 target_link_libraries(ChargingClient PRIVATE
@@ -39,4 +47,5 @@ target_link_libraries(ChargingClient PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Network
     protocol
+    navigation
 )

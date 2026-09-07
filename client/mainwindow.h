@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QTimer>
 #include "clientconnection.h"
+#include "navigationwidget.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -61,5 +62,10 @@ private:
     double currentFee = 0;
     QDateTime activeOrderStartTime;
     QString phoneNumber;
+
+    NavigationWidget *m_navWidget = nullptr;
+    double m_lastStationLat = 0.0;
+    double m_lastStationLng = 0.0;
+    QString m_lastStationName;
 };
 #endif // MAINWINDOW_H
