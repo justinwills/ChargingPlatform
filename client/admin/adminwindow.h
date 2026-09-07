@@ -6,6 +6,9 @@
 
 class QLineEdit;
 class QLabel;
+class QDoubleSpinBox;
+class QComboBox;
+class QDateEdit;
 class QTableWidget;
 class QStackedWidget;
 
@@ -23,8 +26,10 @@ private slots:
     void refreshUsers();
     void toggleSelectedUser();
     void refreshStationsAndPiles();
+    void addStation();
     void restartSelectedPile();
     void refreshStats();
+    void refreshOrders();
 
 private:
     void send(const QString &action, const QJsonObject &params = {});
@@ -37,9 +42,20 @@ private:
     QLineEdit *passwordEdit;
     QLabel *loginStatus;
     QLineEdit *userFilterEdit;
+    QLineEdit *stationNameEdit;
+    QLineEdit *stationAddressEdit;
+    QDoubleSpinBox *stationLongitudeEdit;
+    QDoubleSpinBox *stationLatitudeEdit;
+    QDoubleSpinBox *stationPriceEdit;
+    QLineEdit *orderPhoneFilter;
+    QComboBox *orderStationFilter;
+    QComboBox *orderStatusFilter;
+    QDateEdit *orderFromDate;
+    QDateEdit *orderToDate;
     QTableWidget *usersTable;
     QTableWidget *stationsTable;
     QTableWidget *pilesTable;
+    QTableWidget *ordersTable;
     QLabel *statsLabel;
     QString pendingAction;
 };

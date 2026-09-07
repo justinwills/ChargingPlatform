@@ -15,14 +15,25 @@
 #include <QVBoxLayout>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QDoubleSpinBox>
+#include <QComboBox>
+#include <QDateEdit>
+#include <QDate>
+#include <QHBoxLayout>
 
 AdminWindow::AdminWindow(QWidget *parent)
     : QMainWindow(parent), connection(new ClientConnection(this)),
       pages(new QStackedWidget(this)), usernameEdit(new QLineEdit(this)),
       passwordEdit(new QLineEdit(this)), loginStatus(new QLabel(this)),
-      userFilterEdit(new QLineEdit(this)), usersTable(new QTableWidget(this)),
-      stationsTable(new QTableWidget(this)), pilesTable(new QTableWidget(this)),
-      statsLabel(new QLabel(this))
+    userFilterEdit(new QLineEdit(this)), stationNameEdit(new QLineEdit(this)),
+    stationAddressEdit(new QLineEdit(this)), stationLongitudeEdit(new QDoubleSpinBox(this)),
+    stationLatitudeEdit(new QDoubleSpinBox(this)), stationPriceEdit(new QDoubleSpinBox(this)),
+    orderPhoneFilter(new QLineEdit(this)), orderStationFilter(new QComboBox(this)),
+    orderStatusFilter(new QComboBox(this)), orderFromDate(new QDateEdit(this)),
+    orderToDate(new QDateEdit(this)),
+    usersTable(new QTableWidget(this)), stationsTable(new QTableWidget(this)),
+    pilesTable(new QTableWidget(this)), ordersTable(new QTableWidget(this)),
+    statsLabel(new QLabel(this))
 {
     setWindowTitle(QStringLiteral("充电平台管理后台"));
     resize(900, 600);
@@ -75,6 +86,22 @@ AdminWindow::AdminWindow(QWidget *parent)
 
     auto *stationsPage = new QWidget(tabs);
     auto *stationsLayout = new QVBoxLayout(stationsPage);
+    auto *stationForm = new QFormLayout;
+    stationNameEdit->setPlaceholderText(QStringLiteral("充电站名称"));
+    stationAddressEdit->setPlaceholderText(QStringLiteral("地址"));
+    stationLongitudeEdit->setRange(-180, 180);
+    stationLatitudeEdit->setRange(-90, 90);
+    stationPriceEdit->setRange(0, 100000);
+    stationPriceEdit->setDecimals(2);
+    stationForm->addRow(QStringLiteral("名称"), stationNameEdit);
+    stationForm->addRow(QStringLiteral("地址"), stationAddressEdit);
+    stationForm->addRow(QStringLiteral("经度"), stationLongitudeEdit);
+    stationForm->addRow(QStringLiteral("纬度"), stationLatitudeEdit);
+    stationForm->addRow(QStringLiteral("价格"), stationPriceEdit);
+    auto *addStationButton = new QPushButton(QStringLiteral("新增充电站"), stationsPage);
+    stationForm->addRow(addStationButton);
+    stationsLayout->addLayout(stationForm);
+    connect(addStationButton, &QPushButton::clicked, this, &AdminWindow::addStation);
     auto *stationRefresh = new QPushButton(QStringLiteral("刷新站点和电桩"), stationsPage);
     stationsLayout->addWidget(stationRefresh);
     stationsTable->setColumnCount(6);
@@ -108,6 +135,34 @@ AdminWindow::AdminWindow(QWidget *parent)
     statsLayout->addStretch();
     tabs->addTab(statsPage, QStringLiteral("营收与状态统计"));
     connect(statsRefresh, &QPushButton::clicked, this, &AdminWindow::refreshStats);
+
+    auto *ordersPage = new QWidget(tabs);
+    auto *ordersLayout = new QVBoxLayout(ordersPage);
+    auto *orderFilters = new QHBoxLayout;
+    auto *ordersRefresh = new QPushButton(QStringLiteral("刷新订单报表"), ordersPage);
+    orderPhoneFilter->setPlaceholderText(QStringLiteral("手机号"));
+    orderStationFilter->addItem(QStringLiteral("全部站点"), -1);
+    orderStatusFilter->addItem(QStringLiteral("全部状态"), QString());
+    orderStatusFilter->addItem(QStringLiteral("充电中"), QStringLiteral("充电中"));
+    orderStatusFilter->addItem(QStringLiteral("已结算"), QStringLiteral("已结算"));
+    orderFromDate->setCalendarPopup(true);
+    orderToDate->setCalendarPopup(true);
+    orderFromDate->setDate(QDate::currentDate().addDays(-6));
+    orderToDate->setDate(QDate::currentDate());
+    orderFilters->addWidget(orderPhoneFilter);
+    orderFilters->addWidget(orderStationFilter);
+    orderFilters->addWidget(orderStatusFilter);
+    orderFilters->addWidget(orderFromDate);
+    orderFilters->addWidget(orderToDate);
+    orderFilters->addWidget(ordersRefresh);
+    ordersLayout->addLayout(orderFilters);
+    ordersTable->setColumnCount(10);
+    ordersTable->setHorizontalHeaderLabels({QStringLiteral("订单ID"), QStringLiteral("用户ID"), QStringLiteral("手机号"), QStringLiteral("站点"), QStringLiteral("电桩ID"), QStringLiteral("开始时间"), QStringLiteral("结束时间"), QStringLiteral("电量"), QStringLiteral("费用"), QStringLiteral("状态")});
+    ordersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ordersTable->horizontalHeader()->setStretchLastSection(true);
+    ordersLayout->addWidget(ordersTable);
+    tabs->addTab(ordersPage, QStringLiteral("订单报表"));
+    connect(ordersRefresh, &QPushButton::clicked, this, &AdminWindow::refreshOrders);
 
     connect(connection, &ClientConnection::responseReceived, this, &AdminWindow::handleResponse);
     connect(connection, &ClientConnection::connectionError, this, &AdminWindow::handleError);
@@ -151,6 +206,7 @@ void AdminWindow::requestInitialData()
     refreshUsers();
     refreshStationsAndPiles();
     refreshStats();
+    refreshOrders();
 }
 
 void AdminWindow::refreshUsers()
@@ -178,6 +234,17 @@ void AdminWindow::refreshStationsAndPiles()
     send(QStringLiteral("admin_query_stations"));
 }
 
+void AdminWindow::addStation()
+{
+    send(QStringLiteral("admin_add_station"), {
+        {"name", stationNameEdit->text()},
+        {"address", stationAddressEdit->text()},
+        {"longitude", stationLongitudeEdit->value()},
+        {"latitude", stationLatitudeEdit->value()},
+        {"price", stationPriceEdit->value()}
+    });
+}
+
 void AdminWindow::restartSelectedPile()
 {
     auto *spinBox = findChild<QSpinBox *>();
@@ -187,6 +254,17 @@ void AdminWindow::restartSelectedPile()
 void AdminWindow::refreshStats()
 {
     send(QStringLiteral("admin_stats"));
+}
+
+void AdminWindow::refreshOrders()
+{
+    send(QStringLiteral("admin_orders"), {
+        {"phoneKeyword", orderPhoneFilter->text().trimmed()},
+        {"stationId", orderStationFilter->currentData().toInt()},
+        {"status", orderStatusFilter->currentData().toString()},
+        {"fromDate", orderFromDate->date().toString(QStringLiteral("yyyy-MM-dd"))},
+        {"toDate", orderToDate->date().toString(QStringLiteral("yyyy-MM-dd"))}
+    });
 }
 
 void AdminWindow::handleResponse(const QJsonObject &response)
@@ -215,9 +293,13 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         }
     } else if (data.contains("stations")) {
         const QJsonArray stations = data.value("stations").toArray();
+        const QVariant selectedStation = orderStationFilter->currentData();
+        orderStationFilter->clear();
+        orderStationFilter->addItem(QStringLiteral("全部站点"), -1);
         stationsTable->setRowCount(stations.size());
         for (int row = 0; row < stations.size(); ++row) {
             const QJsonObject station = stations.at(row).toObject();
+            orderStationFilter->addItem(station.value("name").toString(), station.value("stationId").toInt());
             stationsTable->setItem(row, 0, new QTableWidgetItem(QString::number(station.value("stationId").toInt())));
             stationsTable->setItem(row, 1, new QTableWidgetItem(station.value("name").toString()));
             stationsTable->setItem(row, 2, new QTableWidgetItem(station.value("address").toString()));
@@ -225,6 +307,8 @@ void AdminWindow::handleResponse(const QJsonObject &response)
             stationsTable->setItem(row, 4, new QTableWidgetItem(QStringLiteral("%1/%2").arg(station.value("freePileCount").toInt()).arg(station.value("pileCount").toInt())));
             stationsTable->setItem(row, 5, new QTableWidgetItem(QStringLiteral("%1%").arg(station.value("onlineRate").toDouble(), 0, 'f', 1)));
         }
+        const int selectedIndex = orderStationFilter->findData(selectedStation);
+        if (selectedIndex >= 0) orderStationFilter->setCurrentIndex(selectedIndex);
         send(QStringLiteral("admin_query_piles"));
     } else if (data.contains("piles")) {
         const QJsonArray piles = data.value("piles").toArray();
@@ -241,13 +325,42 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         }
     } else if (data.contains("revenueToday") && data.contains("pileStatus")) {
         const QJsonObject pileStatus = data.value("pileStatus").toObject();
-        statsLabel->setText(QStringLiteral("今日营收：%1 元\n本月营收：%2 元\n累计营收：%3 元\n\n电桩状态：闲置 %4，在用 %5，故障 %6")
+        QString trendText;
+        for (const QJsonValue &value : data.value("revenueTrend").toArray()) {
+            const QJsonObject point = value.toObject();
+            trendText += QStringLiteral("\n%1：%2 元")
+                .arg(point.value("date").toString())
+                .arg(point.value("revenue").toDouble(), 0, 'f', 2);
+        }
+        statsLabel->setText(QStringLiteral("今日营收：%1 元\n本月营收：%2 元\n累计营收：%3 元\n\n电桩状态：闲置 %4，在用 %5，故障 %6\n\n近7日营收：%7")
             .arg(data.value("revenueToday").toDouble(), 0, 'f', 2)
             .arg(data.value("revenueThisMonth").toDouble(), 0, 'f', 2)
             .arg(data.value("revenueTotal").toDouble(), 0, 'f', 2)
             .arg(pileStatus.value("闲置").toInt())
             .arg(pileStatus.value("在用").toInt())
-            .arg(pileStatus.value("故障").toInt()));
+            .arg(pileStatus.value("故障").toInt())
+            .arg(trendText.isEmpty() ? QStringLiteral("暂无已结算订单") : trendText));
+    } else if (data.contains("orders")) {
+        const QJsonArray orders = data.value("orders").toArray();
+        ordersTable->setRowCount(orders.size());
+        for (int row = 0; row < orders.size(); ++row) {
+            const QJsonObject order = orders.at(row).toObject();
+            ordersTable->setItem(row, 0, new QTableWidgetItem(QString::number(order.value("orderId").toInt())));
+            ordersTable->setItem(row, 1, new QTableWidgetItem(QString::number(order.value("userId").toInt())));
+            ordersTable->setItem(row, 2, new QTableWidgetItem(order.value("phone").toString()));
+            ordersTable->setItem(row, 3, new QTableWidgetItem(order.value("stationName").toString()));
+            ordersTable->setItem(row, 4, new QTableWidgetItem(QString::number(order.value("pileId").toInt())));
+            ordersTable->setItem(row, 5, new QTableWidgetItem(order.value("startTime").toString()));
+            ordersTable->setItem(row, 6, new QTableWidgetItem(order.value("endTime").toString()));
+            ordersTable->setItem(row, 7, new QTableWidgetItem(QString::number(order.value("amount").toDouble(), 'f', 2)));
+            ordersTable->setItem(row, 8, new QTableWidgetItem(QString::number(order.value("fee").toDouble(), 'f', 2)));
+            ordersTable->setItem(row, 9, new QTableWidgetItem(order.value("status").toString()));
+        }
+        return;
+    } else if (pendingAction == QStringLiteral("admin_add_station")) {
+        stationNameEdit->clear();
+        stationAddressEdit->clear();
+        refreshStationsAndPiles();
     } else if (pendingAction == QStringLiteral("set_user_status")) {
         refreshUsers();
     } else if (pendingAction == QStringLiteral("admin_restart_pile")) {

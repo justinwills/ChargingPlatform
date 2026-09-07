@@ -205,6 +205,30 @@ void Database::seedTestData()
                     "values('13800000001', '用户0001', 100.0)");
     }
 
+    // Demo revenue data for the admin report. Keep protocol_test.db deterministic.
+    if (s_dbPath == QStringLiteral("charging.db")) {
+        query.exec("select count(*) from orders where status = '已结算'");
+        if (query.next() && query.value(0).toInt() == 0) {
+            for (int dayOffset = 6; dayOffset >= 0; --dayOffset) {
+                const QString endTime = QDateTime::currentDateTime()
+                    .addDays(-dayOffset).addSecs(-3600)
+                    .toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+                const int pileId = dayOffset % 2 == 0 ? 1 : 4;
+                const double amount = 8.0 + (6 - dayOffset);
+                const double fee = amount * (pileId == 1 ? 1.5 : 1.8);
+                query.prepare("insert into orders(user_id, pile_id, start_time, end_time, amount, fee, status) "
+                              "values(1, ?, ?, ?, ?, ?, '已结算')");
+                query.addBindValue(pileId);
+                query.addBindValue(QDateTime::fromString(endTime, QStringLiteral("yyyy-MM-dd HH:mm:ss"))
+                                   .addSecs(-1800).toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")));
+                query.addBindValue(endTime);
+                query.addBindValue(amount);
+                query.addBindValue(fee);
+                query.exec();
+            }
+        }
+    }
+
 }
 
 // ================= 管理员 =================
@@ -882,6 +906,64 @@ QList<OrderInfo> Database::getUserOrders(int userId)
         o.fee = query.value(6).toDouble();
         o.status = query.value(7).toString();
         result.append(o);
+    }
+    return result;
+}
+
+QList<OrderInfo> Database::getAllOrders(const QString &phoneKeyword, int stationId,
+                                        const QString &fromDate, const QString &toDate,
+                                        const QString &status)
+{
+    QList<OrderInfo> result;
+    QString sql = "select orders.id, orders.user_id, users.phone, orders.pile_id, "
+                  "stations.id, stations.name, orders.start_time, orders.end_time, "
+                  "orders.amount, orders.fee, orders.status "
+                  "from orders join users on orders.user_id = users.id "
+                  "join piles on orders.pile_id = piles.id "
+                  "join stations on piles.station_id = stations.id where 1 = 1";
+    QSqlQuery query(currentThreadDb());
+    if (!phoneKeyword.trimmed().isEmpty()) {
+        sql += " and users.phone like ?";
+    }
+    if (stationId > 0) {
+        sql += " and stations.id = ?";
+    }
+    if (!fromDate.trimmed().isEmpty()) {
+        sql += " and date(orders.end_time) >= date(?)";
+    }
+    if (!toDate.trimmed().isEmpty()) {
+        sql += " and date(orders.end_time) <= date(?)";
+    }
+    if (!status.trimmed().isEmpty()) {
+        sql += " and orders.status = ?";
+    }
+    sql += " order by orders.id desc";
+    query.prepare(sql);
+    if (!phoneKeyword.trimmed().isEmpty()) {
+        query.addBindValue(QStringLiteral("%1%").arg(phoneKeyword.trimmed()));
+    }
+    if (stationId > 0) query.addBindValue(stationId);
+    if (!fromDate.trimmed().isEmpty()) query.addBindValue(fromDate.trimmed());
+    if (!toDate.trimmed().isEmpty()) query.addBindValue(toDate.trimmed());
+    if (!status.trimmed().isEmpty()) query.addBindValue(status.trimmed());
+    if (!query.exec()) {
+        qDebug() << "getAllOrders 失败：" << query.lastError().text();
+        return result;
+    }
+    while (query.next()) {
+        OrderInfo order;
+        order.id = query.value(0).toInt();
+        order.userId = query.value(1).toInt();
+        order.userPhone = query.value(2).toString();
+        order.pileId = query.value(3).toInt();
+        order.stationId = query.value(4).toInt();
+        order.stationName = query.value(5).toString();
+        order.startTime = query.value(6).toString();
+        order.endTime = query.value(7).toString();
+        order.amount = query.value(8).toDouble();
+        order.fee = query.value(9).toDouble();
+        order.status = query.value(10).toString();
+        result.append(order);
     }
     return result;
 }

@@ -1,2 +1,6 @@
 .qtcreator
 build
+
+# Local runtime and test databases
+charging.db
+protocol_test.db

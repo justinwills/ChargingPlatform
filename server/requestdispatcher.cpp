@@ -128,10 +128,12 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
     if (action == "admin_login")        return handleAdminLogin(params);
     if (action == "query_users")        return handleQueryUsers(params);
     if (action == "set_user_status")    return handleSetUserStatus(params);
+    if (action == "admin_add_station") return handleAdminAddStation(params);
     if (action == "admin_query_stations") return handleAdminQueryStations(params);
     if (action == "admin_query_piles")  return handleAdminQueryPiles(params);
     if (action == "admin_restart_pile") return handleAdminRestartPile(params);
     if (action == "admin_stats")        return handleAdminStats(params);
+    if (action == "admin_orders")       return handleAdminOrders(params);
     if (action == "query_stations")     return handleQueryStations(params);
     if (action == "query_station_detail") return handleQueryStationDetail(params);
     if (action == "query_pile_detail")  return handleQueryPileDetail(params);
@@ -206,6 +208,30 @@ QJsonObject RequestDispatcher::handleSetUserStatus(const QJsonObject &params)
     return ok(QJsonObject());
 }
 
+QJsonObject RequestDispatcher::handleAdminAddStation(const QJsonObject &params)
+{
+    const QString name = params.value("name").toString().trimmed();
+    const QString address = params.value("address").toString().trimmed();
+    if (name.isEmpty() || address.isEmpty()
+        || !params.contains("longitude") || !params.contains("latitude")
+        || !params.contains("price")) {
+        return fail(1, "缺少充电站名称、地址、经纬度或价格");
+    }
+
+    const double longitude = params.value("longitude").toDouble();
+    const double latitude = params.value("latitude").toDouble();
+    const double price = params.value("price").toDouble();
+    if (!qIsFinite(longitude) || !qIsFinite(latitude) || !qIsFinite(price)
+        || longitude < -180 || longitude > 180
+        || latitude < -90 || latitude > 90 || price < 0) {
+        return fail(1, "经纬度或价格无效");
+    }
+    if (!Database::addStation(name, address, longitude, latitude, price)) {
+        return fail(2, "新增充电站失败");
+    }
+    return ok(QJsonObject());
+}
+
 QJsonObject RequestDispatcher::handleAdminQueryStations(const QJsonObject &)
 {
     QJsonArray stations;
@@ -260,6 +286,30 @@ QJsonObject RequestDispatcher::handleAdminStats(const QJsonObject &)
         {"revenueTotal", Database::getRevenueTotal()},
         {"pileStatus", pileStatus}, {"revenueTrend", trend}
     });
+}
+
+QJsonObject RequestDispatcher::handleAdminOrders(const QJsonObject &params)
+{
+    QJsonArray orders;
+    for (const OrderInfo &order : Database::getAllOrders(
+             params.value("phoneKeyword").toString(),
+             params.value("stationId").toInt(-1),
+             params.value("fromDate").toString(),
+             params.value("toDate").toString(),
+             params.value("status").toString())) {
+        orders.append(QJsonObject{
+            {"orderId", order.id}, {"userId", order.userId}, {"phone", order.userPhone},
+            {"pileId", order.pileId}, {"stationId", order.stationId},
+            {"stationName", order.stationName},
+            {"startTime", order.startTime}, {"endTime", order.endTime},
+            {"amount", order.amount}, {"fee", order.fee}, {"status", order.status}
+        });
+    }
+    QJsonArray trend;
+    for (const auto &point : Database::getRevenueTrend(7)) {
+        trend.append(QJsonObject{{"date", point.first}, {"revenue", point.second}});
+    }
+    return ok({{"orders", orders}, {"revenueTrend", trend}});
 }
 
 QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)

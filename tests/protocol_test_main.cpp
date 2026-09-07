@@ -29,6 +29,8 @@ static QVector<StepDef> g_steps = {
     {"query_order", {{"orderId", 1}}, "查询订单(应为充电中)"},
     {"settle_order", {{"orderId", 1}, {"amount", 10.5}, {"fee", 15.75}}, "结算订单"},
     {"query_order", {{"orderId", 1}}, "查询订单(应为已结算)"},
+    {"admin_add_station", {{"name", "测试新增站"}, {"address", "测试地址"}, {"longitude", 121.5}, {"latitude", 38.9}, {"price", 1.2}}, "管理员新增充电站"},
+    {"admin_orders", {{"status", "已结算"}, {"phoneKeyword", "13800000001"}}, "管理员筛选已结算订单"},
 };
 
 void sendCurrentStep()
@@ -85,6 +87,13 @@ void checkResponse(const QJsonObject &resp)
     } else if (s.label.contains("应为已结算")) {
         pass = (code == 0 && data.value("status").toString() == "已结算" && data.value("fee").toDouble() == 15.75);
         note = "期望 status=已结算, fee=15.75";
+    } else if (s.action == "admin_add_station") {
+        pass = (code == 0);
+        note = "期望新增充电站成功";
+    } else if (s.action == "admin_orders") {
+        const QJsonArray orders = data.value("orders").toArray();
+        pass = (code == 0 && !orders.isEmpty());
+        note = "期望手机号筛选后存在已结算订单";
     }
 
     qDebug().noquote() << QString("   结果: %1  (%2)").arg(pass ? "✓ 通过" : "✗ 失败").arg(note);

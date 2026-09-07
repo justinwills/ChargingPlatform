@@ -46,7 +46,10 @@ struct PileInfo {
 struct OrderInfo {
     int id = -1;
     int userId = -1;
+    QString userPhone;
     int pileId = -1;
+    int stationId = -1;
+    QString stationName;
     QString startTime;
     QString endTime;
     double amount = 0;    // 充电量（度）
@@ -140,6 +143,11 @@ public:
     static bool settleOrder(int orderId, double amount, double fee);
     static bool getOrderById(int orderId, OrderInfo *outOrder);  // 充电中状态展示用（第11项）
     static QList<OrderInfo> getUserOrders(int userId);
+    static QList<OrderInfo> getAllOrders(const QString &phoneKeyword = QString(),
+                                         int stationId = -1,
+                                         const QString &fromDate = QString(),
+                                         const QString &toDate = QString(),
+                                         const QString &status = QString());
 
     // ---------- 销售业绩（PC服务器端 第14-15项） ----------
     static double getRevenueToday();
