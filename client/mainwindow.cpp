@@ -9,8 +9,6 @@
 #include <QJsonObject>
 #include <QFileDialog>
 #include <QPixmap>
-#include <QPushButton>
-#include <QInputDialog>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -20,19 +18,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     ui->stackedWidget->setCurrentWidget(ui->pageLogin);
-    auto *rechargeButton = new QPushButton(tr("充值"), ui->pageMine);
-    rechargeButton->setGeometry(220, 175, 90, 30);
-    connect(rechargeButton, &QPushButton::clicked, this, [this]() {
-        bool ok = false;
-        const double amount = QInputDialog::getDouble(
-            this, tr("充值"), tr("充值金额"), 50.0, 1.0, 100000.0, 2, &ok);
-        if (ok) {
-            pendingAction = QStringLiteral("recharge_balance");
-            connection->sendRequest(QStringLiteral("recharge_balance"), {
-                {"userId", userId}, {"amount", amount}
-            });
-        }
-    });
         connect(connection, &ClientConnection::responseReceived,
             this, &MainWindow::onServerResponse);
         connect(connection, &ClientConnection::connectionError,
@@ -64,6 +49,24 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::on_BtnHome_clicked()
+{
+    ui->stackedWidget->setCurrentWidget(ui->pageHome);
+}
+
+void MainWindow::on_BtnCharge_clicked()
+{
+    ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+    if (connection->isConnected()) {
+        on_BtnLoadOrderStation_clicked();
+    }
+}
+
+void MainWindow::on_BtnMine_clicked()
+{
+    ui->stackedWidget->setCurrentWidget(ui->pageMine);
 }
 
 void MainWindow::on_BtnAdmin_clicked()
@@ -206,6 +209,11 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
     if (data.contains("piles") && data.contains("stationId")) {
+        m_lastStationLat = data.value("latitude").toDouble();
+        m_lastStationLng = data.value("longitude").toDouble();
+        m_lastStationName = data.value("name").toString(
+            data.value("stationName").toString());
+
         QStringList lines;
         const QString stationName = data.value("name").toString(
             data.value("stationName").toString());
@@ -275,12 +283,13 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         ui->editPhoneNumber->setText(data.value("phone").toString());
         ui->editMoney->setText(QString::number(data.value("balance").toDouble()));
         const QString avatarPath = data.value("avatarPath").toString();
-        if (!avatarPath.isEmpty()) {
-            QPixmap avatar(avatarPath);
-            if (!avatar.isNull()) {
-                ui->labelPhoto->setPixmap(avatar.scaled(
-                    ui->labelPhoto->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-            }
+        QPixmap avatar(avatarPath);
+        if (avatar.isNull()) {
+            avatar.load(QStringLiteral(":/images/default_avatar.jpeg"));
+        }
+        if (!avatar.isNull()) {
+            ui->labelPhoto->setPixmap(avatar.scaled(
+                ui->labelPhoto->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
         }
         if (pendingAction == QStringLiteral("recharge_balance")) {
             pendingAction.clear();
@@ -351,18 +360,93 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
 void MainWindow::on_BtnSetting_clicked()
 {
-    const QString nickname = QInputDialog::getText(
-        this, tr("修改资料"), tr("昵称"), QLineEdit::Normal, ui->editUserName->text());
-    if (nickname.trimmed().isEmpty()) {
+    ui->lineEditNickname->setText(ui->editUserName->text());
+    ui->labelPhotoEdit->setPixmap(ui->labelPhoto->pixmap());
+    ui->stackedWidget->setCurrentWidget(ui->pageEditMine);
+}
+
+void MainWindow::on_BtnChoosePhoto_clicked()
+{
+    const QString fileName = QFileDialog::getOpenFileName(
+        this, tr("选择头像"), QString(), tr("图片 (*.png *.jpg *.jpeg)"));
+    if (fileName.isEmpty()) {
         return;
     }
-    const QString avatarPath = QFileDialog::getOpenFileName(
-        this, tr("选择头像"), QString(), tr("图片 (*.png *.jpg *.jpeg)"));
+    const QPixmap avatar(fileName);
+    if (avatar.isNull()) {
+        QMessageBox::warning(this, tr("提示"), tr("无法读取该图片"));
+        return;
+    }
+    selectedAvatarPath = fileName;
+    ui->labelPhotoEdit->setPixmap(avatar.scaled(
+        ui->labelPhotoEdit->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+}
+
+void MainWindow::on_BtnConfirm_PageEdit_clicked()
+{
+    const QString nickname = ui->lineEditNickname->text().trimmed();
+    if (nickname.isEmpty() || userId <= 0) {
+        QMessageBox::warning(this, tr("提示"), tr("用户信息无效"));
+        return;
+    }
     pendingAction = QStringLiteral("update_user_profile");
     connection->sendRequest(QStringLiteral("update_user_profile"), {
-        {"userId", userId}, {"nickname", nickname.trimmed()},
-        {"avatarPath", avatarPath.isEmpty() ? selectedAvatarPath : avatarPath}
+        {"userId", userId}, {"nickname", nickname},
+        {"avatarPath", selectedAvatarPath}
     });
+}
+
+void MainWindow::on_BtnCancel_clicked()
+{
+    ui->stackedWidget->setCurrentWidget(ui->pageMine);
+}
+
+void MainWindow::on_BtnRecharge_clicked()
+{
+    ui->stackedWidget->setCurrentWidget(ui->pageRecharge);
+}
+
+void MainWindow::on_Btn_50_clicked()
+{
+    ui->editRecharge->setText(QStringLiteral("50"));
+}
+
+void MainWindow::on_Btn_100_clicked()
+{
+    ui->editRecharge->setText(QStringLiteral("100"));
+}
+
+void MainWindow::on_Btn_200_clicked()
+{
+    ui->editRecharge->setText(QStringLiteral("200"));
+}
+
+void MainWindow::on_BtnConfirm_pageRecharge_clicked()
+{
+    bool ok = false;
+    const double amount = ui->editRecharge->text().toDouble(&ok);
+    if (!ok || amount <= 0 || userId <= 0) {
+        QMessageBox::warning(this, tr("提示"), tr("请输入有效的充值金额"));
+        return;
+    }
+    pendingAction = QStringLiteral("recharge_balance");
+    connection->sendRequest(QStringLiteral("recharge_balance"), {
+        {"userId", userId}, {"amount", amount}
+    });
+}
+
+void MainWindow::on_BtnCancel_pageRecharge_clicked()
+{
+    ui->stackedWidget->setCurrentWidget(ui->pageMine);
+}
+
+void MainWindow::on_BtnLeave_clicked()
+{
+    userId = -1;
+    phoneNumber.clear();
+    selectedAvatarPath.clear();
+    pendingAction.clear();
+    ui->stackedWidget->setCurrentWidget(ui->pageLogin);
 }
 
 void MainWindow::onConnectionError(const QString &message)

@@ -21,6 +21,9 @@ public:
     ~MainWindow() override;
 
 private slots:
+    void on_BtnHome_clicked();
+    void on_BtnCharge_clicked();
+    void on_BtnMine_clicked();
     void on_Btnlogin_clicked();
 
     void on_BtnStartCharging_clicked();
@@ -39,6 +42,16 @@ private slots:
 
     void on_BtnAdmin_clicked();
     void on_BtnSetting_clicked();
+    void on_BtnChoosePhoto_clicked();
+    void on_BtnConfirm_PageEdit_clicked();
+    void on_BtnCancel_clicked();
+    void on_BtnRecharge_clicked();
+    void on_Btn_50_clicked();
+    void on_Btn_100_clicked();
+    void on_Btn_200_clicked();
+    void on_BtnConfirm_pageRecharge_clicked();
+    void on_BtnCancel_pageRecharge_clicked();
+    void on_BtnLeave_clicked();
 
     void onServerResponse(const QJsonObject &response);
 
@@ -58,5 +71,8 @@ private:
     QString phoneNumber;
     QString selectedAvatarPath;
     QString pendingAction;
+    double m_lastStationLat = 0.0;
+    double m_lastStationLng = 0.0;
+    QString m_lastStationName;
 };
 #endif // MAINWINDOW_H
