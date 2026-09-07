@@ -61,6 +61,9 @@
         <height>20</height>
        </rect>
       </property>
+      <property name="styleSheet">
+       <string notr="true"/>
+      </property>
       <property name="text">
        <string>手机号</string>
       </property>
@@ -73,6 +76,9 @@
         <width>101</width>
         <height>21</height>
        </rect>
+      </property>
+      <property name="styleSheet">
+       <string notr="true"/>
       </property>
       <property name="text">
        <string>登入界面</string>
@@ -87,23 +93,10 @@
         <height>29</height>
        </rect>
       </property>
-    <property name="text">
+      <property name="text">
        <string>登录</string>
-    </property>
+      </property>
      </widget>
-    <widget class="QPushButton" name="BtnAdmin">
-     <property name="geometry">
-      <rect>
-       <x>100</x>
-       <y>120</y>
-       <width>110</width>
-       <height>29</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>管理员入口</string>
-     </property>
-    </widget>
     </widget>
     <widget class="QWidget" name="pageHome">
      <widget class="QLabel" name="label_2">
@@ -115,107 +108,10 @@
         <height>20</height>
        </rect>
       </property>
-       <property name="text">
+      <property name="text">
        <string>首页</string>
-       </property>
+      </property>
      </widget>
-    <widget class="QLabel" name="labelAddressSearch">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>55</y>
-       <width>80</width>
-       <height>20</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>地址搜索：</string>
-     </property>
-    </widget>
-    <widget class="QLineEdit" name="editAddress">
-     <property name="geometry">
-      <rect>
-       <x>90</x>
-       <y>52</y>
-       <width>165</width>
-       <height>25</height>
-      </rect>
-     </property>
-     <property name="placeholderText">
-      <string>输入区域或充电站地址</string>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="BtnSearchStations">
-     <property name="geometry">
-      <rect>
-       <x>265</x>
-       <y>50</y>
-       <width>85</width>
-       <height>29</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>附近充电站</string>
-     </property>
-    </widget>
-    <widget class="QPlainTextEdit" name="stationResults">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>90</y>
-       <width>340</width>
-      <height>305</height>
-      </rect>
-     </property>
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-     <property name="plainText">
-      <string>请输入地址后搜索附近充电站</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="labelStationId">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>410</y>
-       <width>80</width>
-       <height>20</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>站点编号：</string>
-     </property>
-    </widget>
-    <widget class="QSpinBox" name="spinStationId">
-     <property name="geometry">
-      <rect>
-       <x>90</x>
-       <y>407</y>
-       <width>70</width>
-       <height>25</height>
-      </rect>
-     </property>
-     <property name="minimum">
-      <number>1</number>
-     </property>
-     <property name="value">
-      <number>1</number>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="BtnStationDetail">
-     <property name="geometry">
-      <rect>
-       <x>175</x>
-       <y>405</y>
-       <width>130</width>
-       <height>29</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>查看站点详情</string>
-     </property>
-    </widget>
     </widget>
     <widget class="QWidget" name="pageMine">
      <widget class="QLabel" name="label_3">
@@ -283,54 +179,6 @@
        <string>电话：</string>
       </property>
      </widget>
-     <widget class="QLineEdit" name="editUserName">
-      <property name="geometry">
-       <rect>
-        <x>90</x>
-        <y>180</y>
-        <width>141</width>
-        <height>21</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>user_1314</string>
-      </property>
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="editPhoneNumber">
-      <property name="geometry">
-       <rect>
-        <x>90</x>
-        <y>210</y>
-        <width>141</width>
-        <height>21</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>12345678912</string>
-      </property>
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="editMoney">
-      <property name="geometry">
-       <rect>
-        <x>90</x>
-        <y>240</y>
-        <width>141</width>
-        <height>21</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>20</string>
-      </property>
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
-     </widget>
      <widget class="QPushButton" name="BtnSetting">
       <property name="geometry">
        <rect>
@@ -341,8 +189,259 @@
        </rect>
       </property>
       <property name="text">
-       <string>修改</string>
+       <string>资料修改</string>
       </property>
+     </widget>
+     <widget class="QLabel" name="labelNickname">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>180</y>
+        <width>141</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>user_</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelPhone">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>210</y>
+        <width>141</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>number</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelMoney_c">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>240</y>
+        <width>141</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>##</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnRecharge">
+      <property name="geometry">
+       <rect>
+        <x>50</x>
+        <y>300</y>
+        <width>90</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>充值</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnLeave">
+      <property name="geometry">
+       <rect>
+        <x>220</x>
+        <y>330</y>
+        <width>90</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>退出登录</string>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="pageEditMine">
+     <widget class="QLabel" name="labelPhotoEdit">
+      <property name="geometry">
+       <rect>
+        <x>110</x>
+        <y>50</y>
+        <width>121</width>
+        <height>81</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>头像</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_4">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>10</y>
+        <width>131</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>我的页面修改界面</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelUserName_2">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>170</y>
+        <width>41</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>昵称：</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnConfirm_PageEdit">
+      <property name="geometry">
+       <rect>
+        <x>210</x>
+        <y>290</y>
+        <width>90</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>确认</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="lineEditNickname">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>170</y>
+        <width>113</width>
+        <height>28</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnChoosePhoto">
+      <property name="geometry">
+       <rect>
+        <x>280</x>
+        <y>120</y>
+        <width>71</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>选择头像</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnCancel">
+      <property name="geometry">
+       <rect>
+        <x>110</x>
+        <y>290</y>
+        <width>90</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>取消</string>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="pageRecharge">
+     <widget class="QLabel" name="labelRechargeInterface">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>20</y>
+        <width>71</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>充值界面</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnConfirm_pageRecharge">
+      <property name="geometry">
+       <rect>
+        <x>240</x>
+        <y>290</y>
+        <width>81</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>确认</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnCancel_pageRecharge">
+      <property name="geometry">
+       <rect>
+        <x>150</x>
+        <y>290</y>
+        <width>81</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>取消</string>
+      </property>
+     </widget>
+     <widget class="QWidget" name="layoutWidget">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>198</y>
+        <width>271</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <widget class="QPushButton" name="Btn_50">
+         <property name="text">
+          <string>50</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="Btn_100">
+         <property name="text">
+          <string>100</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="Btn_200">
+         <property name="text">
+          <string>200</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="layoutWidget">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>150</y>
+        <width>271</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <item>
+        <widget class="QLabel" name="labelRecharge">
+         <property name="text">
+          <string>金额：</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="editRecharge"/>
+       </item>
+      </layout>
      </widget>
     </widget>
     <widget class="QWidget" name="pageCharge">
@@ -359,168 +458,6 @@
        <string>订单页</string>
       </property>
      </widget>
-    <widget class="QLabel" name="labelPileId">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-      <y>85</y>
-       <width>100</width>
-       <height>20</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>选择电桩：</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="labelOrderStationId">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-      <y>50</y>
-       <width>80</width>
-       <height>20</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>站点编号：</string>
-     </property>
-    </widget>
-    <widget class="QSpinBox" name="spinOrderStationId">
-     <property name="geometry">
-      <rect>
-       <x>115</x>
-      <y>47</y>
-       <width>70</width>
-       <height>25</height>
-      </rect>
-     </property>
-     <property name="minimum">
-      <number>1</number>
-     </property>
-     <property name="value">
-      <number>1</number>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="BtnLoadOrderStation">
-     <property name="geometry">
-      <rect>
-       <x>195</x>
-      <y>45</y>
-       <width>120</width>
-       <height>29</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>选择充电站</string>
-     </property>
-    </widget>
-    <widget class="QComboBox" name="comboPile">
-     <property name="geometry">
-      <rect>
-       <x>140</x>
-       <y>82</y>
-       <width>180</width>
-       <height>24</height>
-      </rect>
-     </property>
-     <property name="placeholderText">
-      <string>先选择充电站</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="labelPileStation">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-      <y>115</y>
-       <width>300</width>
-       <height>25</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>请选择电桩查看所属充电站</string>
-     </property>
-    </widget>
-    <widget class="QPlainTextEdit" name="labelOrderStationDetails">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-      <y>140</y>
-       <width>320</width>
-       <height>105</height>
-      </rect>
-     </property>
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-     <property name="plainText">
-      <string>请选择站点查看站点和电桩信息</string>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="BtnStartCharging">
-     <property name="geometry">
-      <rect>
-         <x>220</x>
-         <y>250</y>
-       <width>100</width>
-       <height>29</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>开始充电</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="labelOrderStatus">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-         <y>285</y>
-       <width>300</width>
-         <height>30</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>请选择电桩并开始充电</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="labelElapsedTime">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-      <y>320</y>
-       <width>300</width>
-       <height>20</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>已充电时间：00:00:00</string>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="BtnRefreshOrder">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-         <y>345</y>
-       <width>100</width>
-       <height>29</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>刷新订单</string>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="BtnSettleOrder">
-     <property name="geometry">
-      <rect>
-       <x>220</x>
-       <y>380</y>
-       <width>110</width>
-       <height>29</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>结束充电</string>
-     </property>
-    </widget>
     </widget>
    </widget>
    <widget class="QWidget" name="widgetNavigation" native="true">

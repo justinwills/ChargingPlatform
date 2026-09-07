@@ -2,17 +2,15 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QDateTime>
-#include <QTimer>
-#include <QNetworkAccessManager>
-#include "clientconnection.h"
-#include "navigationwidget.h"
+#include <QJsonObject>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
 }
 QT_END_NAMESPACE
+
+class ClientConnection;
 
 class MainWindow : public QMainWindow
 {
@@ -24,50 +22,35 @@ public:
 
 private slots:
     void on_BtnHome_clicked();
-
     void on_BtnCharge_clicked();
-
     void on_BtnMine_clicked();
 
     void on_Btnlogin_clicked();
 
-    void on_BtnStartCharging_clicked();
+    void on_BtnSetting_clicked();
+    void on_BtnConfirm_PageEdit_clicked();
+    void on_BtnCancel_clicked();
+    void on_BtnChoosePhoto_clicked();
 
-    void on_BtnPileDetail_clicked();
-
-    void on_BtnLoadOrderStation_clicked();
-
-    void on_BtnRefreshOrder_clicked();
-
-    void on_BtnSettleOrder_clicked();
-
-    void on_BtnSearchStations_clicked();
-
-    void on_BtnStationDetail_clicked();
-
-    void on_BtnAdmin_clicked();
+    void on_Btn_50_clicked();
+    void on_Btn_100_clicked();
+    void on_Btn_200_clicked();
+    void on_BtnConfirm_pageRecharge_clicked();
+    void on_BtnRecharge_clicked();
+    void on_BtnCancel_pageRecharge_clicked();
 
     void onServerResponse(const QJsonObject &response);
-
     void onConnectionError(const QString &message);
+
+    void on_BtnLeave_clicked();
 
 private:
     Ui::MainWindow *ui;
+    ClientConnection *m_connection;
 
-    ClientConnection *connection;
-    QTimer orderTimer;
-    QTimer displayTimer;
-    int userId = -1;
-    int activeOrderId = -1;
-    double currentAmount = 0;
-    double currentFee = 0;
-    QDateTime activeOrderStartTime;
+    QString m_selectedAvatarPath;
+    QString m_pendingAction;
     QString phoneNumber;
-
-    NavigationWidget *m_navWidget = nullptr;
-    QNetworkAccessManager *m_networkManager = nullptr;
-    double m_lastStationLat = 0.0;
-    double m_lastStationLng = 0.0;
-    QString m_lastStationName;
+    QJsonObject m_currentUser;
 };
 #endif // MAINWINDOW_H
