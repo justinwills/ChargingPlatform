@@ -99,6 +99,83 @@ double distanceKm(double latitude1, double longitude1,
     return earthRadiusKm * 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0 - a));
 }
 
+bool requestTencentRoute(const QString &mode,
+                         double fromLatitude, double fromLongitude,
+                         double toLatitude, double toLongitude,
+                         QJsonObject *route, QString *error)
+{
+    const QString key = qEnvironmentVariable("TENCENT_MAP_KEY").trimmed();
+    if (key.isEmpty()) {
+        if (error) *error = QStringLiteral("未配置TENCENT_MAP_KEY");
+        return false;
+    }
+
+    const QString service = mode == QStringLiteral("walking")
+        ? QStringLiteral("walking")
+        : mode == QStringLiteral("transit")
+            ? QStringLiteral("transit")
+            : QStringLiteral("driving");
+    QUrl url(QStringLiteral("https://apis.map.qq.com/ws/direction/v1/%1/").arg(service));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("from"),
+                       QStringLiteral("%1,%2").arg(fromLatitude, 0, 'f', 7)
+                                               .arg(fromLongitude, 0, 'f', 7));
+    query.addQueryItem(QStringLiteral("to"),
+                       QStringLiteral("%1,%2").arg(toLatitude, 0, 'f', 7)
+                                             .arg(toLongitude, 0, 'f', 7));
+    query.addQueryItem(QStringLiteral("key"), key);
+    if (service == QStringLiteral("driving") || service == QStringLiteral("transit")) {
+        query.addQueryItem(QStringLiteral("policy"), QStringLiteral("LEAST_TIME"));
+    }
+    url.setQuery(query);
+
+    QNetworkAccessManager manager;
+    QNetworkReply *reply = manager.get(QNetworkRequest(url));
+    QEventLoop loop;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+    timeout.setInterval(8000);
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    timeout.start();
+    loop.exec();
+
+    if (!reply->isFinished()) {
+        reply->abort();
+        if (error) *error = QStringLiteral("路线规划请求超时");
+        reply->deleteLater();
+        return false;
+    }
+    if (reply->error() != QNetworkReply::NoError) {
+        if (error) *error = reply->errorString();
+        reply->deleteLater();
+        return false;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(reply->readAll(), &parseError);
+    reply->deleteLater();
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        if (error) *error = QStringLiteral("路线服务返回了无效数据");
+        return false;
+    }
+
+    const QJsonObject response = document.object();
+    if (response.value(QStringLiteral("status")).toInt(-1) != 0) {
+        if (error) *error = response.value(QStringLiteral("message")).toString();
+        return false;
+    }
+    const QJsonArray routes = response.value(QStringLiteral("result"))
+                                  .toObject().value(QStringLiteral("routes")).toArray();
+    if (routes.isEmpty() || !routes.first().isObject()) {
+        if (error) *error = QStringLiteral("地图服务没有找到可用路线");
+        return false;
+    }
+
+    *route = routes.first().toObject();
+    return true;
+}
+
 }
 
 QJsonObject RequestDispatcher::ok(const QJsonObject &data)
@@ -139,6 +216,11 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
     if (action == "admin_orders")       return handleAdminOrders(params);
     if (action == "query_stations")     return handleQueryStations(params);
     if (action == "query_station_detail") return handleQueryStationDetail(params);
+    if (action == "plan_route" || action == "route_planning"
+        || action == "start_navigation" || action == "switch_navigation_mode") {
+        return handlePlanRoute(params);
+    }
+    if (action == "end_navigation")     return handleEndNavigation(params);
     if (action == "query_pile_detail")  return handleQueryPileDetail(params);
     if (action == "start_charging")     return handleStartCharging(params);
     if (action == "prepare_settlement") return handlePrepareSettlement(params);
@@ -550,6 +632,105 @@ QJsonObject RequestDispatcher::handleQueryStationDetail(const QJsonObject &param
     }
     data["piles"] = piles;
     return ok(data);
+}
+
+QJsonObject RequestDispatcher::handlePlanRoute(const QJsonObject &params)
+{
+    QString mode = params.value(QStringLiteral("mode")).toString().trimmed().toLower();
+    if (mode == QStringLiteral("驾车") || mode == QStringLiteral("car")) {
+        mode = QStringLiteral("driving");
+    } else if (mode == QStringLiteral("步行") || mode == QStringLiteral("walk")) {
+        mode = QStringLiteral("walking");
+    } else if (mode == QStringLiteral("公交") || mode == QStringLiteral("公交车")
+               || mode == QStringLiteral("bus") || mode == QStringLiteral("public_transit")) {
+        mode = QStringLiteral("transit");
+    }
+    if (mode.isEmpty()) mode = QStringLiteral("driving");
+    if (mode != QStringLiteral("driving") && mode != QStringLiteral("walking")
+        && mode != QStringLiteral("transit")) {
+        return fail(1, QStringLiteral("mode必须是driving、walking或transit"));
+    }
+
+    auto readCoordinate = [&params](const QStringList &keys, double *value) {
+        for (const QString &key : keys) {
+            if (params.contains(key)) {
+                *value = params.value(key).toDouble();
+                return qIsFinite(*value);
+            }
+        }
+        return false;
+    };
+
+    double fromLatitude = 0;
+    double fromLongitude = 0;
+    if (!readCoordinate({QStringLiteral("fromLatitude"), QStringLiteral("originLatitude")}, &fromLatitude)
+        || !readCoordinate({QStringLiteral("fromLongitude"), QStringLiteral("originLongitude")}, &fromLongitude)
+        || fromLatitude < -90 || fromLatitude > 90
+        || fromLongitude < -180 || fromLongitude > 180) {
+        return fail(1, QStringLiteral("缺少或无效的起点经纬度"));
+    }
+
+    double toLatitude = 0;
+    double toLongitude = 0;
+    const int stationId = params.value(QStringLiteral("stationId")).toInt(-1);
+    StationInfo station;
+    if (stationId > 0) {
+        if (!Database::getStationById(stationId, &station)) {
+            return fail(2, QStringLiteral("找不到目标充电站"));
+        }
+        toLatitude = station.latitude;
+        toLongitude = station.longitude;
+    } else if (!readCoordinate({QStringLiteral("toLatitude"), QStringLiteral("destinationLatitude")}, &toLatitude)
+               || !readCoordinate({QStringLiteral("toLongitude"), QStringLiteral("destinationLongitude")}, &toLongitude)) {
+        return fail(1, QStringLiteral("需要stationId或目标经纬度"));
+    }
+    if (toLatitude < -90 || toLatitude > 90 || toLongitude < -180 || toLongitude > 180) {
+        return fail(1, QStringLiteral("目标经纬度无效"));
+    }
+
+    QJsonObject route;
+    QString routeError;
+    if (!requestTencentRoute(mode, fromLatitude, fromLongitude,
+                             toLatitude, toLongitude, &route, &routeError)) {
+        return fail(3, QStringLiteral("路线规划失败：%1").arg(routeError));
+    }
+
+    const int distanceMeters = route.value(QStringLiteral("distance")).toInt();
+    const int durationSeconds = route.value(QStringLiteral("duration")).toInt();
+    QJsonObject data;
+    data[QStringLiteral("mode")] = mode;
+    data[QStringLiteral("fromLatitude")] = fromLatitude;
+    data[QStringLiteral("fromLongitude")] = fromLongitude;
+    data[QStringLiteral("toLatitude")] = toLatitude;
+    data[QStringLiteral("toLongitude")] = toLongitude;
+    data[QStringLiteral("distanceMeters")] = distanceMeters;
+    data[QStringLiteral("distanceKm")] = distanceMeters / 1000.0;
+    data[QStringLiteral("durationSeconds")] = durationSeconds;
+    data[QStringLiteral("durationMinutes")] = qCeil(durationSeconds / 60.0);
+    data[QStringLiteral("polyline")] = route.value(QStringLiteral("polyline"));
+    if (stationId > 0) {
+        data[QStringLiteral("stationId")] = station.id;
+        data[QStringLiteral("stationName")] = station.name;
+        data[QStringLiteral("stationAddress")] = station.address;
+    }
+
+    QJsonArray steps;
+    for (const QJsonValue &value : route.value(QStringLiteral("steps")).toArray()) {
+        const QJsonObject source = value.toObject();
+        steps.append(QJsonObject{
+            {QStringLiteral("instruction"), source.value(QStringLiteral("instruction"))},
+            {QStringLiteral("roadName"), source.value(QStringLiteral("road_name"))},
+            {QStringLiteral("distanceMeters"), source.value(QStringLiteral("distance"))},
+            {QStringLiteral("durationSeconds"), source.value(QStringLiteral("duration"))}
+        });
+    }
+    data[QStringLiteral("steps")] = steps;
+    return ok(data);
+}
+
+QJsonObject RequestDispatcher::handleEndNavigation(const QJsonObject &)
+{
+    return ok({{QStringLiteral("ended"), true}});
 }
 
 QJsonObject RequestDispatcher::handleStartCharging(const QJsonObject &params)
