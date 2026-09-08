@@ -6,6 +6,8 @@
 #include <QRegularExpression>
 #include <QFileDialog>
 #include <QPixmap>
+#include <QPainter>
+#include <QPainterPath>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -104,6 +106,36 @@ void MainWindow::on_Btnlogin_clicked()
     m_connection->sendRequest("login", params);
 }
 
+QPixmap circularPixmap(const QPixmap &source,int size){
+    QPixmap scaled = source.scaled(
+        size,
+        size,
+        Qt::KeepAspectRatioByExpanding,
+        Qt::SmoothTransformation
+        );
+
+    int x = (scaled.width() - size)/ 2;
+    int y = (scaled.height() - size)/ 2;
+
+    QPixmap result(size,size);
+    result.fill(Qt::transparent);
+
+    QPainter painter(&result);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    QPainterPath path;
+    path.addEllipse(0,0,size,size);
+    painter.setClipPath(path);
+
+    painter.drawPixmap(
+        QRect(0,0,size,size),
+        scaled,
+        QRect(x,y,size,size)
+        );
+
+    return result;
+}
+
 void MainWindow::onServerResponse(const QJsonObject &response){
     QString action = m_pendingAction;
     m_pendingAction.clear();
@@ -167,14 +199,9 @@ void MainWindow::onServerResponse(const QJsonObject &response){
         }
 
         if (!avatar.isNull()) {
+            ui->labelPhoto->setFixedSize(100,100);
             ui->labelPhoto->setAlignment(Qt::AlignCenter);
-            ui->labelPhoto->setPixmap(
-                avatar.scaled(
-                    ui->labelPhoto->size(),
-                    Qt::KeepAspectRatio,
-                    Qt::SmoothTransformation
-                    )
-                );
+            ui->labelPhoto->setPixmap(circularPixmap(avatar,100));
         } else {
             qWarning() << "默认头像加载失败";
         }
@@ -332,13 +359,7 @@ void MainWindow::on_BtnChoosePhoto_clicked()
     m_selectedAvatarPath = fileName;
 
     // 先在修改页面预览
-    ui->labelPhotoEdit->setPixmap(
-        avatar.scaled(
-            ui->labelPhotoEdit->size(),
-            Qt::KeepAspectRatio,
-            Qt::SmoothTransformation
-            )
-        );
+    ui->labelPhotoEdit->setPixmap(circularPixmap(avatar,100));
 }
 
 void MainWindow::on_Btn_50_clicked()
@@ -423,7 +444,7 @@ void MainWindow::on_BtnLeave_clicked()
     ui->editPhone->clear();
     ui->editRecharge->clear();
     ui->labelNickname->clear();
-    ui->labelPhoneNumber->clear();
+    ui->labelPhone->clear();
     ui->labelMoney_c->clear();
 
     // 隐藏导航栏并返回登录页
