@@ -165,9 +165,9 @@ void Database::seedTestData()
     query.exec("select count(*) from stations");
     if (query.next() && query.value(0).toInt() == 0) {
         query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
-                    "values('东软科技园充电站', '大连市甘井子区东软路1号', 121.5, 38.9, 1.5, 3)");
+                    "values('东软科技园充电站', '大连市甘井子区东软路1号', 121.5, 38.9, 15, 3)");
         query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
-                    "values('万达广场充电站', '大连市西岗区万达路2号', 121.6, 38.91, 1.8, 2)");
+                    "values('万达广场充电站', '大连市西岗区万达路2号', 121.6, 38.91, 18, 2)");
 
         query.exec("insert into piles(station_id, code, type, power, status) "
                     "values(1, 'A01', '快充', 60, '闲置')");
@@ -181,15 +181,15 @@ void Database::seedTestData()
                     "values(2, 'B02', '慢充', 7, '闲置')");
 
         query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
-                "values('北京朝阳充电站', '北京市朝阳区建国路88号', 116.466, 39.908, 1.8, 3)");
+                "values('北京朝阳充电站', '北京市朝阳区建国路88号', 116.466, 39.908, 18, 3)");
         query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
-                "values('北京海淀充电站', '北京市海淀区中关村大街1号', 116.316, 39.983, 1.6, 2)");
+                "values('北京海淀充电站', '北京市海淀区中关村大街1号', 116.316, 39.983, 16, 2)");
         query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
-                "values('北京丰台充电站', '北京市丰台区南四环西路188号', 116.291, 39.850, 1.7, 2)");
+                "values('北京丰台充电站', '北京市丰台区南四环西路188号', 116.291, 39.850, 17, 2)");
         query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
-                "values('北京顺义充电站', '北京市顺义区新顺南大街18号', 116.654, 40.130, 1.5, 2)");
+                "values('北京顺义充电站', '北京市顺义区新顺南大街18号', 116.654, 40.130, 15, 2)");
         query.exec("insert into stations(name, address, longitude, latitude, price, pile_count) "
-                "values('北京通州充电站', '北京市通州区新华西街58号', 116.657, 39.909, 1.9, 2)");
+                "values('北京通州充电站', '北京市通州区新华西街58号', 116.657, 39.909, 19, 2)");
 
         query.exec("insert into piles(station_id, code, type, power, status) "
                 "values(3, 'BJ-C01', '快充', 60, '闲置')");
@@ -232,7 +232,18 @@ void Database::seedTestData()
                     .toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
                 const int pileId = dayOffset % 2 == 0 ? 1 : 4;
                 const double amount = 8.0 + (6 - dayOffset);
-                const double fee = amount * (pileId == 1 ? 1.5 : 1.8);
+
+                QSqlQuery priceQuery(currentThreadDb());
+                priceQuery.prepare("select stations.price from stations "
+                                  "join piles on piles.station_id = stations.id "
+                                  "where piles.id = ?");
+                priceQuery.addBindValue(pileId);
+                double stationPrice = 15;
+                if (priceQuery.exec() && priceQuery.next()) {
+                    stationPrice = priceQuery.value(0).toDouble();
+                }
+
+                const double fee = amount * stationPrice;
                 query.prepare("insert into orders(user_id, pile_id, start_time, end_time, amount, fee, status) "
                               "values(1, ?, ?, ?, ?, ?, '已结算')");
                 query.addBindValue(pileId);
