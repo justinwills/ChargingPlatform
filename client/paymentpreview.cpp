@@ -15,7 +15,7 @@ PaymentPreview::PaymentPreview(int orderId, double amount, double fee, double ba
     , paymentFee(fee)
 {
     setWindowTitle(tr("支付结算"));
-    resize(540, 420);
+    setFixedSize(360, 612);
     setModal(true);
     setStyleSheet(
         QStringLiteral("QDialog { background: #f5f7fb; }"
