@@ -59,6 +59,8 @@ private slots:
 
     void onConnectionError(const QString &message);
 
+    void showPaymentPreview();
+
 private:
     Ui::MainWindow *ui;
 

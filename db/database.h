@@ -137,11 +137,12 @@ public:
     static QMap<QString, int> getPileStatusStats();      // 状态分布统计（第16项）
 
     // ---------- 充电流程 / 订单（充电用户端 第9-12项） ----------
-    // 充电前订单检查：查该用户名下是否还有一笔未结算的"充电中"订单（第9项）
+    // 充电前订单检查：查该用户名下是否还有一笔未结算订单（第9项）
     static bool hasOngoingOrder(int userId, int *outOrderId = nullptr);
+    static bool markOrderPendingSettlement(int orderId, double amount, double fee);
     // 发起充电：先确认电桩是"闲置"，是则建单并把电桩状态改成"在用"（第10项）
     static bool startCharging(int userId, int pileId, int *outOrderId);
-    // 结算：从用户钱包扣 fee，订单标记"已结算"，电桩状态改回"闲置"并累加统计（第12项）
+    // 结算：从用户钱包扣 fee，待结算订单标记"已结算"（第12项）
     // 余额不足时返回 false（对应《概要设计说明书》第五章"结算时余额不足"的错误处理要求）
     static bool settleOrder(int orderId, double amount, double fee);
     static bool getOrderById(int orderId, OrderInfo *outOrder);  // 充电中状态展示用（第11项）

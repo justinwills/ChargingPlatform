@@ -141,6 +141,7 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
     if (action == "query_station_detail") return handleQueryStationDetail(params);
     if (action == "query_pile_detail")  return handleQueryPileDetail(params);
     if (action == "start_charging")     return handleStartCharging(params);
+    if (action == "prepare_settlement") return handlePrepareSettlement(params);
     if (action == "query_order")        return handleQueryOrder(params);
     if (action == "settle_order")       return handleSettleOrder(params);
 
@@ -571,6 +572,27 @@ QJsonObject RequestDispatcher::handleStartCharging(const QJsonObject &params)
     QJsonObject data;
     data["orderId"] = orderId;
     return ok(data);
+}
+
+QJsonObject RequestDispatcher::handlePrepareSettlement(const QJsonObject &params)
+{
+    if (!params.contains("orderId") || !params.contains("amount") || !params.contains("fee")) {
+        return fail(1, "缺少orderId/amount/fee参数");
+    }
+
+    const int orderId = params.value("orderId").toInt();
+    const double amount = params.value("amount").toDouble();
+    const double fee = params.value("fee").toDouble();
+    if (orderId <= 0 || amount < 0 || fee < 0
+        || !qIsFinite(amount) || !qIsFinite(fee)) {
+        return fail(1, "orderId、amount或fee参数无效");
+    }
+
+    if (!Database::markOrderPendingSettlement(orderId, amount, fee)) {
+        return fail(2, "订单不存在、已结束或无法进入待结算状态");
+    }
+    return ok({{"orderId", orderId}, {"amount", amount},
+               {"fee", fee}, {"status", QStringLiteral("待结算")}});
 }
 
 QJsonObject RequestDispatcher::handleQueryOrder(const QJsonObject &params)

@@ -293,7 +293,7 @@ bool Database::phoneLogin(const QString &phone, UserInfo *outUser)
     QString defaultNickname = "用户" + phone.right(4);
     QSqlQuery insertQuery(currentThreadDb());
     insertQuery.prepare("insert into users(phone, nickname, balance, status) "
-                         "values(?, ?, 100.0, '正常')");
+                         "values(?, ?, 0.0, '正常')");
     insertQuery.addBindValue(phone);
     insertQuery.addBindValue(defaultNickname);
     if (!insertQuery.exec()) {
@@ -715,13 +715,80 @@ QMap<QString, int> Database::getPileStatusStats()
 bool Database::hasOngoingOrder(int userId, int *outOrderId)
 {
     QSqlQuery query(currentThreadDb());
-    query.prepare("select id from orders where user_id = ? and status = '充电中'");
+    query.prepare("select id from orders where user_id = ? "
+                  "and status in ('充电中', '待结算') order by id limit 1");
     query.addBindValue(userId);
     if (!query.exec() || !query.next()) {
         return false;
     }
     if (outOrderId) {
         *outOrderId = query.value(0).toInt();
+    }
+    return true;
+}
+
+bool Database::markOrderPendingSettlement(int orderId, double amount, double fee)
+{
+    QSqlDatabase db = currentThreadDb();
+    if (!db.transaction()) {
+        qDebug() << "markOrderPendingSettlement 失败：无法开启事务";
+        return false;
+    }
+
+    auto rollback = [&db]() {
+        db.rollback();
+        return false;
+    };
+
+    QSqlQuery orderQuery(db);
+    orderQuery.prepare("select pile_id, start_time, status from orders where id = ?");
+    orderQuery.addBindValue(orderId);
+    if (!orderQuery.exec() || !orderQuery.next()) {
+        return rollback();
+    }
+
+    const int pileId = orderQuery.value(0).toInt();
+    const QString startTime = orderQuery.value(1).toString();
+    const QString status = orderQuery.value(2).toString();
+    if (status != QStringLiteral("充电中") && status != QStringLiteral("待结算")) {
+        return rollback();
+    }
+
+    const int durationMinutes = qMax(0, static_cast<int>(
+        QDateTime::fromString(startTime, QStringLiteral("yyyy-MM-dd HH:mm:ss"))
+            .secsTo(QDateTime::currentDateTime()) / 60));
+    const QString now = QDateTime::currentDateTime().toString(
+        QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+
+    QSqlQuery updateOrder(db);
+    updateOrder.prepare("update orders set end_time = ?, amount = ?, fee = ?, "
+                        "status = '待结算' where id = ? "
+                        "and status in ('充电中', '待结算')");
+    updateOrder.addBindValue(now);
+    updateOrder.addBindValue(amount);
+    updateOrder.addBindValue(fee);
+    updateOrder.addBindValue(orderId);
+    if (!updateOrder.exec() || updateOrder.numRowsAffected() != 1) {
+        return rollback();
+    }
+
+    if (status == QStringLiteral("充电中")) {
+        QSqlQuery freePile(db);
+        freePile.prepare("update piles set status = '闲置', "
+                         "total_sessions = total_sessions + 1, "
+                         "total_duration = total_duration + ? "
+                         "where id = ? and status = '在用'");
+        freePile.addBindValue(durationMinutes);
+        freePile.addBindValue(pileId);
+        if (!freePile.exec() || freePile.numRowsAffected() != 1) {
+            return rollback();
+        }
+    }
+
+    if (!db.commit()) {
+        qDebug() << "markOrderPendingSettlement 提交事务失败：" << db.lastError().text();
+        db.rollback();
+        return false;
     }
     return true;
 }
@@ -808,11 +875,9 @@ bool Database::settleOrder(int orderId, double amount, double fee)
         return rollback();
     }
     int userId = orderQuery.value(0).toInt();
-    int pileId = orderQuery.value(1).toInt();
-    QString startTime = orderQuery.value(2).toString();
     QString status = orderQuery.value(3).toString();
-    if (status != "充电中") {
-        qDebug() << "settleOrder 失败：订单当前不是充电中状态";
+    if (status != "待结算") {
+        qDebug() << "settleOrder 失败：订单当前不是待结算状态";
         return rollback();
     }
 
@@ -831,12 +896,6 @@ bool Database::settleOrder(int orderId, double amount, double fee)
     }
 
     QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-    int durationMinutes = static_cast<int>(
-        QDateTime::fromString(startTime, "yyyy-MM-dd HH:mm:ss")
-            .secsTo(QDateTime::currentDateTime()) / 60);
-    if (durationMinutes < 0) {
-        durationMinutes = 0;
-    }
 
     QSqlQuery updateOrder(db);
     updateOrder.prepare("update orders set end_time = ?, amount = ?, fee = ?, status = '已结算' "
@@ -851,22 +910,14 @@ bool Database::settleOrder(int orderId, double amount, double fee)
     }
 
     QSqlQuery deductBalance(db);
-    deductBalance.prepare("update users set balance = balance - ? where id = ?");
+    deductBalance.prepare("update users set balance = balance - ? "
+                          "where id = ? and balance >= ?");
     deductBalance.addBindValue(fee);
     deductBalance.addBindValue(userId);
+    deductBalance.addBindValue(fee);
     if (!deductBalance.exec() || deductBalance.numRowsAffected() != 1) {
-        qDebug() << "settleOrder 扣款失败：" << deductBalance.lastError().text();
-        return rollback();
-    }
-
-    QSqlQuery freePile(db);
-    freePile.prepare("update piles set status = '闲置', "
-                      "total_sessions = total_sessions + 1, "
-                      "total_duration = total_duration + ? where id = ?");
-    freePile.addBindValue(durationMinutes);
-    freePile.addBindValue(pileId);
-    if (!freePile.exec() || freePile.numRowsAffected() != 1) {
-        qDebug() << "settleOrder 更新电桩失败：" << freePile.lastError().text();
+        qDebug() << "settleOrder 扣款失败：余额不足或用户不存在"
+                 << deductBalance.lastError().text();
         return rollback();
     }
 

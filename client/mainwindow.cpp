@@ -231,6 +231,16 @@ void MainWindow::on_BtnSettleOrder_clicked()
         return;
     }
 
+    m_pendingAction = QStringLiteral("prepare_settlement");
+    connection->sendRequest(QStringLiteral("prepare_settlement"), {
+        {"orderId", activeOrderId},
+        {"amount", currentAmount},
+        {"fee", currentFee}
+    });
+}
+
+void MainWindow::showPaymentPreview()
+{
     const double balance = m_currentUser.value("balance").toDouble();
     PaymentPreview preview(activeOrderId, currentAmount, currentFee, balance, this);
     m_paymentPreview = &preview;
@@ -288,6 +298,10 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     const QJsonObject data = response.value("data").toObject();
 
     if (code != 0) {
+        if (action == QStringLiteral("prepare_settlement")) {
+            QMessageBox::warning(this, tr("结算失败"), response.value("msg").toString());
+            return;
+        }
         if (action == QStringLiteral("settle_order") && m_paymentPreview) {
             m_paymentPreview->reject();
         }
@@ -512,6 +526,16 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
 
+    if (action == QStringLiteral("prepare_settlement")) {
+        activeOrderId = data.value("orderId").toInt(activeOrderId);
+        currentAmount = data.value("amount").toDouble(currentAmount);
+        currentFee = data.value("fee").toDouble(currentFee);
+        ui->labelOrderStatus->setText(
+            tr("订单 %1：待结算").arg(activeOrderId));
+        showPaymentPreview();
+        return;
+    }
+
     if (data.contains("status")) {
         const QString status = data.value("status").toString();
         activeOrderId = data.value("orderId").toInt();
@@ -529,6 +553,12 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             currentAmount = data.value("estimatedAmount").toDouble();
             currentFee = data.value("estimatedFee").toDouble();
             displayTimer.start();
+        }
+        if (status == QStringLiteral("待结算")) {
+            currentAmount = data.value("amount").toDouble();
+            currentFee = data.value("fee").toDouble();
+            orderTimer.stop();
+            displayTimer.stop();
         }
         if (status == QStringLiteral("已结算")) {
             activeOrderId = -1;
