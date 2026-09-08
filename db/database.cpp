@@ -219,7 +219,7 @@ void Database::seedTestData()
     query.exec("select count(*) from users");
     if (query.next() && query.value(0).toInt() == 0) {
         query.exec("insert into users(phone, nickname, balance) "
-                    "values('13800000001', '用户0001', 100.0)");
+                    "values('13800000001', '用户0001', 0.0)");
     }
 
     // Demo revenue data for the admin report. Keep protocol_test.db deterministic.
