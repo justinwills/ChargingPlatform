@@ -231,11 +231,26 @@ void MainWindow::on_BtnSettleOrder_clicked()
         return;
     }
 
-    connection->sendRequest(QStringLiteral("settle_order"), {
-        {"orderId", activeOrderId},
-        {"amount", currentAmount},
-        {"fee", currentFee}
+    const double balance = m_currentUser.value("balance").toDouble();
+    PaymentPreview preview(activeOrderId, currentAmount, currentFee, balance, this);
+    m_paymentPreview = &preview;
+
+    connect(&preview, &PaymentPreview::paymentConfirmed, this, [this]() {
+        m_pendingAction = QStringLiteral("settle_order");
+        connection->sendRequest(QStringLiteral("settle_order"), {
+            {"orderId", activeOrderId},
+            {"amount", currentAmount},
+            {"fee", currentFee}
+        });
     });
+    connect(&preview, &PaymentPreview::rechargeRequested,
+            this, &MainWindow::on_BtnRecharge_clicked);
+    connect(&preview, &QDialog::finished, this, [this]() {
+        m_paymentPreview = nullptr;
+    });
+
+    preview.exec();
+    m_paymentPreview = nullptr;
 }
 
 void MainWindow::on_BtnSearchStations_clicked()
@@ -273,6 +288,9 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     const QJsonObject data = response.value("data").toObject();
 
     if (code != 0) {
+        if (action == QStringLiteral("settle_order") && m_paymentPreview) {
+            m_paymentPreview->reject();
+        }
         QMessageBox::warning(this, tr("请求失败"), response.value("msg").toString());
         return;
     }
@@ -424,7 +442,24 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
         // 登录成功后才进入主界面
         if(action == "login"){
-            ui->stackedWidget->setCurrentWidget(ui->pageHome);
+            const int ongoingOrderId = data.value("ongoingOrderId").toInt(-1);
+            if (ongoingOrderId > 0) {
+                activeOrderId = ongoingOrderId;
+                ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+                ui->labelOrderStatus->setText(
+                    tr("正在恢复订单 %1，请稍候...").arg(activeOrderId));
+                connection->sendRequest(QStringLiteral("query_order"), {
+                    {"orderId", activeOrderId}
+                });
+            } else {
+                activeOrderId = -1;
+                currentAmount = 0;
+                currentFee = 0;
+                activeOrderStartTime = QDateTime();
+                orderTimer.stop();
+                displayTimer.stop();
+                ui->stackedWidget->setCurrentWidget(ui->pageHome);
+            }
             ui->widgetNavigation->show();
 
             QMessageBox::information(
@@ -515,6 +550,10 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         orderTimer.start();
         on_BtnRefreshOrder_clicked();
         return;
+    }
+
+    if (action == QStringLiteral("settle_order") && m_paymentPreview) {
+        m_paymentPreview->showPaymentSuccess();
     }
 
     if (activeOrderId >= 0) {

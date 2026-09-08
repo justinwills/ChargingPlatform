@@ -24,6 +24,8 @@ add_executable(ChargingClient
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
+    paymentpreview.cpp
+    paymentpreview.h
     resources.qrc
     admin/adminwindow.cpp
     admin/adminwindow.h

@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QTimer>
 #include "clientconnection.h"
+#include "paymentpreview.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -74,6 +75,7 @@ private:
     QString m_selectedAvatarPath;
     QJsonObject m_currentUser;
     QString m_pendingAction;
+    PaymentPreview *m_paymentPreview = nullptr;
 
     double m_lastStationLat = 0.0;
     double m_lastStationLng = 0.0;
