@@ -58,20 +58,21 @@ MainWindow::MainWindow(QWidget *parent)
     displayTimer.setInterval(1000);
     connect(&displayTimer, &QTimer::timeout, this, [this]() {
         if (!activeOrderStartTime.isValid() || activeOrderId < 0) {
+            ui->labelElapsedTime->setText(tr("已充电时间：00:00:00"));
             return;
         }
 
-    const qint64 elapsedSeconds = qMax<qint64>(
-        0, activeOrderStartTime.secsTo(QDateTime::currentDateTime()));
-    const int hours = static_cast<int>(elapsedSeconds / 3600);
-    const int minutes = static_cast<int>((elapsedSeconds % 3600) / 60);
-    const int seconds = static_cast<int>(elapsedSeconds % 60);
-    ui->labelElapsedTime->setText(
-        tr("已充电时间：%1:%2:%3")
-            .arg(hours, 2, 10, QLatin1Char('0'))
-            .arg(minutes, 2, 10, QLatin1Char('0'))
-            .arg(seconds, 2, 10, QLatin1Char('0')));
-});
+        const qint64 elapsedSeconds = qMax<qint64>(
+            0, activeOrderStartTime.secsTo(QDateTime::currentDateTime()));
+        const int hours = static_cast<int>(elapsedSeconds / 3600);
+        const int minutes = static_cast<int>((elapsedSeconds % 3600) / 60);
+        const int seconds = static_cast<int>(elapsedSeconds % 60);
+        ui->labelElapsedTime->setText(
+            tr("已充电时间：%1:%2:%3")
+                .arg(hours, 2, 10, QLatin1Char('0'))
+                .arg(minutes, 2, 10, QLatin1Char('0'))
+                .arg(seconds, 2, 10, QLatin1Char('0')));
+    });
 
 }
 
@@ -568,7 +569,9 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             displayTimer.stop();
         }
         if (status == QStringLiteral("已结算")) {
+            activeOrderStartTime = QDateTime();
             activeOrderId = -1;
+            ui->labelElapsedTime->setText(tr("已充电时间：00:00:00"));
             orderTimer.stop();
             displayTimer.stop();
             connection->sendRequest(QStringLiteral("login"), {{"phone", phoneNumber}});
@@ -596,9 +599,12 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
     if (activeOrderId >= 0) {
         ui->labelOrderStatus->setText(tr("订单已结算，余额已更新"));
+        ui->labelElapsedTime->setText(tr("已充电时间：00:00:00"));
+        activeOrderStartTime = QDateTime();
         orderTimer.stop();
         const int settledOrderId = activeOrderId;
         activeOrderId = -1;
+        displayTimer.stop();
         connection->sendRequest(QStringLiteral("query_order"), {
             {"orderId", settledOrderId}
         });
