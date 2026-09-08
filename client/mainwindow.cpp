@@ -255,6 +255,13 @@ void MainWindow::showPaymentPreview()
     });
     connect(&preview, &PaymentPreview::rechargeRequested,
             this, &MainWindow::on_BtnRecharge_clicked);
+    connect(&preview, &QDialog::accepted, this, [this]() {
+        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+        ui->BtnCharge->setChecked(true);
+        ui->BtnHome->setChecked(false);
+        ui->BtnMine->setChecked(false);
+        on_BtnLoadOrderStation_clicked();
+    });
     connect(&preview, &QDialog::finished, this, [this]() {
         m_paymentPreview = nullptr;
     });
@@ -583,6 +590,7 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
     if (action == QStringLiteral("settle_order") && m_paymentPreview) {
+        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
         m_paymentPreview->showPaymentSuccess();
     }
 

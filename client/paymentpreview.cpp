@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -100,6 +101,10 @@ PaymentPreview::PaymentPreview(int orderId, double amount, double fee, double ba
         connect(confirm, &QPushButton::clicked, this, [this, confirm]() {
             emit paymentConfirmed();
             confirm->setEnabled(false);
+            showPaymentSuccess();
+            QTimer::singleShot(700, this, [this]() {
+                accept();
+            });
         });
     }
 }
