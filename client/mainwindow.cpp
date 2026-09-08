@@ -386,6 +386,7 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
         // 保存最新用户的完整信息
         m_currentUser = data;
+        userId = data.value("userId").toInt(-1);
         phoneNumber = data.value("phone").toString();
 
         QString nickname = data.value("nickname").toString();
