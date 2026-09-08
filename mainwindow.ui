@@ -1,0 +1,1158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>360</width>
+    <height>612</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QStackedWidget" name="stackedWidget">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>361</width>
+      <height>561</height>
+     </rect>
+    </property>
+    <property name="mouseTracking">
+     <bool>false</bool>
+    </property>
+    <property name="autoFillBackground">
+     <bool>false</bool>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">#pageLogin,#pageHome,#pageEditMine,#pageRecharge,#pageCharge {
+    background-color: qlineargradient(
+        spread:pad,
+        x1:0,
+        y1:0,
+        x2:0,
+        y2:1,
+        stop:0 #3230BA,
+        stop:1 #537CFF
+    );
+
+    border: none;
+}
+</string>
+    </property>
+    <property name="currentIndex">
+     <number>2</number>
+    </property>
+    <widget class="QWidget" name="pageLogin">
+     <widget class="QLineEdit" name="editPhone">
+      <property name="geometry">
+       <rect>
+        <x>100</x>
+        <y>90</y>
+        <width>171</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="styleSheet">
+       <string notr="true"/>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="placeholderText">
+       <string>输入手机号</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_phone">
+      <property name="geometry">
+       <rect>
+        <x>30</x>
+        <y>90</y>
+        <width>63</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">color: rgb(255, 255, 255);</string>
+      </property>
+      <property name="text">
+       <string>手机号:</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="Btnlogin">
+      <property name="geometry">
+       <rect>
+        <x>230</x>
+        <y>130</y>
+        <width>90</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="focusPolicy">
+       <enum>Qt::FocusPolicy::ClickFocus</enum>
+      </property>
+      <property name="text">
+       <string>登录</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnAdmin">
+      <property name="geometry">
+       <rect>
+        <x>100</x>
+        <y>130</y>
+        <width>110</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>管理员入口</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_title_mine_5">
+      <property name="geometry">
+       <rect>
+        <x>110</x>
+        <y>30</y>
+        <width>151</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="font">
+       <font>
+        <family>Segoe UI Black</family>
+        <pointsize>16</pointsize>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">color: rgb(0, 0, 0);</string>
+      </property>
+      <property name="text">
+       <string>登录界面</string>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="pageHome">
+     <widget class="QLabel" name="labelAddressSearch">
+      <property name="geometry">
+       <rect>
+        <x>5</x>
+        <y>70</y>
+        <width>80</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>地址搜索：</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="editAddress">
+      <property name="geometry">
+       <rect>
+        <x>85</x>
+        <y>67</y>
+        <width>165</width>
+        <height>25</height>
+       </rect>
+      </property>
+      <property name="placeholderText">
+       <string>输入区域或充电站地址</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnSearchStations">
+      <property name="geometry">
+       <rect>
+        <x>260</x>
+        <y>65</y>
+        <width>85</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>附近充电站</string>
+      </property>
+     </widget>
+     <widget class="QPlainTextEdit" name="stationResults">
+      <property name="geometry">
+       <rect>
+        <x>5</x>
+        <y>105</y>
+        <width>340</width>
+        <height>305</height>
+       </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+      <property name="plainText">
+       <string>请输入地址后搜索附近充电站</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelStationId">
+      <property name="geometry">
+       <rect>
+        <x>5</x>
+        <y>425</y>
+        <width>80</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>站点编号：</string>
+      </property>
+     </widget>
+     <widget class="QSpinBox" name="spinStationId">
+      <property name="geometry">
+       <rect>
+        <x>85</x>
+        <y>422</y>
+        <width>70</width>
+        <height>25</height>
+       </rect>
+      </property>
+      <property name="minimum">
+       <number>1</number>
+      </property>
+      <property name="value">
+       <number>1</number>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnStationDetail">
+      <property name="geometry">
+       <rect>
+        <x>170</x>
+        <y>420</y>
+        <width>130</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>查看站点详情</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_title_mine_6">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>10</y>
+        <width>151</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="font">
+       <font>
+        <family>Segoe UI Black</family>
+        <pointsize>16</pointsize>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">
+color: rgb(0, 0, 0);</string>
+      </property>
+      <property name="text">
+       <string>首页</string>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="pageMine">
+     <property name="styleSheet">
+      <string notr="true">QWidget#pageMine {
+    background: qlineargradient(
+        x1:0, y1:0,
+        x2:0, y2:1,
+        stop:0 #3230BA,
+        stop:1 #537CFF
+    );
+}</string>
+     </property>
+     <widget class="QLabel" name="labelPhoto">
+      <property name="geometry">
+       <rect>
+        <x>130</x>
+        <y>90</y>
+        <width>100</width>
+        <height>100</height>
+       </rect>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">color: rgb(0, 0, 0);</string>
+      </property>
+      <property name="text">
+       <string>头像</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnSetting">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>380</y>
+        <width>261</width>
+        <height>52</height>
+       </rect>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">
+QPushButton#BtnSetting {
+    background-color: transparent;
+
+    border: none;
+    border-radius: 0px;
+
+    color: #173A68;
+    font-size: 17px;
+
+    text-align: left;
+
+    padding-left: 30px;
+    padding-right: 10px;
+
+    min-height: 52px;
+}
+
+
+/* 鼠标悬停 */
+QPushButton#BtnSetting:hover {
+    background-color: rgb(69, 104, 211);
+}
+
+
+/* 按下 */
+QPushButton#BtnSetting:pressed, {
+    background-color: #EBF1F8;
+}
+</string>
+      </property>
+      <property name="text">
+       <string>编辑信息</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnLeave">
+      <property name="geometry">
+       <rect>
+        <x>130</x>
+        <y>440</y>
+        <width>71</width>
+        <height>50</height>
+       </rect>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">QPushButton#BtnLeave{
+    background-color: transparent;
+
+    border: none;
+
+    color: #A66F67;
+    font-size: 16px;
+
+    min-height: 50px;
+}
+
+
+QPushButton#BtnLeave:hover {
+    color: white;
+}
+
+
+QPushButton#BtnLeave:pressed {
+    background-color: #FBEAE8;
+}</string>
+      </property>
+      <property name="text">
+       <string>退出登录</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelNickname">
+      <property name="geometry">
+       <rect>
+        <x>80</x>
+        <y>200</y>
+        <width>201</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>16</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>labelNickname</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelPhone">
+      <property name="geometry">
+       <rect>
+        <x>110</x>
+        <y>230</y>
+        <width>151</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>labelPhone</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QFrame" name="balanceFrame">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>270</y>
+        <width>271</width>
+        <height>101</height>
+       </rect>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">QFrame#balanceFrame {
+    background-color: #F1F5FF;
+    border: 1px solid #DCE6FA;
+    border-radius: 28px;
+}</string>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::Shape::StyledPanel</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Shadow::Raised</enum>
+      </property>
+      <widget class="QPushButton" name="BtnRecharge">
+       <property name="geometry">
+        <rect>
+         <x>40</x>
+         <y>70</y>
+         <width>201</width>
+         <height>21</height>
+        </rect>
+       </property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="mouseTracking">
+        <bool>true</bool>
+       </property>
+       <property name="layoutDirection">
+        <enum>Qt::LayoutDirection::RightToLeft</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">QPushButton {
+    background-color: #3869DF;
+    color: white;
+    border: 0px;
+    border-radius: 10px;
+
+    font-size: 18px;
+    font-weight: bold;
+    padding-left: 24px;
+    padding-right: 24px;
+}
+
+QPushButton:hover {
+    background-color: #2F5FD2;
+}
+
+QPushButton:pressed {
+    background-color: #264FAF;
+}</string>
+       </property>
+       <property name="text">
+        <string notr="true">充值</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="labelMoney_c">
+       <property name="geometry">
+        <rect>
+         <x>80</x>
+         <y>40</y>
+         <width>106</width>
+         <height>21</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">color: #184681;
+    font-size: 16px;
+    font-weight: bold;
+    background-color: transparent;
+    border: none;</string>
+       </property>
+       <property name="text">
+        <string>labelmoney_c</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QLabel" name="labelBalanceTitle">
+       <property name="geometry">
+        <rect>
+         <x>90</x>
+         <y>10</y>
+         <width>96</width>
+         <height>21</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"> 
+    color: #526F9D;
+    font-size: 16px;
+    background-color: transparent;
+    border: none;</string>
+       </property>
+       <property name="text">
+        <string>账户余额（元）</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QLabel" name="label_title_mine">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>20</y>
+        <width>151</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="font">
+       <font>
+        <family>Segoe UI Black</family>
+        <pointsize>16</pointsize>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">
+color: rgb(0, 0, 0);</string>
+      </property>
+      <property name="text">
+       <string>用户信息</string>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="pageEditMine">
+     <widget class="QLabel" name="labelPhotoEdit">
+      <property name="geometry">
+       <rect>
+        <x>130</x>
+        <y>80</y>
+        <width>100</width>
+        <height>100</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>头像预览</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignmentFlag::AlignCenter</set>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnChoosePhoto">
+      <property name="geometry">
+       <rect>
+        <x>270</x>
+        <y>150</y>
+        <width>81</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>选择头像</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnConfirm_PageEdit">
+      <property name="geometry">
+       <rect>
+        <x>220</x>
+        <y>340</y>
+        <width>90</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>确认修改</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnCancel">
+      <property name="geometry">
+       <rect>
+        <x>120</x>
+        <y>340</y>
+        <width>90</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>取消</string>
+      </property>
+     </widget>
+     <widget class="QWidget" name="layoutWidget">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>220</y>
+        <width>231</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <widget class="QLabel" name="labelUserName_2">
+         <property name="text">
+          <string>昵称：</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="lineEditNickname"/>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QLabel" name="label_title_mine_2">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>10</y>
+        <width>191</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="font">
+       <font>
+        <family>Segoe UI Black</family>
+        <pointsize>16</pointsize>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">
+color: rgb(7, 7, 7);</string>
+      </property>
+      <property name="text">
+       <string>编辑用户信息</string>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="pageRecharge">
+     <widget class="QLabel" name="labelRechargeInterface">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>110</y>
+        <width>150</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>充值金额</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="editRecharge">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>140</y>
+        <width>180</width>
+        <height>25</height>
+       </rect>
+      </property>
+      <property name="placeholderText">
+       <string>输入充值金额</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnConfirm_pageRecharge">
+      <property name="geometry">
+       <rect>
+        <x>230</x>
+        <y>240</y>
+        <width>90</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>确认充值</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnCancel_pageRecharge">
+      <property name="geometry">
+       <rect>
+        <x>130</x>
+        <y>240</y>
+        <width>90</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>取消</string>
+      </property>
+     </widget>
+     <widget class="QWidget" name="layoutWidget">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>180</y>
+        <width>295</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <item>
+        <widget class="QPushButton" name="Btn_50">
+         <property name="text">
+          <string>50</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="Btn_100">
+         <property name="text">
+          <string>100</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="Btn_200">
+         <property name="text">
+          <string>200</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QLabel" name="label_title_mine_3">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>10</y>
+        <width>151</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="font">
+       <font>
+        <family>Segoe UI Black</family>
+        <pointsize>16</pointsize>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">
+color: rgb(0, 0, 0);</string>
+      </property>
+      <property name="text">
+       <string>充值界面</string>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="pageCharge">
+     <widget class="QLabel" name="labelPileId">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>105</y>
+        <width>100</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>选择电桩：</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelOrderStationId">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>70</y>
+        <width>80</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>站点编号：</string>
+      </property>
+     </widget>
+     <widget class="QSpinBox" name="spinOrderStationId">
+      <property name="geometry">
+       <rect>
+        <x>105</x>
+        <y>67</y>
+        <width>70</width>
+        <height>25</height>
+       </rect>
+      </property>
+      <property name="minimum">
+       <number>1</number>
+      </property>
+      <property name="value">
+       <number>1</number>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnLoadOrderStation">
+      <property name="geometry">
+       <rect>
+        <x>185</x>
+        <y>65</y>
+        <width>120</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>选择充电站</string>
+      </property>
+     </widget>
+     <widget class="QComboBox" name="comboPile">
+      <property name="geometry">
+       <rect>
+        <x>130</x>
+        <y>102</y>
+        <width>180</width>
+        <height>24</height>
+       </rect>
+      </property>
+      <property name="placeholderText">
+       <string>先选择充电站</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelPileStation">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>135</y>
+        <width>300</width>
+        <height>25</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>请选择电桩查看所属充电站</string>
+      </property>
+     </widget>
+     <widget class="QPlainTextEdit" name="labelOrderStationDetails">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>160</y>
+        <width>320</width>
+        <height>105</height>
+       </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+      <property name="plainText">
+       <string>请选择站点查看站点和电桩信息</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnStartCharging">
+      <property name="geometry">
+       <rect>
+        <x>210</x>
+        <y>270</y>
+        <width>100</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>开始充电</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelOrderStatus">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>305</y>
+        <width>300</width>
+        <height>30</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>请选择电桩并开始充电</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="labelElapsedTime">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>340</y>
+        <width>300</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>已充电时间：00:00:00</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnRefreshOrder">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>365</y>
+        <width>100</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>刷新订单</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="BtnSettleOrder">
+      <property name="geometry">
+       <rect>
+        <x>210</x>
+        <y>400</y>
+        <width>110</width>
+        <height>29</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>结束充电</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_title_mine_4">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>10</y>
+        <width>151</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="font">
+       <font>
+        <family>Segoe UI Black</family>
+        <pointsize>16</pointsize>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">color: rgb(0, 0, 0);
+</string>
+      </property>
+      <property name="text">
+       <string>订单页</string>
+      </property>
+     </widget>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="widgetNavigation" native="true">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>500</y>
+      <width>361</width>
+      <height>61</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">#widgetNavigation{
+    background-color:  white;
+    border-top: 2px solid #E8E8E8;
+}</string>
+    </property>
+    <widget class="QWidget" name="layoutWidget">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>0</y>
+       <width>361</width>
+       <height>61</height>
+      </rect>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QPushButton" name="BtnHome">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton {
+    background-color:  transparent;
+    border: none;
+
+    color: #899695;
+    font-size: 14px;
+
+    padding: 12px 0px;
+}
+
+QPushButton:hover {
+    color: rgb(209, 209, 209);
+}
+
+QPushButton:pressed {
+    background-color:rgb(167, 167, 167);
+}
+
+QPushButton:checked {
+    color: #245BFF;
+    font-weight: bold;
+}</string>
+        </property>
+        <property name="text">
+         <string>首页</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="BtnCharge">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton {
+    background-color: transparent;
+    border: none;
+
+    color: #899695;
+    font-size: 14px;
+
+    padding: 12px 0px;
+}
+
+QPushButton:hover {
+    color: rgb(209, 209, 209);
+}
+
+QPushButton:pressed {
+    background-color:rgb(167, 167, 167);
+}
+
+QPushButton:checked {
+    color: #245BFF;
+    font-weight: bold;
+}</string>
+        </property>
+        <property name="text">
+         <string>订单</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+        <property name="autoRepeat">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="BtnMine">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton {
+    background-color: transparent;
+    border: none;
+
+    color: #899695;
+    font-size: 14px;
+
+    padding: 12px 0px;
+}
+
+QPushButton:hover {
+    color: rgb(209, 209, 209);
+}
+
+QPushButton:pressed {
+    background-color:rgb(167, 167, 167);
+}
+
+QPushButton:checked {
+    color: #245BFF;
+    font-weight: bold;
+}</string>
+        </property>
+        <property name="text">
+         <string>我的</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </widget>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>360</width>
+     <height>25</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
