@@ -46,6 +46,7 @@ private slots:
     void on_BtnConfirm_PageEdit_clicked();
     void on_BtnCancel_clicked();
     void on_BtnRecharge_clicked();
+
     void on_Btn_50_clicked();
     void on_Btn_100_clicked();
     void on_Btn_200_clicked();
@@ -68,9 +69,12 @@ private:
     double currentAmount = 0;
     double currentFee = 0;
     QDateTime activeOrderStartTime;
+
     QString phoneNumber;
-    QString selectedAvatarPath;
-    QString pendingAction;
+    QString m_selectedAvatarPath;
+    QJsonObject m_currentUser;
+    QString m_pendingAction;
+
     double m_lastStationLat = 0.0;
     double m_lastStationLng = 0.0;
     QString m_lastStationName;
