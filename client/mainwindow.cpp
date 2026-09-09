@@ -83,7 +83,7 @@ MainWindow::MainWindow(QWidget *parent)
                 qDebug() << "与服务器断开连接";
             });
 
-    orderTimer.setInterval(5000);
+    orderTimer.setInterval(1000);
     connect(&orderTimer, &QTimer::timeout,
         this, &MainWindow::on_BtnRefreshOrder_clicked);
 
@@ -468,7 +468,9 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
                 // 订单仍在充电中：只恢复充电监控页，绝不自动结算或弹结算窗。
                 if (status == QStringLiteral("充电中")) {
-                    ui->labelMonStatus->setText(tr("正在充电 · 数据每 5 秒刷新"));
+                    const int socPercent = data.value("socPercent").toInt(5);
+                    const int remainingSeconds = data.value("remainingSeconds").toInt(60);
+                    ui->labelMonStatus->setText(tr("正在充电 · 数据每 1 秒刷新"));
                     ui->labelMonStation->setText(
                         m_lastStationName.isEmpty()
                             ? QStringLiteral("睿光充电站") : m_lastStationName);
@@ -487,6 +489,9 @@ void MainWindow::onServerResponse(const QJsonObject &response)
                     ui->labelMonFee->setText(
                         QStringLiteral("¥%1").arg(data.value("estimatedFee")
                             .toDouble(currentFee), 0, 'f', 2));
+                    ui->labelMonSoc->setText(QStringLiteral("%1%").arg(socPercent));
+                    ui->ringCharge->setValue(socPercent);
+                    ui->labelMonEta->setText(formatRemainingChargeTime(remainingSeconds));
                     ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
                     ui->BtnCharge->setChecked(true);
                     ui->BtnHome->setChecked(false);
@@ -774,12 +779,15 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             activeOrderStartTime = QDateTime::fromString(
                 data.value("startTime").toString(),
                 QStringLiteral("yyyy-MM-dd HH:mm:ss"));
-            ui->labelMonStatus->setText(tr("正在充电 · 数据每 5 秒刷新"));
+            const int socPercent = data.value("socPercent").toInt(
+                qBound(5, 8 + durationMinutes, 99));
+            const int remainingSeconds = data.value("remainingSeconds").toInt(60);
+            ui->labelMonStatus->setText(tr("正在充电 · 数据每 1 秒刷新"));
             ui->labelMonKwh->setText(QStringLiteral("%1 kWh").arg(estAmount, 0, 'f', 2));
             ui->labelMonFee->setText(QStringLiteral("¥%1").arg(estFee, 0, 'f', 2));
-            ui->labelMonSoc->setText(
-                QStringLiteral("%1%").arg(qBound(5, 8 + durationMinutes, 99)));
-            ui->ringCharge->setValue(qBound(5, 8 + durationMinutes, 99));
+            ui->labelMonSoc->setText(QStringLiteral("%1%").arg(socPercent));
+            ui->ringCharge->setValue(socPercent);
+            ui->labelMonEta->setText(formatRemainingChargeTime(remainingSeconds));
             if (!ui->labelMonOrderId->text().contains('#')) {
                 ui->labelMonOrderId->setText(
                     tr("订单号：#%1 · 电桩 #%2")
@@ -806,7 +814,9 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             orderTimer.stop();
             displayTimer.stop();
             ui->labelMonStatus->setText(tr("充电已完成，等待结算"));
+            ui->labelMonSoc->setText(QStringLiteral("100%"));
             ui->ringCharge->setValue(100);
+            ui->labelMonEta->setText(tr("已充满，订单已结束"));
         }
         if (status == QStringLiteral("已结算")) {
             activeOrderStartTime = QDateTime();
@@ -838,6 +848,7 @@ void MainWindow::onServerResponse(const QJsonObject &response)
                 .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"))));
         ui->labelMonSoc->setText(QStringLiteral("5%"));
         ui->ringCharge->setValue(5);
+        ui->labelMonEta->setText(formatRemainingChargeTime(60));
         ui->labelMonKwh->setText(QStringLiteral("0.0 kWh"));
         ui->labelMonFee->setText(QStringLiteral("¥0.00"));
         ui->labelElapsedTime->setText(QStringLiteral("00:00:00"));
@@ -1094,6 +1105,19 @@ void MainWindow::updateBalanceLabels(double balance)
 {
     ui->labelMoney_c->setText(QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
     ui->labelRechargeBalance->setText(QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
+}
+
+QString MainWindow::formatRemainingChargeTime(int seconds) const
+{
+    seconds = qMax(0, seconds);
+    if (seconds <= 0) {
+        return tr("已充满，订单即将结束");
+    }
+    if (seconds < 60) {
+        return tr("预计还需约 %1 秒充满").arg(seconds);
+    }
+    const int minutes = (seconds + 59) / 60;
+    return tr("预计还需约 %1 分钟充满").arg(minutes);
 }
 
 int MainWindow::selectPileInCombo(int pileId)

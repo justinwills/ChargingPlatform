@@ -74,6 +74,7 @@ private:
     void populateStationDetail(const QJsonObject &data);
     void rebuildNearbyCards(const QJsonArray &stations);
     void updateBalanceLabels(double balance);
+    QString formatRemainingChargeTime(int seconds) const;
     int selectPileInCombo(int pileId);
     void setupNavIcons();
     void applyNavIcon(QAbstractButton *button, bool checked, const QString &base);

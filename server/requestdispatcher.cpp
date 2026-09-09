@@ -176,6 +176,42 @@ bool requestTencentRoute(const QString &mode,
     return true;
 }
 
+QJsonObject buildChargingSnapshot(const OrderInfo &order,
+                                  const PileInfo &pile,
+                                  const StationInfo &station)
+{
+    constexpr int demoFullChargeSeconds = 60;
+    constexpr int startSocPercent = 5;
+    constexpr int chargingSocLimit = 100;
+
+    const auto startTime = QDateTime::fromString(
+        order.startTime, QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    const int elapsedSeconds = startTime.isValid()
+        ? qMax(0, static_cast<int>(startTime.secsTo(QDateTime::currentDateTime())))
+        : 0;
+    const int durationMinutes = elapsedSeconds / 60;
+    const double estimatedAmount = pile.power * elapsedSeconds / 3600.0;
+    const double estimatedFee = estimatedAmount * station.price;
+    const int remainingSeconds = qMax(0, demoFullChargeSeconds - elapsedSeconds);
+    const int socPercent = qBound(
+        startSocPercent,
+        startSocPercent
+            + (elapsedSeconds * (chargingSocLimit - startSocPercent)
+               / demoFullChargeSeconds),
+        chargingSocLimit);
+
+    return QJsonObject{
+        {QStringLiteral("elapsedSeconds"), elapsedSeconds},
+        {QStringLiteral("durationMinutes"), durationMinutes},
+        {QStringLiteral("estimatedAmount"), estimatedAmount},
+        {QStringLiteral("estimatedFee"), estimatedFee},
+        {QStringLiteral("socPercent"), socPercent},
+        {QStringLiteral("remainingSeconds"), remainingSeconds},
+        {QStringLiteral("chargeComplete"), remainingSeconds == 0},
+        {QStringLiteral("demoFullChargeSeconds"), demoFullChargeSeconds}
+    };
+}
+
 }
 
 QJsonObject RequestDispatcher::ok(const QJsonObject &data)
@@ -800,15 +836,21 @@ QJsonObject RequestDispatcher::handleQueryOrder(const QJsonObject &params)
         StationInfo station;
         if (Database::getPileById(order.pileId, &pile)
             && Database::getStationById(pile.stationId, &station)) {
-            const auto startTime = QDateTime::fromString(
-                order.startTime, QStringLiteral("yyyy-MM-dd HH:mm:ss"));
-            const int durationMinutes = qMax(0, static_cast<int>(
-                startTime.secsTo(QDateTime::currentDateTime()) / 60));
-            const double estimatedAmount = pile.power * durationMinutes / 60.0;
-            const double estimatedFee = estimatedAmount * station.price;
-            data["durationMinutes"] = durationMinutes;
-            data["estimatedAmount"] = estimatedAmount;
-            data["estimatedFee"] = estimatedFee;
+            const QJsonObject snapshot = buildChargingSnapshot(order, pile, station);
+            for (auto it = snapshot.constBegin(); it != snapshot.constEnd(); ++it) {
+                data[it.key()] = it.value();
+            }
+            if (snapshot.value(QStringLiteral("chargeComplete")).toBool()
+                && Database::markOrderPendingSettlement(
+                    order.id,
+                    snapshot.value(QStringLiteral("estimatedAmount")).toDouble(),
+                    snapshot.value(QStringLiteral("estimatedFee")).toDouble())) {
+                data["status"] = QStringLiteral("待结算");
+                data["amount"] = snapshot.value(QStringLiteral("estimatedAmount"));
+                data["fee"] = snapshot.value(QStringLiteral("estimatedFee"));
+                data["socPercent"] = 100;
+                data["remainingSeconds"] = 0;
+            }
         }
     }
     return ok(data);
@@ -844,15 +886,21 @@ QJsonObject RequestDispatcher::handleQueryOrder(const QJsonObject &params)
                 StationInfo station;
                 if (Database::getPileById(order.pileId, &pile)
                     && Database::getStationById(pile.stationId, &station)) {
-                    const auto startTime = QDateTime::fromString(
-                        order.startTime, QStringLiteral("yyyy-MM-dd HH:mm:ss"));
-                    const int durationMinutes = qMax(0, static_cast<int>(
-                        startTime.secsTo(QDateTime::currentDateTime()) / 60));
-                    const double estimatedAmount = pile.power * durationMinutes / 60.0;
-                    const double estimatedFee = estimatedAmount * station.price;
-                    data["durationMinutes"] = durationMinutes;
-                    data["estimatedAmount"] = estimatedAmount;
-                    data["estimatedFee"] = estimatedFee;
+                    const QJsonObject snapshot = buildChargingSnapshot(order, pile, station);
+                    for (auto it = snapshot.constBegin(); it != snapshot.constEnd(); ++it) {
+                        data[it.key()] = it.value();
+                    }
+                    if (snapshot.value(QStringLiteral("chargeComplete")).toBool()
+                        && Database::markOrderPendingSettlement(
+                            order.id,
+                            snapshot.value(QStringLiteral("estimatedAmount")).toDouble(),
+                            snapshot.value(QStringLiteral("estimatedFee")).toDouble())) {
+                        data["status"] = QStringLiteral("待结算");
+                        data["amount"] = snapshot.value(QStringLiteral("estimatedAmount"));
+                        data["fee"] = snapshot.value(QStringLiteral("estimatedFee"));
+                        data["socPercent"] = 100;
+                        data["remainingSeconds"] = 0;
+                    }
                 }
             }
         }
