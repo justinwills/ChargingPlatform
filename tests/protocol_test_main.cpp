@@ -7,10 +7,146 @@
 #include "serverlistener.h"
 #include "clientconnection.h"
 #include "database.h"
+#include "requestdispatcher.h"
 
 static int g_step = 0;
 static int g_failures = 0;
 static ClientConnection *g_client = nullptr;
+
+static QJsonObject navigationRequest(const QString &action, const QJsonObject &params)
+{
+    return QJsonObject{{"action", action}, {"params", params}};
+}
+
+static QJsonObject validRoute(int distance, int duration, const QString &polyline = "0,0;1,1")
+{
+    return QJsonObject{
+        {"distance", distance},
+        {"duration", duration},
+        {"polyline", polyline},
+        {"steps", QJsonArray{QJsonObject{
+            {"instruction", "Continue straight"},
+            {"road_name", "Test Road"},
+            {"distance", distance},
+            {"duration", duration}
+        }}}
+    };
+}
+
+static bool runNavigationTests()
+{
+    int failures = 0;
+    auto expect = [&failures](bool condition, const QString &name) {
+        qDebug().noquote() << QString("[navigation] %1: %2")
+            .arg(condition ? "PASS" : "FAIL", name);
+        if (!condition) {
+            ++failures;
+        }
+    };
+
+    RequestDispatcher::routeProvider =
+        [](const QString &, double, double, double, double,
+           QJsonObject *route, QString *) {
+            *route = validRoute(4200, 600);
+            return true;
+        };
+
+    const QJsonObject validParams{
+        {"originLatitude", 39.9000},
+        {"originLongitude", 116.4000},
+        {"destinationLatitude", 39.9100},
+        {"destinationLongitude", 116.4100},
+        {"mode", "driving"}
+    };
+    const QJsonObject planned = RequestDispatcher::handle(
+        navigationRequest("plan_route", validParams));
+    const QJsonObject plannedData = planned.value("data").toObject();
+    expect(planned.value("code").toInt() == 0
+               && plannedData.contains("origin")
+               && plannedData.contains("destination")
+               && plannedData.contains("distance")
+               && plannedData.contains("duration")
+               && plannedData.contains("eta")
+               && plannedData.contains("polyline")
+               && plannedData.contains("steps")
+               && plannedData.value("traffic").isNull(),
+           "valid route returns the navigation contract");
+
+    const QJsonObject invalidCoordinates = RequestDispatcher::handle(
+        navigationRequest("plan_route", QJsonObject{
+            {"originLatitude", 95.0},
+            {"originLongitude", 116.4},
+            {"destinationLatitude", 39.91},
+            {"destinationLongitude", 116.41},
+            {"mode", "driving"}
+        }));
+    expect(invalidCoordinates.value("code").toInt() == 1,
+           "invalid coordinates are rejected");
+
+    RequestDispatcher::routeProvider =
+        [](const QString &, double, double, double, double,
+           QJsonObject *, QString *error) {
+            if (error) {
+                *error = "simulated provider failure";
+            }
+            return false;
+        };
+    const QJsonObject providerFailure = RequestDispatcher::handle(
+        navigationRequest("plan_route", validParams));
+    expect(providerFailure.value("code").toInt() == 3
+               && providerFailure.value("msg").toString().contains("simulated"),
+           "route provider failures are surfaced");
+
+    RequestDispatcher::routeProvider =
+        [](const QString &, double, double, double, double,
+           QJsonObject *route, QString *) {
+            *route = validRoute(7000, 60);
+            return true;
+        };
+    const QJsonObject impossibleRoute = RequestDispatcher::handle(
+        navigationRequest("plan_route", validParams));
+    expect(impossibleRoute.value("code").toInt() == 2,
+           "physically impossible routes are rejected");
+
+    RequestDispatcher::routeProvider =
+        [](const QString &, double, double, double, double,
+           QJsonObject *route, QString *) {
+            *route = validRoute(4200, 600, "");
+            return true;
+        };
+    const QJsonObject emptyPolyline = RequestDispatcher::handle(
+        navigationRequest("plan_route", validParams));
+    expect(emptyPolyline.value("code").toInt() == 2,
+           "empty polylines are rejected");
+
+    RequestDispatcher::routeProvider =
+        [](const QString &, double, double, double, double,
+           QJsonObject *route, QString *) {
+            *route = validRoute(4200, 600);
+            return true;
+        };
+    const QJsonObject started = RequestDispatcher::handle(
+        navigationRequest("start_navigation", validParams));
+    expect(started.value("code").toInt() == 0,
+           "navigation can start");
+    const QJsonObject switched = RequestDispatcher::handle(
+        navigationRequest("switch_navigation_mode", {{"mode", "walking"}}));
+    expect(switched.value("code").toInt() == 0
+               && switched.value("data").toObject().value("mode").toString() == "walking",
+           "active navigation can switch mode");
+    const QJsonObject ended = RequestDispatcher::handle(
+        navigationRequest("end_navigation", {}));
+    expect(ended.value("code").toInt() == 0
+               && ended.value("data").toObject().value("ended").toBool(),
+           "navigation ends mid-route");
+    const QJsonObject switchAfterEnd = RequestDispatcher::handle(
+        navigationRequest("switch_navigation_mode", {{"mode", "driving"}}));
+    expect(switchAfterEnd.value("code").toInt() == 2,
+           "mode switch after ending is rejected");
+
+    RequestDispatcher::routeProvider = RequestDispatcher::RouteProvider();
+    return failures == 0;
+}
 
 struct StepDef {
     QString action;
@@ -107,8 +243,16 @@ int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
 
+    if (app.arguments().contains(QStringLiteral("--navigation-only"))) {
+        return runNavigationTests() ? 0 : 1;
+    }
+
     if (!Database::init("protocol_test.db")) {
         qDebug() << "数据库初始化失败";
+        return 1;
+    }
+    if (!runNavigationTests()) {
+        qDebug() << "Navigation tests failed";
         return 1;
     }
 
