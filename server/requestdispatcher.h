@@ -2,6 +2,9 @@
 #define REQUESTDISPATCHER_H
 
 #include <QJsonObject>
+#include <QString>
+#include <QJsonArray>
+#include <functional>
 
 // RequestDispatcher：把解析好的请求JSON（{"action":..., "params":{...}}）
 // 分发给Database::里对应的函数处理，再组装成响应JSON（{"code":..., "msg":..., "data":{...}}）。
@@ -13,21 +16,42 @@
 //   login         手机号登录/自动注册      params: {phone}
 //   admin_login   管理员登录（补充项）      params: {username, password}
 //   query_stations 查询充电站列表           params: {}
-//   plan_route    规划导航路线              params: {fromLatitude, fromLongitude,
-//                                                stationId 或 toLatitude/toLongitude,
+//   plan_route    一次性路线规划            params: {origin(见下), destination(见下),
 //                                                mode: "driving"/"walking"/"transit"}
+//   start_navigation    开始导航            params: {origin(见下), destination(见下),
+//                                                mode: "driving"/"walking"/"transit"}
+//   switch_navigation_mode 切换导航模式     params: {mode}
 //   end_navigation 结束导航                 params: {}
 //   query_pile_detail 电桩详情与所属站点电桩列表 params: {pileId}
 //   start_charging 发起充电                params: {userId, pileId}
 //   query_order    查询订单                params: {orderId}
 //   settle_order   结算                    params: {orderId, amount, fee}
 //
-// 错误码约定：0=成功，1=参数缺失/格式错误，2=业务规则不允许（如余额不足/电桩占用），3=系统内部错误
+// 起点(origin)参数：
+//   originAddress        起点地址字符串（由服务器调用腾讯地图逆地理服务换算成经纬度）
+//   或 originLatitude + originLongitude  （显式起点经纬度）
+// 终点(destination)参数：
+//   stationId            目标充电站ID（自动取站点的经纬度）
+//   或 destinationLatitude + destinationLongitude
+//
+// 导航响应字段（plan_route / start_navigation / switch_navigation_mode）：
+//   origin, destination, distance{meters,km}, duration{seconds,minutes}, eta,
+//   polyline, steps[], traffic(暂为null)
+//
+// 错误码约定：0=成功，1=参数缺失/格式错误，2=业务规则不允许（如余额不足/电桩占用/路由校验失败），3=系统内部错误
 class RequestDispatcher
 {
 public:
     // 传入完整请求JSON（包含action和params），返回完整响应JSON（包含code/msg/data）
     static QJsonObject handle(const QJsonObject &request);
+
+    // 路线规划器依赖注入点：默认走腾讯地图HTTP接口；
+    // 测试可直接替换为返回伪造路线的函数，避免依赖真实网络/API key。
+    using RouteProvider = std::function<bool(const QString &mode,
+                                             double fromLat, double fromLng,
+                                             double toLat, double toLng,
+                                             QJsonObject *route, QString *error)>;
+    static RouteProvider routeProvider;
 
 private:
     static QJsonObject handleLogin(const QJsonObject &params);
@@ -46,6 +70,8 @@ private:
     static QJsonObject handleQueryStations(const QJsonObject &params);
     static QJsonObject handleQueryStationDetail(const QJsonObject &params);
     static QJsonObject handlePlanRoute(const QJsonObject &params);
+    static QJsonObject handleStartNavigation(const QJsonObject &params);
+    static QJsonObject handleSwitchNavigationMode(const QJsonObject &params);
     static QJsonObject handleEndNavigation(const QJsonObject &params);
     static QJsonObject handleQueryPileDetail(const QJsonObject &params);
     static QJsonObject handleStartCharging(const QJsonObject &params);
@@ -56,6 +82,40 @@ private:
 
     static QJsonObject ok(const QJsonObject &data);
     static QJsonObject fail(int code, const QString &msg);
+
+    // 解析起点/终点，构造导航响应，供 plan_route / start_navigation / switch_navigation_mode 复用
+    static bool resolveOrigin(const QJsonObject &params, double *lat, double *lng,
+                              QJsonObject *origin, QString *error);
+    static bool resolveDestination(const QJsonObject &params, double *lat, double *lng,
+                                   QJsonObject *destination, QString *error);
+    static QJsonObject buildNavigationResponse(const QString &mode,
+                                               const QJsonObject &rawRoute,
+                                               const QJsonObject &origin,
+                                               const QJsonObject &destination,
+                                               int stationId);
+    // 校验规划结果是否物理上合理（距离/时长/折线），返回失败说明；合法返回空串
+    static QString validateRoute(int distanceMeters, int durationSeconds,
+                                 const QJsonValue &polyline, double originLat,
+                                 double originLng, double destLat, double destLng);
+
+    // 路线规划统一入口：优先使用 routeProvider，否则调用腾讯地图接口
+    static bool requestRoute(const QString &mode, double fromLat, double fromLng,
+                             double toLat, double toLng, QJsonObject *route, QString *error);
+
+    // 导航会话生命周期状态
+    struct NavigationState {
+        bool active = false;
+        QString mode;
+        double originLatitude = 0;
+        double originLongitude = 0;
+        double destLatitude = 0;
+        double destLongitude = 0;
+        int stationId = -1;
+        QString originAddress;
+        QString stationName;
+        QString stationAddress;
+    };
+    static NavigationState s_navigation;
 };
 
 #endif // REQUESTDISPATCHER_H
