@@ -4,6 +4,7 @@
 #include "flowlayout.h"
 
 #include <QMessageBox>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QRegularExpression>
 #include <QtGlobal>
@@ -162,11 +163,33 @@ void MainWindow::on_BtnStartChargeHere_clicked()
 
 void MainWindow::on_BtnNavigateHere_clicked()
 {
-    QMessageBox::information(
+    if (!connection->isConnected()) {
+        QMessageBox::warning(this, tr("导航"), tr("尚未连接服务器"));
+        return;
+    }
+    if (m_lastStationId <= 0) {
+        QMessageBox::warning(this, tr("导航"), tr("请先选择一个充电站"));
+        return;
+    }
+
+    bool accepted = false;
+    const QString origin = QInputDialog::getText(
         this,
-        tr("导航"),
-        tr("已为您规划前往「%1」的充电导航路线，稍后将根据实时路况更新。")
-            .arg(m_lastStationName));
+        tr("输入出发地"),
+        tr("请输入出发地址："),
+        QLineEdit::Normal,
+        QString(),
+        &accepted);
+    if (!accepted || origin.trimmed().isEmpty()) {
+        return;
+    }
+
+    m_pendingAction = QStringLiteral("start_navigation");
+    connection->sendRequest(QStringLiteral("start_navigation"), {
+        {QStringLiteral("originAddress"), origin.trimmed()},
+        {QStringLiteral("stationId"), m_lastStationId},
+        {QStringLiteral("mode"), QStringLiteral("driving")}
+    });
 }
 
 void MainWindow::on_BtnMine_clicked()
@@ -400,6 +423,30 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         return;
     }
 
+    if (action == QStringLiteral("start_navigation")) {
+        const QJsonObject distance = data.value("distance").toObject();
+        const QJsonObject duration = data.value("duration").toObject();
+        QStringList routeLines;
+        routeLines << tr("目的地：%1").arg(
+            data.value("stationName").toString(m_lastStationName));
+        routeLines << tr("距离：%1 km")
+                          .arg(distance.value("km").toDouble(), 0, 'f', 2);
+        routeLines << tr("预计时间：%1 分钟")
+                          .arg(duration.value("minutes").toInt());
+        routeLines << tr("预计到达：%1").arg(data.value("eta").toString());
+
+        const QJsonArray steps = data.value("steps").toArray();
+        if (!steps.isEmpty()) {
+            routeLines << QString() << tr("路线指引：");
+            for (const QJsonValue &value : steps) {
+                const QJsonObject step = value.toObject();
+                routeLines << tr("- %1").arg(step.value("instruction").toString());
+            }
+        }
+        QMessageBox::information(this, tr("导航路线"), routeLines.join('\n'));
+        return;
+    }
+
     if (action == QStringLiteral("query_user_ongoing_order")) {
         m_chargePagePending = false;
         const QString status = data.value("status").toString();
@@ -485,6 +532,7 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
     if (data.contains("piles") && data.contains("stationId")) {
+        m_lastStationId = data.value("stationId").toInt(-1);
         m_lastStationLat = data.value("latitude").toDouble();
         m_lastStationLng = data.value("longitude").toDouble();
         m_lastStationName = data.value("name").toString(
@@ -1269,4 +1317,3 @@ void MainWindow::rebuildNearbyCards(const QJsonArray &stations)
     }
     ui->nearbyListLayout->addStretch();
 }
-
