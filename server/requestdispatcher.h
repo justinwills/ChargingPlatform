@@ -77,6 +77,7 @@ private:
     static QJsonObject handleStartCharging(const QJsonObject &params);
     static QJsonObject handlePrepareSettlement(const QJsonObject &params);
     static QJsonObject handleQueryOrder(const QJsonObject &params);
+    static QJsonObject handleQueryOngoingOrder(const QJsonObject &params);
     static QJsonObject handleSettleOrder(const QJsonObject &params);
 
     static QJsonObject ok(const QJsonObject &data);

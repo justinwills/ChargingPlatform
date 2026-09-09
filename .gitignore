@@ -1,5 +1,6 @@
 .qtcreator
 build
+ui
 
 # Local runtime and test databases
 charging.db

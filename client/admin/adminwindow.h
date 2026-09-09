@@ -11,6 +11,10 @@ class QComboBox;
 class QDateEdit;
 class QTableWidget;
 class QStackedWidget;
+class QPushButton;
+class QSpinBox;
+class QScrollArea;
+class QWidget;
 
 class AdminWindow : public QMainWindow
 {
@@ -21,6 +25,7 @@ public:
 
 private slots:
     void login();
+    void logout();
     void handleResponse(const QJsonObject &response);
     void handleError(const QString &message);
     void refreshUsers();
@@ -30,33 +35,69 @@ private slots:
     void restartSelectedPile();
     void refreshStats();
     void refreshOrders();
+    void switchTab(int index);
 
 private:
     void send(const QString &action, const QJsonObject &params = {});
     void requestInitialData();
     void showError(const QString &message);
 
+    void applyLoginStyle();
+    void applyDashboardStyle();
+    void applyCommonStyle();
+    void updateNavButtons(int activeIndex);
+    void populateStatsCards(const QJsonObject &data);
+    void populateRevenueTrend(const QJsonArray &trend);
+
+    static QString stylesheet();
+
     ClientConnection *connection;
+
+    // Stacked pages
     QStackedWidget *pages;
+    QWidget *loginPage;
+    QWidget *dashboardPage;
+
+    // Login widgets
     QLineEdit *usernameEdit;
     QLineEdit *passwordEdit;
     QLabel *loginStatus;
+
+    // Sidebar nav
+    QList<QPushButton*> navButtons;
+    QStackedWidget *contentStack;
+
+    // Stat cards (Revenue & Stats page)
+    QLabel *statTodayValue;
+    QLabel *statMonthValue;
+    QLabel *statTotalValue;
+    QLabel *statPileIdleCount;
+    QLabel *statPileBusyCount;
+    QLabel *statPileFaultCount;
+    QLabel *revenueTrendLabel;
+
+    // Users page
     QLineEdit *userFilterEdit;
+    QTableWidget *usersTable;
+
+    // Stations page
     QLineEdit *stationNameEdit;
     QLineEdit *stationAddressEdit;
     QDoubleSpinBox *stationLongitudeEdit;
     QDoubleSpinBox *stationLatitudeEdit;
     QDoubleSpinBox *stationPriceEdit;
+    QTableWidget *stationsTable;
+    QTableWidget *pilesTable;
+    QSpinBox *pileIdSpin;
+
+    // Orders page
     QLineEdit *orderPhoneFilter;
     QComboBox *orderStationFilter;
     QComboBox *orderStatusFilter;
     QDateEdit *orderFromDate;
     QDateEdit *orderToDate;
-    QTableWidget *usersTable;
-    QTableWidget *stationsTable;
-    QTableWidget *pilesTable;
     QTableWidget *ordersTable;
-    QLabel *statsLabel;
+
     QString pendingAction;
 };
 
