@@ -24,6 +24,10 @@ add_executable(ChargingClient
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
+    chargering.cpp
+    chargering.h
+    mappreview.cpp
+    mappreview.h
     paymentpreview.cpp
     paymentpreview.h
     resources.qrc
@@ -35,6 +39,7 @@ add_executable(ChargingClient
 
 target_include_directories(ChargingClient PRIVATE
     ../protocol
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(ChargingClient PRIVATE

@@ -12,6 +12,13 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QButtonGroup>
+#include <QGraphicsDropShadowEffect>
+#include <QFrame>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QLayoutItem>
+#include <QPushButton>
+#include <QLabel>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -23,13 +30,38 @@ MainWindow::MainWindow(QWidget *parent)
     ui->stackedWidget->setCurrentWidget(ui->pageLogin);
     ui->widgetNavigation->hide();
 
-    QButtonGroup *navGroup = new QButtonGroup(this);
-    navGroup -> addButton(ui->BtnHome);
-    navGroup -> addButton(ui->BtnMine);
-    navGroup -> addButton(ui->BtnCharge);
+    auto *navShadow = new QGraphicsDropShadowEffect(ui->widgetNavigation);
+    navShadow->setBlurRadius(24);
+    navShadow->setOffset(0, -6);
+    navShadow->setColor(QColor(15, 23, 42, 40));
+    ui->widgetNavigation->setGraphicsEffect(navShadow);
 
-    navGroup -> setExclusive(true);
-    ui->BtnHome ->setChecked(true);
+    applyShadow(ui->balanceFrame);
+    applyShadow(ui->homeBalanceCard);
+    applyShadow(ui->loginCard);
+    applyShadow(ui->profileCard);
+    applyShadow(ui->menuCard);
+    applyShadow(ui->startStationCard);
+    applyShadow(ui->guideCard);
+    applyShadow(ui->monitorCard);
+    applyShadow(ui->sessionCard);
+    applyShadow(ui->sdStatsCard);
+    applyShadow(ui->stationResults);
+    applyShadow(ui->labelOrderStationDetails);
+    applyShadow(ui->ordersSummary);
+    applyShadow(ui->walletCard);
+    applyShadow(ui->labelOrdersCardActive);
+    applyShadow(ui->labelOrdersEmpty);
+    applyShadow(ui->labelOrdersHelp);
+
+    QButtonGroup *navGroup = new QButtonGroup(this);
+    navGroup->addButton(ui->BtnHome);
+    navGroup->addButton(ui->BtnMine);
+    navGroup->addButton(ui->BtnCharge);
+    navGroup->addButton(ui->BtnOrders);
+
+    navGroup->setExclusive(true);
+    ui->BtnHome->setChecked(true);
 
     connect(connection, &ClientConnection::responseReceived,
         this, &MainWindow::onServerResponse);
@@ -58,7 +90,7 @@ MainWindow::MainWindow(QWidget *parent)
     displayTimer.setInterval(1000);
     connect(&displayTimer, &QTimer::timeout, this, [this]() {
         if (!activeOrderStartTime.isValid() || activeOrderId < 0) {
-            ui->labelElapsedTime->setText(tr("已充电时间：00:00:00"));
+            ui->labelElapsedTime->setText(tr("00:00:00"));
             return;
         }
 
@@ -68,7 +100,7 @@ MainWindow::MainWindow(QWidget *parent)
         const int minutes = static_cast<int>((elapsedSeconds % 3600) / 60);
         const int seconds = static_cast<int>(elapsedSeconds % 60);
         ui->labelElapsedTime->setText(
-            tr("已充电时间：%1:%2:%3")
+            QStringLiteral("%1:%2:%3")
                 .arg(hours, 2, 10, QLatin1Char('0'))
                 .arg(minutes, 2, 10, QLatin1Char('0'))
                 .arg(seconds, 2, 10, QLatin1Char('0')));
@@ -88,10 +120,49 @@ void MainWindow::on_BtnHome_clicked()
 
 void MainWindow::on_BtnCharge_clicked()
 {
+    if (activeOrderId > 0) {
+        ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
+        return;
+    }
     ui->stackedWidget->setCurrentWidget(ui->pageCharge);
     if (connection->isConnected()) {
         on_BtnLoadOrderStation_clicked();
     }
+}
+
+void MainWindow::on_BtnOrders_clicked()
+{
+    ui->stackedWidget->setCurrentWidget(ui->pageOrders);
+    populateOrders();
+    if (activeOrderId > 0) {
+        connection->sendRequest(QStringLiteral("query_order"), {
+            {"orderId", activeOrderId}
+        });
+    }
+}
+
+void MainWindow::on_BtnStationBack_clicked()
+{
+    ui->stackedWidget->setCurrentWidget(ui->pageHome);
+    ui->BtnHome->setChecked(true);
+}
+
+void MainWindow::on_BtnStartChargeHere_clicked()
+{
+    ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+    ui->BtnCharge->setChecked(true);
+    ui->BtnHome->setChecked(false);
+    ui->BtnMine->setChecked(false);
+    ui->BtnOrders->setChecked(false);
+}
+
+void MainWindow::on_BtnNavigateHere_clicked()
+{
+    QMessageBox::information(
+        this,
+        tr("导航"),
+        tr("已为您规划前往「%1」的充电导航路线，稍后将根据实时路况更新。")
+            .arg(m_lastStationName));
 }
 
 void MainWindow::on_BtnMine_clicked()
@@ -216,10 +287,11 @@ void MainWindow::on_BtnLoadOrderStation_clicked()
 void MainWindow::on_BtnRefreshOrder_clicked()
 {
     if (activeOrderId < 0) {
-        ui->labelOrderStatus->setText(tr("当前没有可刷新的订单，请先开始充电"));
+        ui->labelMonStatus->setText(tr("当前没有进行中的充电订单"));
         return;
     }
 
+    ui->labelMonStatus->setText(tr("正在刷新实时数据…"));
     connection->sendRequest(QStringLiteral("query_order"), {
         {"orderId", activeOrderId}
     });
@@ -257,11 +329,11 @@ void MainWindow::showPaymentPreview()
     connect(&preview, &PaymentPreview::rechargeRequested,
             this, &MainWindow::on_BtnRecharge_clicked);
     connect(&preview, &QDialog::accepted, this, [this]() {
-        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
-        ui->BtnCharge->setChecked(true);
+        ui->stackedWidget->setCurrentWidget(ui->pageOrders);
+        ui->BtnOrders->setChecked(true);
         ui->BtnHome->setChecked(false);
         ui->BtnMine->setChecked(false);
-        on_BtnLoadOrderStation_clicked();
+        ui->BtnCharge->setChecked(false);
     });
     connect(&preview, &QDialog::finished, this, [this]() {
         m_paymentPreview = nullptr;
@@ -286,6 +358,7 @@ void MainWindow::on_BtnSearchStations_clicked()
 
 void MainWindow::on_BtnStationDetail_clicked()
 {
+    m_showStationDetailPage = true;
     connection->sendRequest(QStringLiteral("query_station_detail"), {
         {"stationId", ui->spinStationId->value()}
     });
@@ -319,6 +392,9 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
     if (data.contains("stations")) {
         const QJsonArray stations = data.value("stations").toArray();
+        m_lastStations = stations;
+        ui->mapPreview->setStations(stations);
+        ui->labelNearbyCount->setText(tr("共 %1 个电站").arg(stations.size()));
         if (stations.isEmpty()) {
             ui->stationResults->setPlainText(tr("没有找到匹配的充电站"));
             return;
@@ -348,28 +424,13 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         m_lastStationLng = data.value("longitude").toDouble();
         m_lastStationName = data.value("name").toString(
             data.value("stationName").toString());
+        populateStationDetail(data);
 
-        QStringList lines;
-        const QString stationName = data.value("name").toString(
-            data.value("stationName").toString());
-        lines << tr("充电站：%1\n地址：%2\n价格：%3 元/度")
-                      .arg(stationName)
-                      .arg(data.value("address").toString(
-                          data.value("stationAddress").toString()))
-                      .arg(data.value("price").toDouble(), 0, 'f', 2);
-        lines << QStringLiteral("\n电桩列表：");
-        for (const QJsonValue &value : data.value("piles").toArray()) {
-            const QJsonObject pile = value.toObject();
-            lines << tr("%1 | %2 | %3 kW | 状态：%4")
-                          .arg(pile.value("code").toString())
-                          .arg(pile.value("type").toString())
-                          .arg(pile.value("power").toDouble(), 0, 'f', 1)
-                          .arg(pile.value("status").toString());
-        }
-                ui->stationResults->setPlainText(lines.join(QStringLiteral("\n")));
         QStringList orderDetails;
         bool selectedIdlePile = false;
         ui->comboPile->clear();
+        const QString stationName = data.value("name").toString(
+            data.value("stationName").toString());
         orderDetails << tr("站点：%1\n地址：%2\n价格：%3 元/度")
                             .arg(stationName)
                             .arg(data.value("address").toString(
@@ -409,6 +470,11 @@ void MainWindow::onServerResponse(const QJsonObject &response)
                     .arg(stationName)
                     .arg(data.value("stationId").toInt()));
         }
+        if (m_showStationDetailPage) {
+            m_showStationDetailPage = false;
+            ui->stackedWidget->setCurrentWidget(ui->pageStationDetail);
+            ui->BtnHome->setChecked(true);
+        }
         return;
     }
 
@@ -440,7 +506,8 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         ui->labelPhone->setText(phone);
 
         ui->labelMoney_c->setText(
-            QString::number(balance, 'f', 2));
+            QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
+        updateBalanceLabels(balance);
 
         QPixmap avatar;
 
@@ -467,8 +534,8 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             const int ongoingOrderId = data.value("ongoingOrderId").toInt(-1);
             if (ongoingOrderId > 0) {
                 activeOrderId = ongoingOrderId;
-                ui->stackedWidget->setCurrentWidget(ui->pageCharge);
-                ui->labelOrderStatus->setText(
+                ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
+                ui->labelMonStatus->setText(
                     tr("正在恢复订单 %1，请稍候...").arg(activeOrderId));
                 connection->sendRequest(QStringLiteral("query_order"), {
                     {"orderId", activeOrderId}
@@ -520,7 +587,8 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
         double balance = data.value("balance").toDouble();
 
-        ui->labelMoney_c->setText(QString::number(balance,'f',2));
+        ui->labelMoney_c->setText(QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
+        updateBalanceLabels(balance);
 
         ui->editRecharge->clear();
         ui->widgetNavigation->show();
@@ -538,8 +606,10 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         activeOrderId = data.value("orderId").toInt(activeOrderId);
         currentAmount = data.value("amount").toDouble(currentAmount);
         currentFee = data.value("fee").toDouble(currentFee);
-        ui->labelOrderStatus->setText(
-            tr("订单 %1：待结算").arg(activeOrderId));
+        m_lastOrder = data;
+        ui->labelMonStatus->setText(
+            tr("充电已完成，正在生成账单…"));
+        populateOrders();
         showPaymentPreview();
         return;
     }
@@ -547,33 +617,58 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     if (data.contains("status")) {
         const QString status = data.value("status").toString();
         activeOrderId = data.value("orderId").toInt();
-        ui->labelOrderStatus->setText(
-            tr("订单 %1：%2\n充电时长：%3 分钟，电量：%4，预计费用：%5")
-                .arg(data.value("orderId").toInt())
-                .arg(status)
-                .arg(data.value("durationMinutes").toInt())
-                .arg(data.value("estimatedAmount").toDouble())
-                .arg(data.value("estimatedFee").toDouble()));
+        m_lastOrder = data;
+        const int durationMinutes = data.value("durationMinutes").toInt();
+        const double estAmount = data.value("estimatedAmount").toDouble();
+        const double estFee = data.value("estimatedFee").toDouble();
         if (status == QStringLiteral("充电中")) {
+            currentAmount = estAmount;
+            currentFee = estFee;
             activeOrderStartTime = QDateTime::fromString(
                 data.value("startTime").toString(),
                 QStringLiteral("yyyy-MM-dd HH:mm:ss"));
-            currentAmount = data.value("estimatedAmount").toDouble();
-            currentFee = data.value("estimatedFee").toDouble();
+            ui->labelMonStatus->setText(tr("正在充电 · 数据每 5 秒刷新"));
+            ui->labelMonKwh->setText(QStringLiteral("%1 kWh").arg(estAmount, 0, 'f', 2));
+            ui->labelMonFee->setText(QStringLiteral("¥%1").arg(estFee, 0, 'f', 2));
+            ui->labelMonSoc->setText(
+                QStringLiteral("%1%").arg(qBound(5, 8 + durationMinutes, 99)));
+            ui->ringCharge->setValue(qBound(5, 8 + durationMinutes, 99));
+            if (!ui->labelMonOrderId->text().contains('#')) {
+                ui->labelMonOrderId->setText(
+                    tr("订单号：#%1 · 电桩 #%2")
+                        .arg(activeOrderId)
+                        .arg(data.value("pileId").toInt()));
+            }
+            ui->labelMonStart->setText(
+                tr("开始时间：%1").arg(data.value("startTime").toString()));
             displayTimer.start();
+            orderTimer.start();
+            ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
+            ui->BtnCharge->setChecked(true);
+            ui->BtnHome->setChecked(false);
+            ui->BtnMine->setChecked(false);
+            ui->BtnOrders->setChecked(false);
         }
         if (status == QStringLiteral("待结算")) {
-            currentAmount = data.value("amount").toDouble();
-            currentFee = data.value("fee").toDouble();
+            currentAmount = data.value("amount").toDouble(estAmount);
+            currentFee = data.value("fee").toDouble(estFee);
             orderTimer.stop();
             displayTimer.stop();
+            ui->labelMonStatus->setText(tr("充电已完成，等待结算"));
+            ui->ringCharge->setValue(100);
+            populateOrders();
         }
         if (status == QStringLiteral("已结算")) {
             activeOrderStartTime = QDateTime();
             activeOrderId = -1;
-            ui->labelElapsedTime->setText(tr("已充电时间：00:00:00"));
+            currentAmount = 0;
+            currentFee = 0;
+            ui->labelElapsedTime->setText(QStringLiteral("00:00:00"));
+            ui->labelMonKwh->setText(QStringLiteral("0.0 kWh"));
+            ui->labelMonFee->setText(QStringLiteral("¥0.00"));
             orderTimer.stop();
             displayTimer.stop();
+            populateOrders();
             connection->sendRequest(QStringLiteral("login"), {{"phone", phoneNumber}});
         }
         return;
@@ -582,10 +677,24 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     if (data.contains("orderId")) {
         activeOrderId = data.value("orderId").toInt();
         activeOrderStartTime = QDateTime::currentDateTime();
-        ui->labelOrderStatus->setText(
-            tr("充电已开始，订单号：%1").arg(data.value("orderId").toInt()));
-        ui->labelElapsedTime->setText(tr("已充电时间：00:00:00"));
-        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+        m_lastOrder = data;
+        ui->labelMonStation->setText(
+            m_lastStationName.isEmpty() ? QStringLiteral("睿光充电站") : m_lastStationName);
+        ui->labelMonStatus->setText(tr("订单创建成功，正在开始充电…"));
+        ui->labelMonOrderId->setText(tr("订单号：#%1").arg(activeOrderId));
+        ui->labelMonStart->setText(
+            tr("开始时间：%1")
+                .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"))));
+        ui->labelMonSoc->setText(QStringLiteral("5%"));
+        ui->ringCharge->setValue(5);
+        ui->labelMonKwh->setText(QStringLiteral("0.0 kWh"));
+        ui->labelMonFee->setText(QStringLiteral("¥0.00"));
+        ui->labelElapsedTime->setText(QStringLiteral("00:00:00"));
+        ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
+        ui->BtnCharge->setChecked(true);
+        ui->BtnHome->setChecked(false);
+        ui->BtnMine->setChecked(false);
+        ui->BtnOrders->setChecked(false);
         displayTimer.start();
         orderTimer.start();
         on_BtnRefreshOrder_clicked();
@@ -593,13 +702,17 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
     if (action == QStringLiteral("settle_order") && m_paymentPreview) {
-        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+        ui->stackedWidget->setCurrentWidget(ui->pageOrders);
+        ui->BtnOrders->setChecked(true);
+        ui->BtnHome->setChecked(false);
+        ui->BtnMine->setChecked(false);
+        ui->BtnCharge->setChecked(false);
         m_paymentPreview->showPaymentSuccess();
     }
 
     if (activeOrderId >= 0) {
-        ui->labelOrderStatus->setText(tr("订单已结算，余额已更新"));
-        ui->labelElapsedTime->setText(tr("已充电时间：00:00:00"));
+        ui->labelMonStatus->setText(tr("订单已结算，余额已更新"));
+        ui->labelElapsedTime->setText(QStringLiteral("00:00:00"));
         activeOrderStartTime = QDateTime();
         orderTimer.stop();
         const int settledOrderId = activeOrderId;
@@ -701,6 +814,11 @@ void MainWindow::on_BtnRecharge_clicked()
     ui->stackedWidget->setCurrentWidget(ui->pageRecharge);
 }
 
+void MainWindow::on_Btn_20_clicked()
+{
+    ui->editRecharge->setText(QStringLiteral("20"));
+}
+
 void MainWindow::on_Btn_50_clicked()
 {
     ui->editRecharge->setText(QStringLiteral("50"));
@@ -793,5 +911,155 @@ void MainWindow::onConnectionError(const QString &message){
         tr("网络错误"),
         message
         );
+}
+
+void MainWindow::applyShadow(QWidget *widget)
+{
+    auto *shadow = new QGraphicsDropShadowEffect(widget);
+    shadow->setBlurRadius(24);
+    shadow->setOffset(0, 6);
+    shadow->setColor(QColor(19, 27, 46, 22));
+    widget->setGraphicsEffect(shadow);
+}
+
+void MainWindow::updateBalanceLabels(double balance)
+{
+    ui->labelHomeBalance->setText(QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
+    ui->labelRechargeBalance->setText(QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
+}
+
+int MainWindow::selectPileInCombo(int pileId)
+{
+    for (int i = 0; i < ui->comboPile->count(); ++i) {
+        if (ui->comboPile->itemData(i).toInt() == pileId) {
+            ui->comboPile->setCurrentIndex(i);
+            return i;
+        }
+    }
+    return -1;
+}
+
+void MainWindow::populateOrders()
+{
+    if (activeOrderId <= 0) {
+        ui->labelOrdersCardActive->hide();
+        ui->labelOrdersEmpty->show();
+        ui->labelOrdersKwhMon->setText(QStringLiteral("—"));
+        ui->labelOrdersFeeMon->setText(QStringLiteral("约 ¥—"));
+        return;
+    }
+
+    ui->labelOrdersCardActive->show();
+    ui->labelOrdersEmpty->hide();
+
+    const QString statusText = m_lastOrder.value("status").toString(QStringLiteral("充电中"));
+    const QString stationName = m_lastStationName.isEmpty()
+        ? QStringLiteral("睿光充电站")
+        : m_lastStationName;
+    const double kwh = m_lastOrder.value("estimatedAmount").toDouble(
+        m_lastOrder.value("amount").toDouble());
+    const double fee = m_lastOrder.value("estimatedFee").toDouble(
+        m_lastOrder.value("fee").toDouble());
+    const QString startTime = m_lastOrder.value("startTime").toString();
+
+    QString statusColor = QStringLiteral("#00714d");
+    if (statusText == QStringLiteral("充电中")) {
+        statusColor = QStringLiteral("#b56500");
+    } else if (statusText == QStringLiteral("待结算") || statusText == QStringLiteral("已结算")) {
+        statusColor = QStringLiteral("#737686");
+    }
+
+    ui->labelOrdersKwhMon->setText(QStringLiteral("%1 kWh").arg(kwh, 0, 'f', 1));
+    ui->labelOrdersFeeMon->setText(QStringLiteral("约 ¥%1").arg(fee, 0, 'f', 2));
+
+    ui->labelOrdersCardActive->setText(
+        QStringLiteral(
+            "<span style=\"font-size:18px;font-weight:700;color:#131b2e;\">%1</span>"
+            "&nbsp;&nbsp;<span style=\"color:%2;font-size:13px;font-weight:600;\">● %3</span>"
+            "<br><br><span style=\"color:#737686;font-size:12px;\">订单号：#%4&nbsp;&nbsp;电桩 #%5</span>"
+            "<br><span style=\"color:#737686;font-size:12px;\">开始时间：%6</span>"
+            "<br><br><span style=\"font-size:15px;font-weight:700;color:#131b2e;\">已充电量&nbsp;%7</span>"
+            "<span style=\"font-size:15px;font-weight:700;color:#737686;\">&nbsp;&nbsp;预估&nbsp;%8</span>"
+            "<br><br><span style=\"color:#737686;font-size:12px;\">按需充电 · 充满自动停止 · 实时费用透明</span>")
+            .arg(stationName)
+            .arg(statusColor, statusText)
+            .arg(activeOrderId)
+            .arg(m_lastOrder.value("pileId").toInt())
+            .arg(startTime)
+            .arg(QStringLiteral("%1 kWh").arg(kwh, 0, 'f', 2))
+            .arg(QStringLiteral("¥%1").arg(fee, 0, 'f', 2)));
+}
+
+void MainWindow::populateStationDetail(const QJsonObject &data)
+{
+    const QString stationName = data.value("name").toString(
+        data.value("stationName").toString());
+    const QString address = data.value("address").toString(
+        data.value("stationAddress").toString());
+
+    ui->labelSDName->setText(stationName);
+    ui->labelSDAddress->setText(address);
+    ui->labelSDFree->setText(QStringLiteral("%1/%2")
+                                  .arg(data.value("freePileCount").toInt())
+                                  .arg(data.value("pileCount").toInt()));
+    ui->labelSDOnline->setText(QStringLiteral("%1%")
+                                   .arg(data.value("onlineRate").toDouble(), 0, 'f', 0));
+    ui->labelSDPrice->setText(QStringLiteral("¥%1/度")
+                                  .arg(data.value("price").toDouble(), 0, 'f', 2));
+
+    while (QLayoutItem *child = ui->pileLayout->takeAt(0)) {
+        if (QWidget *w = child->widget()) {
+            w->deleteLater();
+        }
+        delete child;
+    }
+
+    const QJsonArray piles = data.value("piles").toArray();
+    for (const QJsonValue &value : piles) {
+        const QJsonObject pile = value.toObject();
+        const QString status = pile.value("status").toString();
+        const bool idle = (status == QStringLiteral("闲置"));
+
+        auto *card = new QFrame(ui->pileHost);
+        card->setObjectName(QStringLiteral("pileCard"));
+        auto *row = new QHBoxLayout(card);
+        row->setContentsMargins(14, 10, 12, 10);
+        row->setSpacing(10);
+
+        auto *info = new QLabel(card);
+        info->setTextFormat(Qt::RichText);
+        info->setText(
+            QStringLiteral("<span style=\"font-size:15px;font-weight:700;color:#131b2e;\">%1</span>"
+                           "<span style=\"color:#737686;font-size:12px;\">&nbsp;%2 kW</span>"
+                           "<br><span style=\"color:#434655;font-size:12px;\">%3 · 累计使用 %4 次</span>")
+                .arg(pile.value("code").toString())
+                .arg(pile.value("power").toDouble(), 0, 'f', 1)
+                .arg(pile.value("type").toString())
+                .arg(pile.value("totalSessions").toInt()));
+        row->addWidget(info, 1);
+
+        if (idle) {
+            auto *btn = new QPushButton(tr("开始充电"), card);
+            btn->setObjectName(QStringLiteral("pileStartBtn"));
+            const int pileId = pile.value("pileId").toInt();
+            connect(btn, &QPushButton::clicked, this, [this, pileId]() {
+                selectPileInCombo(pileId);
+                ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+                ui->BtnCharge->setChecked(true);
+                ui->BtnHome->setChecked(false);
+                ui->BtnMine->setChecked(false);
+                ui->BtnOrders->setChecked(false);
+            });
+            row->addWidget(btn);
+        } else {
+            auto *badge = new QLabel(status, card);
+            badge->setObjectName(status == QStringLiteral("充电中")
+                                     ? QStringLiteral("badgeCharging")
+                                     : QStringLiteral("badgeFault"));
+            row->addWidget(badge);
+        }
+        ui->pileLayout->addWidget(card);
+    }
+    ui->pileLayout->addStretch();
 }
 
