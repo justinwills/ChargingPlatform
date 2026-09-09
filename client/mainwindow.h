@@ -9,6 +9,8 @@
 #include "clientconnection.h"
 #include "paymentpreview.h"
 
+class QAbstractButton;
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -74,6 +76,8 @@ private:
     void populateStationDetail(const QJsonObject &data);
     void updateBalanceLabels(double balance);
     int selectPileInCombo(int pileId);
+    void setupNavIcons();
+    void applyNavIcon(QAbstractButton *button, bool checked, const QString &base);
 
     Ui::MainWindow *ui;
 

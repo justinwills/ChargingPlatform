@@ -19,6 +19,8 @@
 #include <QLayoutItem>
 #include <QPushButton>
 #include <QLabel>
+#include <QIcon>
+#include <QToolButton>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -56,6 +58,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     navGroup->setExclusive(true);
     ui->BtnHome->setChecked(true);
+
+    setupNavIcons();
 
     connect(connection, &ClientConnection::responseReceived,
         this, &MainWindow::onServerResponse);
@@ -1000,6 +1004,37 @@ void MainWindow::applyShadow(QWidget *widget)
     shadow->setOffset(0, 6);
     shadow->setColor(QColor(19, 27, 46, 22));
     widget->setGraphicsEffect(shadow);
+}
+
+void MainWindow::setupNavIcons()
+{
+    const QSize navIconSize(24, 24);
+    ui->BtnHome->setIconSize(navIconSize);
+    ui->BtnCharge->setIconSize(navIconSize);
+    ui->BtnMine->setIconSize(navIconSize);
+
+    applyNavIcon(ui->BtnHome, ui->BtnHome->isChecked(), QStringLiteral("nav_home"));
+    applyNavIcon(ui->BtnCharge, ui->BtnCharge->isChecked(), QStringLiteral("nav_charge"));
+    applyNavIcon(ui->BtnMine, ui->BtnMine->isChecked(), QStringLiteral("nav_mine"));
+
+    auto updateIcon = [this](QAbstractButton *button, const QString &base) {
+        return [this, button, base](bool checked) {
+            applyNavIcon(button, checked, base);
+        };
+    };
+
+    connect(ui->BtnHome, &QToolButton::toggled,
+            updateIcon(ui->BtnHome, QStringLiteral("nav_home")));
+    connect(ui->BtnCharge, &QToolButton::toggled,
+            updateIcon(ui->BtnCharge, QStringLiteral("nav_charge")));
+    connect(ui->BtnMine, &QToolButton::toggled,
+            updateIcon(ui->BtnMine, QStringLiteral("nav_mine")));
+}
+
+void MainWindow::applyNavIcon(QAbstractButton *button, bool checked, const QString &base)
+{
+    const QString suffix = checked ? QStringLiteral("_active") : QString();
+    button->setIcon(QIcon(QStringLiteral(":/icons/%1%2.svg").arg(base).arg(suffix)));
 }
 
 void MainWindow::updateBalanceLabels(double balance)
