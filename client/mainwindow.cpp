@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 #include "admin/adminwindow.h"
 #include "flowlayout.h"
+#include "navigationpage.h"
 
 #include <QMessageBox>
 #include <QJsonArray>
@@ -29,6 +30,56 @@ MainWindow::MainWindow(QWidget *parent)
         , connection(new ClientConnection(this))
 {
     ui->setupUi(this);
+
+    m_navigationPage = new NavigationPage(ui->stackedWidget);
+    ui->stackedWidget->addWidget(m_navigationPage);
+
+    connect(m_navigationPage, &NavigationPage::backRequested, this, [this]() {
+        if (m_navigationStarted && connection->isConnected()) {
+            connection->sendRequest(QStringLiteral("end_navigation"), {});
+        }
+        leaveNavigationPage();
+    });
+    connect(m_navigationPage, &NavigationPage::endRequested, this, [this]() {
+        if (m_navigationStarted && connection->isConnected()) {
+            connection->sendRequest(QStringLiteral("end_navigation"), {});
+        }
+        leaveNavigationPage();
+    });
+    connect(m_navigationPage, &NavigationPage::planRequested, this,
+            [this](const QString &originAddress, const QString &mode) {
+        if (!originAddress.isEmpty()) {
+            m_hasNavigationOrigin = false;
+            requestNavigation(mode, originAddress);
+        } else if (m_hasNavigationOrigin) {
+            requestNavigation(mode);
+        } else {
+            m_navigationPage->requestCurrentLocation();
+        }
+    });
+    connect(m_navigationPage, &NavigationPage::modeChanged, this,
+            [this](const QString &mode) {
+        if (m_navigationStarted && connection->isConnected()) {
+            m_navigationPage->setBusy(true);
+            connection->sendRequest(QStringLiteral("switch_navigation_mode"), {
+                {QStringLiteral("mode"), mode}
+            });
+        } else if (m_hasNavigationOrigin) {
+            requestNavigation(mode);
+        } else {
+            m_navigationPage->requestCurrentLocation();
+        }
+    });
+    connect(m_navigationPage, &NavigationPage::currentLocationResolved, this,
+            [this](double latitude, double longitude) {
+        if (ui->stackedWidget->currentWidget() != m_navigationPage) {
+            return;
+        }
+        m_navigationOriginLat = latitude;
+        m_navigationOriginLng = longitude;
+        m_hasNavigationOrigin = true;
+        requestNavigation(m_navigationPage->mode());
+    });
 
     ui->stackedWidget->setCurrentWidget(ui->pageLogin);
     ui->widgetNavigation->hide();
@@ -150,6 +201,8 @@ void MainWindow::openChargePage()
 
 void MainWindow::on_BtnStationBack_clicked()
 {
+    ui->stackedWidget->setGeometry(0, 0, 360, 540);
+    ui->widgetNavigation->show();
     ui->stackedWidget->setCurrentWidget(ui->pageHome);
     ui->BtnHome->setChecked(true);
     if (userId > 0 && connection->isConnected()) {
@@ -164,11 +217,69 @@ void MainWindow::on_BtnStartChargeHere_clicked()
 
 void MainWindow::on_BtnNavigateHere_clicked()
 {
-    QMessageBox::information(
-        this,
-        tr("导航"),
-        tr("已为您规划前往「%1」的充电导航路线，稍后将根据实时路况更新。")
-            .arg(m_lastStationName));
+    if (m_lastStationId <= 0 || m_lastStationName.isEmpty()) {
+        QMessageBox::warning(this, tr("导航"), tr("当前充电站信息不完整，请重新打开详情页"));
+        return;
+    }
+
+    m_navigationStarted = false;
+    m_hasNavigationOrigin = false;
+    m_navigationPage->setDestination(
+        m_lastStationId, m_lastStationName, m_lastStationAddress,
+        m_lastStationLat, m_lastStationLng);
+
+    const QString searchedAddress = ui->editAddress->text().trimmed();
+    m_navigationPage->setOriginHint(searchedAddress);
+    showNavigationPage();
+
+    if (searchedAddress.isEmpty()) {
+        m_navigationPage->requestCurrentLocation();
+    } else {
+        requestNavigation(m_navigationPage->mode(), searchedAddress);
+    }
+}
+
+void MainWindow::showNavigationPage()
+{
+    ui->widgetNavigation->hide();
+    ui->stackedWidget->setGeometry(0, 0, 360, 612);
+    ui->stackedWidget->setCurrentWidget(m_navigationPage);
+}
+
+void MainWindow::leaveNavigationPage()
+{
+    m_navigationStarted = false;
+    m_hasNavigationOrigin = false;
+    m_navigationPage->resetNavigation();
+    ui->stackedWidget->setGeometry(0, 0, 360, 540);
+    ui->stackedWidget->setCurrentWidget(ui->pageStationDetail);
+    ui->widgetNavigation->show();
+    ui->BtnHome->setChecked(true);
+}
+
+void MainWindow::requestNavigation(const QString &mode, const QString &originAddress)
+{
+    if (!connection->isConnected()) {
+        m_navigationPage->showError(tr("尚未连接服务器，无法规划路线"));
+        return;
+    }
+
+    QJsonObject params{
+        {QStringLiteral("stationId"), m_lastStationId},
+        {QStringLiteral("mode"), mode}
+    };
+    if (!originAddress.trimmed().isEmpty()) {
+        params[QStringLiteral("originAddress")] = originAddress.trimmed();
+    } else if (m_hasNavigationOrigin) {
+        params[QStringLiteral("originLatitude")] = m_navigationOriginLat;
+        params[QStringLiteral("originLongitude")] = m_navigationOriginLng;
+    } else {
+        m_navigationPage->showError(tr("请允许获取当前位置，或手动输入详细起点"));
+        return;
+    }
+
+    m_navigationPage->setBusy(true);
+    connection->sendRequest(QStringLiteral("start_navigation"), params);
 }
 
 void MainWindow::on_BtnMine_clicked()
@@ -385,6 +496,15 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     const QJsonObject data = response.value("data").toObject();
 
     if (code != 0) {
+        if (action == QStringLiteral("start_navigation")
+            || action == QStringLiteral("switch_navigation_mode")
+            || action == QStringLiteral("end_navigation")) {
+            m_navigationPage->showError(response.value("msg").toString());
+            if (action == QStringLiteral("end_navigation")) {
+                leaveNavigationPage();
+            }
+            return;
+        }
         if (action == QStringLiteral("prepare_settlement")) {
             m_settlingOrderId = -1;
             QMessageBox::warning(this, tr("结算失败"), response.value("msg").toString());
@@ -412,6 +532,25 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             m_pendingPileId = -1;
         }
         QMessageBox::warning(this, tr("请求失败"), response.value("msg").toString());
+        return;
+    }
+
+    if (action == QStringLiteral("start_navigation")
+        || action == QStringLiteral("switch_navigation_mode")) {
+        if (ui->stackedWidget->currentWidget() != m_navigationPage) {
+            m_navigationStarted = false;
+            if (action == QStringLiteral("start_navigation") && connection->isConnected()) {
+                connection->sendRequest(QStringLiteral("end_navigation"), {});
+            }
+            return;
+        }
+        m_navigationStarted = true;
+        m_navigationPage->showRoute(data);
+        return;
+    }
+
+    if (action == QStringLiteral("end_navigation")) {
+        m_navigationStarted = false;
         return;
     }
 
@@ -540,10 +679,13 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
     if (data.contains("piles") && data.contains("stationId")) {
+        m_lastStationId = data.value("stationId").toInt(-1);
         m_lastStationLat = data.value("latitude").toDouble();
         m_lastStationLng = data.value("longitude").toDouble();
         m_lastStationName = data.value("name").toString(
             data.value("stationName").toString());
+        m_lastStationAddress = data.value("address").toString(
+            data.value("stationAddress").toString());
         populateStationDetail(data);
 
         QStringList orderDetails;
@@ -1052,6 +1194,11 @@ void MainWindow::onConnectionError(const QString &message){
         m_currentUser["balance"] = m_balanceBeforeSettlement;
         updateBalanceLabels(m_balanceBeforeSettlement);
         m_balanceBeforeSettlement = -1.0;
+    }
+
+    if (ui->stackedWidget->currentWidget() == m_navigationPage) {
+        m_navigationPage->showError(message);
+        return;
     }
 
     QMessageBox::warning(

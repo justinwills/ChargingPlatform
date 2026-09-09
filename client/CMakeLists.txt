@@ -11,6 +11,7 @@ set(CMAKE_AUTORCC ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network)
+find_package(Qt${QT_VERSION_MAJOR} QUIET COMPONENTS WebEngineWidgets)
 
 if(NOT TARGET protocol)
     add_subdirectory(
@@ -35,6 +36,8 @@ add_executable(ChargingClient
     admin/adminwindow.h
     clientconnection.cpp
     clientconnection.h
+    navigationpage.cpp
+    navigationpage.h
 )
 
 target_include_directories(ChargingClient PRIVATE
@@ -48,3 +51,10 @@ target_link_libraries(ChargingClient PRIVATE
     Qt${QT_VERSION_MAJOR}::Network
     protocol
 )
+
+if(TARGET Qt${QT_VERSION_MAJOR}::WebEngineWidgets)
+    target_link_libraries(ChargingClient PRIVATE Qt${QT_VERSION_MAJOR}::WebEngineWidgets)
+    target_compile_definitions(ChargingClient PRIVATE CHARGING_HAS_WEBENGINE)
+else()
+    message(WARNING "Qt WebEngineWidgets was not found; navigation uses an external-browser fallback")
+endif()

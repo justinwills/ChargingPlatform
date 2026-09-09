@@ -172,7 +172,13 @@ bool requestTencentRoute(const QString &mode,
         return false;
     }
 
-    *route = routes.first().toObject();
+    // Tencent's direction endpoint returns duration in minutes and the
+    // compressed polyline as an array. Internally the dispatcher keeps using
+    // seconds so ETA/validation and injected test providers share one unit.
+    QJsonObject normalizedRoute = routes.first().toObject();
+    normalizedRoute[QStringLiteral("duration")] =
+        normalizedRoute.value(QStringLiteral("duration")).toInt() * 60;
+    *route = normalizedRoute;
     return true;
 }
 
@@ -1060,7 +1066,9 @@ QString RequestDispatcher::validateRoute(int distanceMeters, int durationSeconds
     if (durationSeconds <= 0) {
         return QStringLiteral("路线时长无效（不能为负或零）");
     }
-    if (!polyline.isString() || polyline.toString().isEmpty()) {
+    const bool hasStringPolyline = polyline.isString() && !polyline.toString().isEmpty();
+    const bool hasArrayPolyline = polyline.isArray() && !polyline.toArray().isEmpty();
+    if (!hasStringPolyline && !hasArrayPolyline) {
         return QStringLiteral("路线缺少折线数据");
     }
 

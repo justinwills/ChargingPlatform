@@ -10,6 +10,7 @@
 #include "paymentpreview.h"
 
 class QAbstractButton;
+class NavigationPage;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -78,6 +79,9 @@ private:
     int selectPileInCombo(int pileId);
     void setupNavIcons();
     void applyNavIcon(QAbstractButton *button, bool checked, const QString &base);
+    void showNavigationPage();
+    void leaveNavigationPage();
+    void requestNavigation(const QString &mode, const QString &originAddress = QString());
 
     Ui::MainWindow *ui;
 
@@ -97,10 +101,17 @@ private:
     QJsonArray m_lastStations;
     QString m_pendingAction;
     PaymentPreview *m_paymentPreview = nullptr;
+    NavigationPage *m_navigationPage = nullptr;
 
+    int m_lastStationId = -1;
     double m_lastStationLat = 0.0;
     double m_lastStationLng = 0.0;
     QString m_lastStationName;
+    QString m_lastStationAddress;
+    bool m_navigationStarted = false;
+    bool m_hasNavigationOrigin = false;
+    double m_navigationOriginLat = 0.0;
+    double m_navigationOriginLng = 0.0;
     bool m_showStationDetailPage = false;
     bool m_chargePagePending = false;
     int m_pendingPileId = -1;
