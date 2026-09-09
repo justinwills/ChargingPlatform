@@ -452,7 +452,6 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     if (data.contains("stations")) {
         const QJsonArray stations = data.value("stations").toArray();
         m_lastStations = stations;
-        ui->mapPreview->setStations(stations);
         ui->labelNearbyCount->setText(tr("共 %1 个电站").arg(stations.size()));
         if (stations.isEmpty()) {
             ui->stationResults->setPlainText(tr("没有找到匹配的充电站"));

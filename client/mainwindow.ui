@@ -610,21 +610,11 @@ QLabel#badgeFault {
         <string>搜索附近充电站</string>
        </property>
       </widget>
-      <widget class="MapPreview" name="mapPreview">
-       <property name="geometry">
-        <rect>
-         <x>16</x>
-         <y>172</y>
-         <width>328</width>
-         <height>128</height>
-        </rect>
-       </property>
-      </widget>
       <widget class="QLabel" name="labelNearbyHeader">
        <property name="geometry">
         <rect>
          <x>16</x>
-         <y>308</y>
+         <y>172</y>
          <width>120</width>
          <height>22</height>
         </rect>
@@ -637,7 +627,7 @@ QLabel#badgeFault {
        <property name="geometry">
         <rect>
          <x>140</x>
-         <y>312</y>
+         <y>176</y>
          <width>206</width>
          <height>16</height>
         </rect>
@@ -653,7 +643,7 @@ QLabel#badgeFault {
        <property name="geometry">
         <rect>
          <x>16</x>
-         <y>344</y>
+         <y>208</y>
          <width>60</width>
          <height>32</height>
         </rect>
@@ -669,7 +659,7 @@ QLabel#badgeFault {
        <property name="geometry">
         <rect>
          <x>80</x>
-         <y>340</y>
+         <y>204</y>
          <width>78</width>
          <height>40</height>
         </rect>
@@ -685,7 +675,7 @@ QLabel#badgeFault {
        <property name="geometry">
         <rect>
          <x>170</x>
-         <y>338</y>
+         <y>202</y>
          <width>174</width>
          <height>42</height>
         </rect>
@@ -698,7 +688,7 @@ QLabel#badgeFault {
        <property name="geometry">
         <rect>
          <x>16</x>
-         <y>386</y>
+         <y>250</y>
          <width>328</width>
         <height>78</height>
        </rect>
@@ -2040,11 +2030,6 @@ QLabel#badgeFault {
    <class>ChargeRing</class>
    <extends>QWidget</extends>
    <header>chargering.h</header>
-  </customwidget>
-  <customwidget>
-   <class>MapPreview</class>
-   <extends>QWidget</extends>
-   <header>mappreview.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

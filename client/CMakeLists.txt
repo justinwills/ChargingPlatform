@@ -26,8 +26,6 @@ add_executable(ChargingClient
     mainwindow.ui
     chargering.cpp
     chargering.h
-    mappreview.cpp
-    mappreview.h
     paymentpreview.cpp
     paymentpreview.h
     resources.qrc
