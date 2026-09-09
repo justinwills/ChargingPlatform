@@ -48,17 +48,12 @@ MainWindow::MainWindow(QWidget *parent)
     applyShadow(ui->sdStatsCard);
     applyShadow(ui->stationResults);
     applyShadow(ui->labelOrderStationDetails);
-    applyShadow(ui->ordersSummary);
     applyShadow(ui->walletCard);
-    applyShadow(ui->labelOrdersCardActive);
-    applyShadow(ui->labelOrdersEmpty);
-    applyShadow(ui->labelOrdersHelp);
 
     QButtonGroup *navGroup = new QButtonGroup(this);
     navGroup->addButton(ui->BtnHome);
-    navGroup->addButton(ui->BtnMine);
     navGroup->addButton(ui->BtnCharge);
-    navGroup->addButton(ui->BtnOrders);
+    navGroup->addButton(ui->BtnMine);
 
     navGroup->setExclusive(true);
     ui->BtnHome->setChecked(true);
@@ -120,25 +115,29 @@ void MainWindow::on_BtnHome_clicked()
 
 void MainWindow::on_BtnCharge_clicked()
 {
-    if (activeOrderId > 0) {
-        ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
-        return;
-    }
-    ui->stackedWidget->setCurrentWidget(ui->pageCharge);
-    if (connection->isConnected()) {
-        on_BtnLoadOrderStation_clicked();
-    }
+    openChargePage();
 }
 
-void MainWindow::on_BtnOrders_clicked()
+void MainWindow::openChargePage()
 {
-    ui->stackedWidget->setCurrentWidget(ui->pageOrders);
-    populateOrders();
-    if (activeOrderId > 0) {
-        connection->sendRequest(QStringLiteral("query_order"), {
-            {"orderId", activeOrderId}
-        });
+    if (m_chargePagePending) {
+        return;
     }
+    if (userId <= 0 || !connection->isConnected()) {
+        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+        if (connection->isConnected()) {
+            on_BtnLoadOrderStation_clicked();
+        }
+        return;
+    }
+
+    // 以服务器返回的最新结果为准判断是否还有未完成的充电订单，
+    // 避免客户端缓存状态过期导致已结算后仍提示"请先结算"。
+    m_chargePagePending = true;
+    m_pendingAction = QStringLiteral("query_user_ongoing_order");
+    connection->sendRequest(QStringLiteral("query_user_ongoing_order"), {
+        {"userId", userId}
+    });
 }
 
 void MainWindow::on_BtnStationBack_clicked()
@@ -149,11 +148,7 @@ void MainWindow::on_BtnStationBack_clicked()
 
 void MainWindow::on_BtnStartChargeHere_clicked()
 {
-    ui->stackedWidget->setCurrentWidget(ui->pageCharge);
-    ui->BtnCharge->setChecked(true);
-    ui->BtnHome->setChecked(false);
-    ui->BtnMine->setChecked(false);
-    ui->BtnOrders->setChecked(false);
+    openChargePage();
 }
 
 void MainWindow::on_BtnNavigateHere_clicked()
@@ -304,6 +299,9 @@ void MainWindow::on_BtnSettleOrder_clicked()
         return;
     }
 
+    orderTimer.stop();
+    displayTimer.stop();
+    m_settlingOrderId = activeOrderId;
     m_pendingAction = QStringLiteral("prepare_settlement");
     connection->sendRequest(QStringLiteral("prepare_settlement"), {
         {"orderId", activeOrderId},
@@ -329,11 +327,10 @@ void MainWindow::showPaymentPreview()
     connect(&preview, &PaymentPreview::rechargeRequested,
             this, &MainWindow::on_BtnRecharge_clicked);
     connect(&preview, &QDialog::accepted, this, [this]() {
-        ui->stackedWidget->setCurrentWidget(ui->pageOrders);
-        ui->BtnOrders->setChecked(true);
+        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+        ui->BtnCharge->setChecked(true);
         ui->BtnHome->setChecked(false);
         ui->BtnMine->setChecked(false);
-        ui->BtnCharge->setChecked(false);
     });
     connect(&preview, &QDialog::finished, this, [this]() {
         m_paymentPreview = nullptr;
@@ -380,13 +377,70 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
     if (code != 0) {
         if (action == QStringLiteral("prepare_settlement")) {
+            m_settlingOrderId = -1;
             QMessageBox::warning(this, tr("结算失败"), response.value("msg").toString());
             return;
         }
         if (action == QStringLiteral("settle_order") && m_paymentPreview) {
             m_paymentPreview->reject();
         }
+        if (action == QStringLiteral("query_user_ongoing_order")) {
+            m_chargePagePending = false;
+            ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+            ui->BtnCharge->setChecked(true);
+            ui->BtnHome->setChecked(false);
+            ui->BtnMine->setChecked(false);
+            if (connection->isConnected()) {
+                on_BtnLoadOrderStation_clicked();
+            }
+            m_pendingPileId = -1;
+        }
         QMessageBox::warning(this, tr("请求失败"), response.value("msg").toString());
+        return;
+    }
+
+    if (action == QStringLiteral("query_user_ongoing_order")) {
+        m_chargePagePending = false;
+        const QString status = data.value("status").toString();
+        if (data.value("hasOngoing").toBool()
+            && (status == QStringLiteral("充电中")
+                || status == QStringLiteral("待结算"))) {
+            const int orderId = data.value("orderId").toInt(-1);
+            if (orderId > 0) {
+                activeOrderId = orderId;
+                currentAmount = data.value("estimatedAmount").toDouble(
+                    data.value("amount").toDouble(currentAmount));
+                currentFee = data.value("estimatedFee").toDouble(
+                    data.value("fee").toDouble(currentFee));
+                m_lastOrder = data;
+                m_pendingPileId = -1;
+
+                QMessageBox::information(
+                    this, tr("提示"), tr("您有未完成的充电订单，请先结算"));
+                ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
+                ui->BtnCharge->setChecked(true);
+                ui->BtnHome->setChecked(false);
+                ui->BtnMine->setChecked(false);
+
+                m_pendingAction = QStringLiteral("prepare_settlement");
+                connection->sendRequest(QStringLiteral("prepare_settlement"), {
+                    {"orderId", activeOrderId},
+                    {"amount", currentAmount},
+                    {"fee", currentFee}
+                });
+                orderTimer.stop();
+                displayTimer.stop();
+                m_settlingOrderId = activeOrderId;
+                return;
+            }
+        }
+        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+        ui->BtnCharge->setChecked(true);
+        ui->BtnHome->setChecked(false);
+        ui->BtnMine->setChecked(false);
+        if (connection->isConnected()) {
+            on_BtnLoadOrderStation_clicked();
+        }
         return;
     }
 
@@ -456,6 +510,10 @@ void MainWindow::onServerResponse(const QJsonObject &response)
                 ui->comboPile->setCurrentIndex(ui->comboPile->count() - 1);
                 selectedIdlePile = true;
             }
+        }
+        if (m_pendingPileId > 0) {
+            selectPileInCombo(m_pendingPileId);
+            m_pendingPileId = -1;
         }
         ui->labelOrderStationDetails->setPlainText(orderDetails.join(QStringLiteral("\n")));
         if (data.contains("pileId") && data.value("pileId").toInt() > 0) {
@@ -602,22 +660,39 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
 
-    if (action == QStringLiteral("prepare_settlement")) {
-        activeOrderId = data.value("orderId").toInt(activeOrderId);
-        currentAmount = data.value("amount").toDouble(currentAmount);
-        currentFee = data.value("fee").toDouble(currentFee);
-        m_lastOrder = data;
-        ui->labelMonStatus->setText(
-            tr("充电已完成，正在生成账单…"));
-        populateOrders();
-        showPaymentPreview();
+    if (m_settlingOrderId > 0) {
+        const int responseOrderId = data.value("orderId").toInt(-1);
+        const QString responseStatus = data.value("status").toString();
+        const bool genuinePrepare =
+            responseOrderId > 0
+            && responseStatus == QStringLiteral("待结算")
+            && !data.contains("startTime");
+        if (genuinePrepare) {
+            const int settlingId = m_settlingOrderId;
+            m_settlingOrderId = -1;
+            activeOrderId = settlingId;
+            currentAmount = data.value("amount").toDouble(currentAmount);
+            currentFee = data.value("fee").toDouble(currentFee);
+            m_lastOrder = data;
+            orderTimer.stop();
+            displayTimer.stop();
+            ui->labelMonStatus->setText(
+                tr("充电已完成，正在生成账单…"));
+            showPaymentPreview();
+            return;
+        }
+        // 收到的是发起结算前就发出的旧订单状态回包，继续等待真正的
+        // prepare_settlement 结果，避免误弹结算窗。
+        m_pendingAction = QStringLiteral("prepare_settlement");
         return;
     }
 
     if (data.contains("status")) {
         const QString status = data.value("status").toString();
-        activeOrderId = data.value("orderId").toInt();
-        m_lastOrder = data;
+        if (data.contains("orderId")) {
+            activeOrderId = data.value("orderId").toInt();
+            m_lastOrder = data;
+        }
         const int durationMinutes = data.value("durationMinutes").toInt();
         const double estAmount = data.value("estimatedAmount").toDouble();
         const double estFee = data.value("estimatedFee").toDouble();
@@ -647,7 +722,6 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             ui->BtnCharge->setChecked(true);
             ui->BtnHome->setChecked(false);
             ui->BtnMine->setChecked(false);
-            ui->BtnOrders->setChecked(false);
         }
         if (status == QStringLiteral("待结算")) {
             currentAmount = data.value("amount").toDouble(estAmount);
@@ -656,7 +730,6 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             displayTimer.stop();
             ui->labelMonStatus->setText(tr("充电已完成，等待结算"));
             ui->ringCharge->setValue(100);
-            populateOrders();
         }
         if (status == QStringLiteral("已结算")) {
             activeOrderStartTime = QDateTime();
@@ -668,7 +741,6 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             ui->labelMonFee->setText(QStringLiteral("¥0.00"));
             orderTimer.stop();
             displayTimer.stop();
-            populateOrders();
             connection->sendRequest(QStringLiteral("login"), {{"phone", phoneNumber}});
         }
         return;
@@ -694,7 +766,6 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         ui->BtnCharge->setChecked(true);
         ui->BtnHome->setChecked(false);
         ui->BtnMine->setChecked(false);
-        ui->BtnOrders->setChecked(false);
         displayTimer.start();
         orderTimer.start();
         on_BtnRefreshOrder_clicked();
@@ -702,11 +773,10 @@ void MainWindow::onServerResponse(const QJsonObject &response)
     }
 
     if (action == QStringLiteral("settle_order") && m_paymentPreview) {
-        ui->stackedWidget->setCurrentWidget(ui->pageOrders);
-        ui->BtnOrders->setChecked(true);
+        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+        ui->BtnCharge->setChecked(true);
         ui->BtnHome->setChecked(false);
         ui->BtnMine->setChecked(false);
-        ui->BtnCharge->setChecked(false);
         m_paymentPreview->showPaymentSuccess();
     }
 
@@ -885,6 +955,7 @@ void MainWindow::on_BtnLeave_clicked()
     phoneNumber.clear();
     m_selectedAvatarPath.clear();
     m_pendingAction.clear();
+    m_chargePagePending = false;
 
     // 清除界面中的旧用户数据
     ui->editPhone->clear();
@@ -905,6 +976,8 @@ void MainWindow::onConnectionError(const QString &message){
     ui->BtnConfirm_PageEdit->setEnabled(true);
 
     m_pendingAction.clear();
+    m_chargePagePending = false;
+    m_settlingOrderId = -1;
 
     QMessageBox::warning(
         this,
@@ -937,57 +1010,6 @@ int MainWindow::selectPileInCombo(int pileId)
         }
     }
     return -1;
-}
-
-void MainWindow::populateOrders()
-{
-    if (activeOrderId <= 0) {
-        ui->labelOrdersCardActive->hide();
-        ui->labelOrdersEmpty->show();
-        ui->labelOrdersKwhMon->setText(QStringLiteral("—"));
-        ui->labelOrdersFeeMon->setText(QStringLiteral("约 ¥—"));
-        return;
-    }
-
-    ui->labelOrdersCardActive->show();
-    ui->labelOrdersEmpty->hide();
-
-    const QString statusText = m_lastOrder.value("status").toString(QStringLiteral("充电中"));
-    const QString stationName = m_lastStationName.isEmpty()
-        ? QStringLiteral("睿光充电站")
-        : m_lastStationName;
-    const double kwh = m_lastOrder.value("estimatedAmount").toDouble(
-        m_lastOrder.value("amount").toDouble());
-    const double fee = m_lastOrder.value("estimatedFee").toDouble(
-        m_lastOrder.value("fee").toDouble());
-    const QString startTime = m_lastOrder.value("startTime").toString();
-
-    QString statusColor = QStringLiteral("#00714d");
-    if (statusText == QStringLiteral("充电中")) {
-        statusColor = QStringLiteral("#b56500");
-    } else if (statusText == QStringLiteral("待结算") || statusText == QStringLiteral("已结算")) {
-        statusColor = QStringLiteral("#737686");
-    }
-
-    ui->labelOrdersKwhMon->setText(QStringLiteral("%1 kWh").arg(kwh, 0, 'f', 1));
-    ui->labelOrdersFeeMon->setText(QStringLiteral("约 ¥%1").arg(fee, 0, 'f', 2));
-
-    ui->labelOrdersCardActive->setText(
-        QStringLiteral(
-            "<span style=\"font-size:18px;font-weight:700;color:#131b2e;\">%1</span>"
-            "&nbsp;&nbsp;<span style=\"color:%2;font-size:13px;font-weight:600;\">● %3</span>"
-            "<br><br><span style=\"color:#737686;font-size:12px;\">订单号：#%4&nbsp;&nbsp;电桩 #%5</span>"
-            "<br><span style=\"color:#737686;font-size:12px;\">开始时间：%6</span>"
-            "<br><br><span style=\"font-size:15px;font-weight:700;color:#131b2e;\">已充电量&nbsp;%7</span>"
-            "<span style=\"font-size:15px;font-weight:700;color:#737686;\">&nbsp;&nbsp;预估&nbsp;%8</span>"
-            "<br><br><span style=\"color:#737686;font-size:12px;\">按需充电 · 充满自动停止 · 实时费用透明</span>")
-            .arg(stationName)
-            .arg(statusColor, statusText)
-            .arg(activeOrderId)
-            .arg(m_lastOrder.value("pileId").toInt())
-            .arg(startTime)
-            .arg(QStringLiteral("%1 kWh").arg(kwh, 0, 'f', 2))
-            .arg(QStringLiteral("¥%1").arg(fee, 0, 'f', 2)));
 }
 
 void MainWindow::populateStationDetail(const QJsonObject &data)
@@ -1042,13 +1064,13 @@ void MainWindow::populateStationDetail(const QJsonObject &data)
             auto *btn = new QPushButton(tr("开始充电"), card);
             btn->setObjectName(QStringLiteral("pileStartBtn"));
             const int pileId = pile.value("pileId").toInt();
-            connect(btn, &QPushButton::clicked, this, [this, pileId]() {
-                selectPileInCombo(pileId);
-                ui->stackedWidget->setCurrentWidget(ui->pageCharge);
-                ui->BtnCharge->setChecked(true);
-                ui->BtnHome->setChecked(false);
-                ui->BtnMine->setChecked(false);
-                ui->BtnOrders->setChecked(false);
+            const int stationId = data.value("stationId").toInt();
+            connect(btn, &QPushButton::clicked, this, [this, pileId, stationId]() {
+                m_pendingPileId = pileId;
+                if (stationId > 0) {
+                    ui->spinOrderStationId->setValue(stationId);
+                }
+                openChargePage();
             });
             row->addWidget(btn);
         } else {

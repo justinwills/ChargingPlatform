@@ -26,7 +26,6 @@ public:
 private slots:
     void on_BtnHome_clicked();
     void on_BtnCharge_clicked();
-    void on_BtnOrders_clicked();
     void on_BtnMine_clicked();
     void on_Btnlogin_clicked();
 
@@ -71,8 +70,8 @@ private slots:
 
 private:
     void applyShadow(QWidget *widget);
+    void openChargePage();
     void populateStationDetail(const QJsonObject &data);
-    void populateOrders();
     void updateBalanceLabels(double balance);
     int selectPileInCombo(int pileId);
 
@@ -99,5 +98,8 @@ private:
     double m_lastStationLng = 0.0;
     QString m_lastStationName;
     bool m_showStationDetailPage = false;
+    bool m_chargePagePending = false;
+    int m_pendingPileId = -1;
+    int m_settlingOrderId = -1;
 };
 #endif // MAINWINDOW_H

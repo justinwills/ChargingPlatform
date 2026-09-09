@@ -225,6 +225,7 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
     if (action == "start_charging")     return handleStartCharging(params);
     if (action == "prepare_settlement") return handlePrepareSettlement(params);
     if (action == "query_order")        return handleQueryOrder(params);
+    if (action == "query_user_ongoing_order") return handleQueryOngoingOrder(params);
     if (action == "settle_order")       return handleSettleOrder(params);
 
     return fail(1, QStringLiteral("未知的action：%1").arg(action));
@@ -809,6 +810,52 @@ QJsonObject RequestDispatcher::handleQueryOrder(const QJsonObject &params)
             data["durationMinutes"] = durationMinutes;
             data["estimatedAmount"] = estimatedAmount;
             data["estimatedFee"] = estimatedFee;
+        }
+    }
+    return ok(data);
+}
+
+// 查询当前用户名下是否存在未完成的充电订单（充电中/待结算），并带上权威的
+    // 订单数据，客户端进入充电页时必须以此结果为准，避免客户端缓存数据过期后误报。
+    QJsonObject RequestDispatcher::handleQueryOngoingOrder(const QJsonObject &params)
+{
+    if (!params.contains("userId")) {
+        return fail(1, "缺少userId参数");
+    }
+    const int userId = params.value("userId").toInt();
+    if (userId <= 0) {
+        return fail(1, "userId参数无效");
+    }
+
+    int orderId = -1;
+    const bool ongoing = Database::hasOngoingOrder(userId, &orderId);
+    QJsonObject data;
+    data["hasOngoing"] = ongoing;
+    if (ongoing && orderId > 0) {
+        OrderInfo order;
+        if (Database::getOrderById(orderId, &order)) {
+            data["orderId"] = order.id;
+            data["pileId"] = order.pileId;
+            data["startTime"] = order.startTime;
+            data["amount"] = order.amount;
+            data["fee"] = order.fee;
+            data["status"] = order.status;
+            if (order.status == QStringLiteral("充电中")) {
+                PileInfo pile;
+                StationInfo station;
+                if (Database::getPileById(order.pileId, &pile)
+                    && Database::getStationById(pile.stationId, &station)) {
+                    const auto startTime = QDateTime::fromString(
+                        order.startTime, QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+                    const int durationMinutes = qMax(0, static_cast<int>(
+                        startTime.secsTo(QDateTime::currentDateTime()) / 60));
+                    const double estimatedAmount = pile.power * durationMinutes / 60.0;
+                    const double estimatedFee = estimatedAmount * station.price;
+                    data["durationMinutes"] = durationMinutes;
+                    data["estimatedAmount"] = estimatedAmount;
+                    data["estimatedFee"] = estimatedFee;
+                }
+            }
         }
     }
     return ok(data);

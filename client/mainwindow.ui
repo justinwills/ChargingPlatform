@@ -47,7 +47,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
 
 #label_title_mine, #label_title_mine_2, #label_title_mine_3, #label_title_mine_4,
-#label_title_mine_5, #label_title_mine_6, #labelOrdersTitle {
+#label_title_mine_5, #label_title_mine_6 {
     color: #131b2e;
     font-size: 26px;
     font-weight: 700;
@@ -128,9 +128,8 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: trans
     font-size: 10px;
     padding: 3px 8px;
 }
-#labelRechargeTitle, #labelOrdersMonth, #labelOrdersEco { color: #dbe1ff; font-size: 12px; background: transparent; }
-#labelOrdersKwhMon, #labelOrdersFeeMon { color: #ffffff; font-size: 22px; font-weight: 800; background: transparent; }
-#labelStats { color: #737686; font-size: 12px; background: transparent; }
+#labelRechargeTitle { color: #dbe1ff; font-size: 12px; background: transparent; }
+    #labelStats { color: #737686; font-size: 12px; background: transparent; }
 
 QLineEdit {
     background: #f2f3ff;
@@ -206,8 +205,7 @@ QPlainTextEdit {
 #BtnStartChargeHere:disabled { background: #a5b7e8; color: #e8ecf7; }
 
 #BtnAdmin, #BtnCancel, #BtnCancel_pageRecharge, #BtnRefreshOrder, #BtnChoosePhoto,
-#BtnStationBack, #BtnNavigateHere, #BtnLoadOrderStation, #BtnOrdersAll, #BtnOrdersCharging,
-#BtnOrdersSettled {
+#BtnStationBack, #BtnNavigateHere, #BtnLoadOrderStation {
     background: #e2e7ff;
     color: #131b2e;
     border: none;
@@ -216,12 +214,7 @@ QPlainTextEdit {
     font-weight: 600;
 }
 #BtnAdmin:hover, #BtnCancel:hover, #BtnCancel_pageRecharge:hover, #BtnRefreshOrder:hover,
-#BtnChoosePhoto:hover, #BtnStationBack:hover, #BtnNavigateHere:hover, #BtnLoadOrderStation:hover,
-#BtnOrdersAll:hover, #BtnOrdersCharging:hover, #BtnOrdersSettled:hover { background: #dbe1ff; }
-#BtnOrdersAll:checked, #BtnOrdersCharging:checked, #BtnOrdersSettled:checked {
-    background: #2563eb;
-    color: #ffffff;
-}
+#BtnChoosePhoto:hover, #BtnStationBack:hover, #BtnNavigateHere:hover, #BtnLoadOrderStation:hover { background: #dbe1ff; }
 
 #BtnSettleOrder {
     background: #ffdad6;
@@ -274,13 +267,12 @@ QFrame#sessionCard, QFrame#sdStatsCard, QDialog {
     border: 1px solid #eaedff;
     border-radius: 16px;
 }
-QFrame#ordersSummary, QFrame#walletCard {
+QFrame#walletCard {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #004ac6, stop:0.55 #2563eb, stop:1 #0053db);
     border: none;
     border-radius: 16px;
 }
-QLabel#labelTrust1, QLabel#labelTrust2, QLabel#labelTrust3, QLabel#labelTrust4,
-QLabel#labelOrdersHelp, QLabel#labelOrdersCardActive, QLabel#labelOrdersEmpty {
+QLabel#labelTrust1, QLabel#labelTrust2, QLabel#labelTrust3, QLabel#labelTrust4 {
     background: #ffffff;
     border: 1px solid #eaedff;
     border-radius: 14px;
@@ -320,19 +312,19 @@ QLabel#badgeFault {
 }
 
 #widgetNavigation { background: rgba(255,255,255,248); border-top: 1px solid #eaedff; }
-#BtnHome, #BtnCharge, #BtnOrders, #BtnMine {
+#BtnHome, #BtnCharge, #BtnMine {
     background: transparent;
     border: none;
     border-top: 3px solid transparent;
     color: #434655;
     font-size: 13px;
 }
-#BtnHome:checked, #BtnCharge:checked, #BtnOrders:checked, #BtnMine:checked {
+#BtnHome:checked, #BtnCharge:checked, #BtnMine:checked {
     color: #2563eb;
     font-weight: 700;
     border-top: 3px solid #2563eb;
 }
-#BtnHome:hover:!checked, #BtnCharge:hover:!checked, #BtnOrders:hover:!checked,
+#BtnHome:hover:!checked, #BtnCharge:hover:!checked,
 #BtnMine:hover:!checked { color: #131b2e; }</string>
   </property>
   <widget class="QWidget" name="centralwidget">
@@ -1508,198 +1500,7 @@ QLabel#badgeFault {
       </property>
      </widget>
     </widget>
-    <widget class="QWidget" name="pageOrders">
-     <widget class="QLabel" name="labelOrdersTitle">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>12</y>
-        <width>200</width>
-        <height>30</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>我的订单</string>
-      </property>
-     </widget>
-     <widget class="QFrame" name="ordersSummary">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>54</y>
-        <width>328</width>
-        <height>110</height>
-       </rect>
-      </property>
-      <property name="frameShape">
-       <enum>QFrame::StyledPanel</enum>
-      </property>
-      <widget class="QLabel" name="labelOrdersMonth">
-       <property name="geometry">
-        <rect>
-         <x>24</x>
-         <y>14</y>
-         <width>280</width>
-         <height>18</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>本月累计充电能量</string>
-       </property>
-      </widget>
-      <widget class="QLabel" name="labelOrdersKwhMon">
-       <property name="geometry">
-        <rect>
-         <x>24</x>
-         <y>32</y>
-         <width>170</width>
-         <height>42</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>—</string>
-       </property>
-      </widget>
-      <widget class="QLabel" name="labelOrdersFeeMon">
-       <property name="geometry">
-        <rect>
-         <x>196</x>
-         <y>44</y>
-         <width>116</width>
-         <height>28</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>约 ¥—</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignVCenter</set>
-       </property>
-      </widget>
-      <widget class="QLabel" name="labelOrdersEco">
-       <property name="geometry">
-        <rect>
-         <x>24</x>
-         <y>82</y>
-         <width>280</width>
-         <height>16</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>绿色出行 · 累计减少碳排放</string>
-       </property>
-      </widget>
-     </widget>
-     <widget class="QPushButton" name="BtnOrdersAll">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>178</y>
-        <width>96</width>
-        <height>36</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>全部</string>
-      </property>
-      <property name="checkable">
-       <bool>true</bool>
-      </property>
-      <property name="checked">
-       <bool>true</bool>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="BtnOrdersCharging">
-      <property name="geometry">
-       <rect>
-        <x>120</x>
-        <y>178</y>
-        <width>96</width>
-        <height>36</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>充电中</string>
-      </property>
-      <property name="checkable">
-       <bool>true</bool>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="BtnOrdersSettled">
-      <property name="geometry">
-       <rect>
-        <x>224</x>
-        <y>178</y>
-        <width>96</width>
-        <height>36</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>已结算</string>
-      </property>
-      <property name="checkable">
-       <bool>true</bool>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelOrdersCardActive">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>226</y>
-        <width>328</width>
-        <height>206</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>—</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignTop|Qt::AlignLeading|Qt::AlignLeft</set>
-      </property>
-      <property name="wordWrap">
-       <bool>true</bool>
-      </property>
-      <property name="textFormat">
-       <enum>Qt::RichText</enum>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelOrdersEmpty">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>226</y>
-        <width>328</width>
-        <height>206</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>&lt;span style="font-size:34px;"&gt;🗒&lt;/span&gt;
-  
-&lt;b style="color:#131b2e;font-size:15px;"&gt;还没有充电记录&lt;/b&gt;
-&lt;span style="color:#737686;font-size:12px;"&gt;完成一次充电后&lt;br&gt;订单会自动展示在这里&lt;/span&gt;</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelOrdersHelp">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>482</y>
-        <width>328</width>
-        <height>44</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>&lt;span style="color:#737686;"&gt;需要帮助？请联系客服或查看充电指引&lt;/span&gt;</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
-    </widget>
-    <widget class="QWidget" name="pageMine">
+<widget class="QWidget" name="pageMine">
      <widget class="QLabel" name="label_title_mine">
       <property name="geometry">
        <rect>
@@ -2311,16 +2112,6 @@ QLabel#badgeFault {
       <widget class="QPushButton" name="BtnCharge">
        <property name="text">
         <string>充电</string>
-       </property>
-       <property name="checkable">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="BtnOrders">
-       <property name="text">
-        <string>订单</string>
        </property>
        <property name="checkable">
         <bool>true</bool>
