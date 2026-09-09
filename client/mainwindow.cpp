@@ -5,6 +5,7 @@
 #include "navigationpage.h"
 
 #include <QMessageBox>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QRegularExpression>
 #include <QtGlobal>
@@ -1464,4 +1465,3 @@ void MainWindow::rebuildNearbyCards(const QJsonArray &stations)
     }
     ui->nearbyListLayout->addStretch();
 }
-

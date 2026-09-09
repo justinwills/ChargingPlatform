@@ -106,6 +106,7 @@ private:
     int m_lastStationId = -1;
     double m_lastStationLat = 0.0;
     double m_lastStationLng = 0.0;
+    int m_lastStationId = -1;
     QString m_lastStationName;
     QString m_lastStationAddress;
     bool m_navigationStarted = false;
