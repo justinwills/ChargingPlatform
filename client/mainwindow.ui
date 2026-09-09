@@ -297,19 +297,52 @@ QPushButton#pileStartBtn:hover { background: #004ac6; }
 QScrollArea#nearbyListArea, QScrollArea#nearbyListArea > QWidget > QWidget { background: transparent; border: none; }
 QFrame#stationCard {
     background: #ffffff;
-    border: 1px solid #eaedff;
-    border-radius: 14px;
+    border: 1px solid #e8ecf5;
+    border-radius: 16px;
 }
 QPushButton#stationDetailBtn {
     background: #2563eb;
     color: #ffffff;
     border: none;
-    border-radius: 9px;
-    padding: 6px 12px;
+    border-radius: 10px;
+    padding: 7px 16px;
     font-size: 12px;
     font-weight: 600;
 }
 QPushButton#stationDetailBtn:hover { background: #004ac6; }
+QPushButton#stationDetailBtn:pressed { background: #003ea8; }
+QLabel#badgeStation {
+    background: #fff1e6;
+    color: #b45309;
+    border-radius: 10px;
+    padding: 2px 9px;
+    font-size: 11px;
+    font-weight: 600;
+}
+QLabel#pillFree {
+    background: #e2f6ec;
+    color: #0d7a4e;
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 500;
+}
+QLabel#pillOnline {
+    background: #eeF4ee;
+    color: #19815c;
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 500;
+}
+QLabel#pillPower {
+    background: #e8f0ff;
+    color: #1554d1;
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
 QLabel#badgeCharging {
     background: #ffddb8;
     color: #653e00;
@@ -693,7 +726,7 @@ QLabel#badgeFault {
           <number>0</number>
          </property>
          <property name="spacing">
-          <number>10</number>
+          <number>12</number>
          </property>
         </layout>
        </widget>

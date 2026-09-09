@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "admin/adminwindow.h"
+#include "flowlayout.h"
 
 #include <QMessageBox>
 #include <QJsonArray>
@@ -1121,48 +1122,90 @@ void MainWindow::rebuildNearbyCards(const QJsonArray &stations)
         auto *card = new QFrame(ui->nearbyListHost);
         card->setObjectName(QStringLiteral("stationCard"));
         auto *layout = new QVBoxLayout(card);
-        layout->setContentsMargins(14, 10, 12, 10);
-        layout->setSpacing(6);
+        layout->setContentsMargins(16, 14, 16, 14);
+        layout->setSpacing(8);
 
+        // 第一行：电站名 + 可选角标
+        auto *titleRow = new QHBoxLayout;
+        titleRow->setSpacing(6);
+        const QString fullName = station.value("name").toString();
         auto *name = new QLabel(card);
         name->setTextFormat(Qt::RichText);
-        name->setText(
-            QStringLiteral("<span style=\"font-size:15px;font-weight:700;color:#131b2e;\">%1</span>")
-                .arg(station.value("name").toString()));
-        layout->addWidget(name);
-
-        auto *address = new QLabel(station.value("address").toString(), card);
-        address->setWordWrap(true);
-        address->setStyleSheet(
-            QStringLiteral("color:#737686;font-size:12px;background:transparent;"));
-        layout->addWidget(address);
-
-        QString info = tr("空闲电桩：%1/%2 · 在线率：%3% · 单价：%4 元/度")
-                           .arg(station.value("freePileCount").toInt())
-                           .arg(station.value("pileCount").toInt())
-                           .arg(station.value("onlineRate").toDouble(), 0, 'f', 1)
-                           .arg(station.value("price").toDouble(), 0, 'f', 2);
-        if (station.contains("distanceKm")) {
-            info += tr(" · 距离：%1 公里")
-                        .arg(station.value("distanceKm").toDouble(), 0, 'f', 2);
+        QFont nameFont = name->font();
+        nameFont.setPointSizeF(nameFont.pointSizeF() + 1.0);
+        nameFont.setBold(true);
+        name->setFont(nameFont);
+        const QString elidedName = QFontMetrics(name->font())
+            .elidedText(fullName, Qt::ElideRight, 235);
+        name->setText(QStringLiteral("<span style=\"color:#131b2e;\">%1</span>")
+                          .arg(elidedName.toHtmlEscaped()));
+        titleRow->addWidget(name, 1);
+        if (station.contains("badge") && !station.value("badge").toString().isEmpty()) {
+            auto *badge = new QLabel(station.value("badge").toString(), card);
+            badge->setObjectName(QStringLiteral("badgeStation"));
+            titleRow->addWidget(badge, 0, Qt::AlignVCenter);
         }
+        layout->addLayout(titleRow);
 
-        auto *meta = new QLabel(info, card);
-        meta->setWordWrap(true);
-        meta->setStyleSheet(
-            QStringLiteral("color:#434655;font-size:12px;background:transparent;"));
-        layout->addWidget(meta);
+        // 第二行：距离 · 地址
+        QStringList placeParts;
+        if (station.contains("distanceKm")) {
+            placeParts << tr("%1 km")
+                              .arg(station.value("distanceKm").toDouble(), 0, 'f', 1);
+        }
+        placeParts << station.value("address").toString();
+        auto *place = new QLabel(placeParts.join(QStringLiteral(" · ")), card);
+        place->setStyleSheet(
+            QStringLiteral("color:#8a8f9e;font-size:12px;background:transparent;"));
+        layout->addWidget(place);
+
+        // 第三行：信息胶囊（可换行）
+        auto *pills = new FlowLayout(nullptr, 0, 6, 6);
+        auto *freePill = new QLabel(card);
+        freePill->setObjectName(QStringLiteral("pillFree"));
+        freePill->setText(tr("● %1/%2 个空闲")
+                              .arg(station.value("freePileCount").toInt())
+                              .arg(station.value("pileCount").toInt()));
+        pills->addWidget(freePill);
+        if (station.contains("maxPower")) {
+            auto *powerPill = new QLabel(card);
+            powerPill->setObjectName(QStringLiteral("pillPower"));
+            powerPill->setText(tr("⚡ %1 kW")
+                                   .arg(station.value("maxPower").toDouble(), 0, 'f', 0));
+            pills->addWidget(powerPill);
+        }
+        auto *onlinePill = new QLabel(card);
+        onlinePill->setObjectName(QStringLiteral("pillOnline"));
+        onlinePill->setText(tr("在线率 %1%")
+                                .arg(station.value("onlineRate").toDouble(), 0, 'f', 0));
+        pills->addWidget(onlinePill);
+        layout->addLayout(pills);
+
+        // 第四行：单价（大号蓝色）+ 查看详情
+        auto *bottomRow = new QHBoxLayout;
+        bottomRow->setSpacing(8);
+        auto *price = new QLabel(card);
+        price->setTextFormat(Qt::RichText);
+        price->setText(
+            QStringLiteral("<span style=\"font-size:24px;font-weight:700;color:#2563eb;\">"
+                           "¥%1</span>"
+                           "<span style=\"font-size:12px;color:#8a8f9e;\">&nbsp;/ kWh</span>")
+                .arg(station.value("price").toDouble(), 0, 'f', 2));
+        bottomRow->addWidget(price, 1, Qt::AlignVCenter);
 
         auto *btn = new QPushButton(tr("查看详情"), card);
         btn->setObjectName(QStringLiteral("stationDetailBtn"));
         btn->setCursor(Qt::PointingHandCursor);
+        btn->setMinimumHeight(34);
         connect(btn, &QPushButton::clicked, this, [this, stationId]() {
             m_showStationDetailPage = true;
             connection->sendRequest(QStringLiteral("query_station_detail"), {
                 {"stationId", stationId}
             });
         });
-        layout->addWidget(btn, 0, Qt::AlignRight);
+        bottomRow->addWidget(btn, 0, Qt::AlignVCenter);
+
+        layout->addLayout(bottomRow);
 
         ui->nearbyListLayout->addWidget(card);
     }
