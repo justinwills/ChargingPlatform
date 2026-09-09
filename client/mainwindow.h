@@ -10,6 +10,9 @@
 #include "paymentpreview.h"
 
 class QAbstractButton;
+class QFrame;
+class QLabel;
+class QPushButton;
 class NavigationPage;
 
 QT_BEGIN_NAMESPACE
@@ -82,6 +85,13 @@ private:
     void showNavigationPage();
     void leaveNavigationPage();
     void requestNavigation(const QString &mode, const QString &originAddress = QString());
+    void setupChargePageUi();
+    void updateChargeStationCard(const QJsonObject &station);
+    void updateChargePileCard();
+    void showChargeStationSelector();
+    void showChargePileSelector();
+    bool isPileAvailable(const QJsonObject &pile) const;
+    QString pileStatusText(const QString &status) const;
 
     Ui::MainWindow *ui;
 
@@ -118,5 +128,19 @@ private:
     int m_settlingOrderId = -1;
     double m_balanceBeforeSettlement = -1.0;
     bool m_backgroundBalanceRefresh = false;
+
+    QJsonObject m_chargeStation;
+    QJsonArray m_chargePiles;
+    double m_chargeStationPrice = 0.0;
+    QLabel *m_chargeStationNameLabel = nullptr;
+    QLabel *m_chargeStationMetaLabel = nullptr;
+    QLabel *m_chargeStationAvailabilityLabel = nullptr;
+    QLabel *m_chargePileCodeLabel = nullptr;
+    QLabel *m_chargePileTypeLabel = nullptr;
+    QLabel *m_chargePilePowerLabel = nullptr;
+    QLabel *m_chargePilePriceLabel = nullptr;
+    QLabel *m_chargePileStatusLabel = nullptr;
+    QPushButton *m_chargeStationSelectorButton = nullptr;
+    QPushButton *m_chargePileSelectorButton = nullptr;
 };
 #endif // MAINWINDOW_H
