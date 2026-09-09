@@ -643,7 +643,7 @@ QLabel#badgeFault {
         </rect>
        </property>
        <property name="text">
-        <string>¥0.00</string>
+        <string/>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -781,17 +781,17 @@ QLabel#badgeFault {
      <widget class="QLabel" name="labelSDBadge">
       <property name="geometry">
        <rect>
-        <x>230</x>
-        <y>64</y>
-        <width>116</width>
-        <height>20</height>
+        <x>252</x>
+        <y>62</y>
+        <width>92</width>
+        <height>24</height>
        </rect>
       </property>
       <property name="text">
        <string>闪电极速站</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignVCenter</set>
+       <set>Qt::AlignCenter</set>
       </property>
      </widget>
      <widget class="QLabel" name="labelSDAddress">
