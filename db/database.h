@@ -144,7 +144,8 @@ public:
     static bool startCharging(int userId, int pileId, int *outOrderId);
     // 结算：从用户钱包扣 fee，待结算订单标记"已结算"（第12项）
     // 余额不足时返回 false（对应《概要设计说明书》第五章"结算时余额不足"的错误处理要求）
-    static bool settleOrder(int orderId, double amount, double fee);
+    // 结算成功后通过 outBalance 返回扣款后的最新钱包余额，便于客户端即时刷新显示
+    static bool settleOrder(int orderId, double amount, double fee, double *outBalance = nullptr);
     static bool getOrderById(int orderId, OrderInfo *outOrder);  // 充电中状态展示用（第11项）
     static QList<OrderInfo> getUserOrders(int userId);
     static QList<OrderInfo> getAllOrders(const QString &phoneKeyword = QString(),

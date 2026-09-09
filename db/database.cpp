@@ -864,7 +864,7 @@ bool Database::startCharging(int userId, int pileId, int *outOrderId)
     return true;
 }
 
-bool Database::settleOrder(int orderId, double amount, double fee)
+bool Database::settleOrder(int orderId, double amount, double fee, double *outBalance)
 {
     QSqlDatabase db = currentThreadDb();
     if (!db.transaction()) {
@@ -936,6 +936,10 @@ bool Database::settleOrder(int orderId, double amount, double fee)
         qDebug() << "settleOrder 提交事务失败：" << db.lastError().text();
         db.rollback();
         return false;
+    }
+
+    if (outBalance) {
+        *outBalance = balance - fee;
     }
 
     return true;

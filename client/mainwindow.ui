@@ -633,6 +633,22 @@ QLabel#badgeFault {
        <string>绿色出行 · 附近极速充电网络</string>
       </property>
       </widget>
+      <widget class="QLabel" name="labelHomeBalance">
+       <property name="geometry">
+        <rect>
+         <x>240</x>
+         <y>10</y>
+         <width>112</width>
+         <height>30</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>¥0.00</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignVCenter</set>
+       </property>
+      </widget>
       <widget class="QLineEdit" name="editAddress">
        <property name="geometry">
         <rect>

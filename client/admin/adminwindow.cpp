@@ -18,6 +18,8 @@
 #include <QDoubleSpinBox>
 #include <QComboBox>
 #include <QDateEdit>
+#include <algorithm>
+#include <functional>
 #include <QDate>
 #include <QHBoxLayout>
 #include <QFrame>
@@ -83,7 +85,6 @@ QString AdminWindow::stylesheet()
             font-family: "Inter", "Microsoft YaHei";
             color: #434655;
             font-size: 13px;
-            background: transparent;
         }
         QMainWindow, QWidget#centralwidget {
             background: #faf8ff;
@@ -105,7 +106,7 @@ QString AdminWindow::stylesheet()
         }
         QLabel#sidebarBrand {
             color: #2563eb;
-            font-size: 22px;
+            font-size: 15px;
             font-weight: 700;
             background: transparent;
             border: none;
@@ -130,9 +131,24 @@ QString AdminWindow::stylesheet()
             background: #f2f3ff;
             color: #131b2e;
         }
-        QPushButton#navBtn:checked {
+        QPushButton#navBtn0:checked {
             background: #e2e7ff;
             color: #2563eb;
+            font-weight: 700;
+        }
+        QPushButton#navBtn1:checked {
+            background: #dff2e8;
+            color: #006c49;
+            font-weight: 700;
+        }
+        QPushButton#navBtn2:checked {
+            background: #ffe9cc;
+            color: #b45309;
+            font-weight: 700;
+        }
+        QPushButton#navBtn3:checked {
+            background: #ece4ff;
+            color: #6d28d9;
             font-weight: 700;
         }
 
@@ -154,6 +170,17 @@ QString AdminWindow::stylesheet()
             background: transparent;
             border: none;
         }
+        QPushButton#logoutBtn {
+            background: #ffdad6;
+            color: #93000a;
+            border: none;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 16px;
+        }
+        QPushButton#logoutBtn:hover { background: #ffc9c2; }
+        QPushButton#logoutBtn:pressed { background: #ffb3ab; }
 
         /* ── Stat cards ───────────────────────────────────────────── */
         QFrame#statCard {
@@ -361,18 +388,20 @@ QString AdminWindow::stylesheet()
         /* ── Tables ───────────────────────────────────────────────── */
         QTableWidget {
             background: #ffffff;
+            alternate-background-color: #f4f6ff;
             border: 1px solid #eaedff;
             border-radius: 12px;
             gridline-color: #f2f3ff;
             color: #434655;
             font-size: 13px;
-            selection-background-color: #e2e7ff;
+            selection-background-color: #dbe1ff;
             selection-color: #131b2e;
             outline: none;
         }
         QTableWidget::item {
             padding: 8px 10px;
             border-bottom: 1px solid #f2f3ff;
+            color: #434655;
         }
         QTableWidget::item:selected {
             background: #e2e7ff;
@@ -523,6 +552,48 @@ QString AdminWindow::stylesheet()
             border: 1px solid #eaedff;
             border-radius: 16px;
         }
+        QFrame#pileCardIdle {
+            background: #eef9f2;
+            border: 1px solid #a7f3d0;
+            border-left: 4px solid #006c49;
+            border-radius: 16px;
+        }
+        QFrame#pileCardBusy {
+            background: #fff8ef;
+            border: 1px solid #fde68a;
+            border-left: 4px solid #d97706;
+            border-radius: 16px;
+        }
+        QFrame#pileCardFault {
+            background: #fff1f0;
+            border: 1px solid #fecaca;
+            border-left: 4px solid #ba1a1a;
+            border-radius: 16px;
+        }
+        QLabel#countIdle {
+            color: #006c49;
+            font-family: "Inter", "Consolas", "Microsoft YaHei";
+            font-size: 18px;
+            font-weight: 700;
+            background: transparent;
+            border: none;
+        }
+        QLabel#countBusy {
+            color: #d97706;
+            font-family: "Inter", "Consolas", "Microsoft YaHei";
+            font-size: 18px;
+            font-weight: 700;
+            background: transparent;
+            border: none;
+        }
+        QLabel#countFault {
+            color: #ba1a1a;
+            font-family: "Inter", "Consolas", "Microsoft YaHei";
+            font-size: 18px;
+            font-weight: 700;
+            background: transparent;
+            border: none;
+        }
     )");
 }
 
@@ -545,7 +616,7 @@ AdminWindow::AdminWindow(QWidget *parent)
       statPileIdleCount(new QLabel), statPileBusyCount(new QLabel), statPileFaultCount(new QLabel),
       revenueTrendLabel(new QLabel)
 {
-    setWindowTitle(QStringLiteral("Kinetic Volt · 管理后台"));
+    setWindowTitle(QStringLiteral("东软电动汽车充电平台 · 管理后台"));
     resize(1120, 700);
     setMinimumSize(960, 600);
     setCentralWidget(pages);
@@ -579,13 +650,13 @@ AdminWindow::AdminWindow(QWidget *parent)
     brandLayout->addWidget(brandIcon, 0, Qt::AlignHCenter);
     brandLayout->addSpacing(24);
 
-    auto *brandName = new QLabel(QStringLiteral("Kinetic Volt"));
+    auto *brandName = new QLabel(QStringLiteral("东软电动汽车充电平台"));
     brandName->setStyleSheet(QStringLiteral(
-        "color:#ffffff; font-size:28px; font-weight:700; background:transparent; border:none;"));
+        "color:#ffffff; font-size:22px; font-weight:700; background:transparent; border:none;"));
     brandName->setAlignment(Qt::AlignHCenter);
     brandLayout->addWidget(brandName);
 
-    auto *brandSub = new QLabel(QStringLiteral("Clean EV Charging Platform"));
+    auto *brandSub = new QLabel(QStringLiteral("智慧新能源充电服务平台"));
     brandSub->setStyleSheet(QStringLiteral(
         "color:rgba(255,255,255,0.75); font-size:14px; background:transparent; border:none;"));
     brandSub->setAlignment(Qt::AlignHCenter);
@@ -646,6 +717,10 @@ AdminWindow::AdminWindow(QWidget *parent)
     usernameEdit->setPlaceholderText(QStringLiteral("请输入管理员用户名"));
     usernameEdit->setText(QStringLiteral("admin"));
     usernameEdit->setMinimumHeight(44);
+    usernameEdit->setStyleSheet(QStringLiteral(
+        "QLineEdit { background:#f2f3ff; border:1px solid #eaedff; border-radius:12px; "
+        "padding:10px 14px; color:#131b2e; font-size:14px; }"
+        "QLineEdit:focus { border:1px solid #2563eb; background:#ffffff; }"));
     cardLayout->addWidget(usernameEdit);
     cardLayout->addSpacing(16);
 
@@ -658,6 +733,10 @@ AdminWindow::AdminWindow(QWidget *parent)
     passwordEdit->setPlaceholderText(QStringLiteral("请输入密码"));
     passwordEdit->setText(QStringLiteral("123456"));
     passwordEdit->setMinimumHeight(44);
+    passwordEdit->setStyleSheet(QStringLiteral(
+        "QLineEdit { background:#f2f3ff; border:1px solid #eaedff; border-radius:12px; "
+        "padding:10px 14px; color:#131b2e; font-size:14px; }"
+        "QLineEdit:focus { border:1px solid #2563eb; background:#ffffff; }"));
     cardLayout->addWidget(passwordEdit);
     cardLayout->addSpacing(24);
 
@@ -666,6 +745,12 @@ AdminWindow::AdminWindow(QWidget *parent)
     loginBtn->setObjectName(QStringLiteral("primaryBtn"));
     loginBtn->setMinimumHeight(48);
     loginBtn->setCursor(Qt::PointingHandCursor);
+    loginBtn->setAutoDefault(false);
+    loginBtn->setStyleSheet(QStringLiteral(
+        "QPushButton { background:#2563eb; color:#ffffff; border:none; border-radius:12px; "
+        "font-size:14px; font-weight:600; padding:10px 20px; }"
+        "QPushButton:hover { background:#1d4ed8; }"
+        "QPushButton:pressed { background:#003ea8; }"));
     cardLayout->addWidget(loginBtn);
     cardLayout->addSpacing(12);
 
@@ -710,10 +795,10 @@ AdminWindow::AdminWindow(QWidget *parent)
 
     auto *sBrandText = new QVBoxLayout;
     sBrandText->setSpacing(0);
-    auto *sBrandName = new QLabel(QStringLiteral("Kinetic Volt"));
+    auto *sBrandName = new QLabel(QStringLiteral("东软电动汽车充电平台"));
     sBrandName->setObjectName(QStringLiteral("sidebarBrand"));
     sBrandText->addWidget(sBrandName);
-    auto *sBrandSub = new QLabel(QStringLiteral("Admin Console"));
+    auto *sBrandSub = new QLabel(QStringLiteral("管理后台"));
     sBrandSub->setObjectName(QStringLiteral("sidebarSub"));
     sBrandText->addWidget(sBrandSub);
     brandRow->addLayout(sBrandText);
@@ -741,7 +826,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     navGroup->setExclusive(true);
     for (int i = 0; i < navItems.size(); ++i) {
         auto *btn = new QPushButton(QStringLiteral("%1  %2").arg(navItems[i].icon, navItems[i].label));
-        btn->setObjectName(QStringLiteral("navBtn"));
+        btn->setObjectName(QStringLiteral("navBtn%1").arg(i));
         btn->setCheckable(true);
         btn->setMinimumHeight(44);
         btn->setCursor(Qt::PointingHandCursor);
@@ -755,7 +840,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     // Sidebar footer
     sideLayout->addWidget(makeDivider(QStringLiteral("#eaedff")));
     sideLayout->addSpacing(8);
-    auto *footerLabel = new QLabel(QStringLiteral("Kinetic Volt Clean EV\nv1.0.0"));
+    auto *footerLabel = new QLabel(QStringLiteral("东软电动汽车充电平台\nv1.0.0"));
     footerLabel->setStyleSheet(QStringLiteral(
         "color:#c3c6d7; font-size:11px; background:transparent; border:none;"));
     footerLabel->setAlignment(Qt::AlignCenter);
@@ -783,6 +868,12 @@ AdminWindow::AdminWindow(QWidget *parent)
     auto *headerSub = new QLabel(QStringLiteral("管理员"));
     headerSub->setObjectName(QStringLiteral("headerSub"));
     headerLayout->addWidget(headerSub);
+    headerLayout->addSpacing(12);
+    auto *logoutBtn = new QPushButton(QStringLiteral("退出登录"));
+    logoutBtn->setObjectName(QStringLiteral("logoutBtn"));
+    logoutBtn->setCursor(Qt::PointingHandCursor);
+    logoutBtn->setFixedHeight(30);
+    headerLayout->addWidget(logoutBtn);
     mainLayout->addWidget(headerBar);
 
     // Content stack
@@ -792,6 +883,7 @@ AdminWindow::AdminWindow(QWidget *parent)
 
     dashLayout->addWidget(mainArea, 1);
     pages->addWidget(dashboardPage);
+    connect(logoutBtn, &QPushButton::clicked, this, &AdminWindow::logout);
 
     // Connect nav
     connect(navGroup, QOverload<int>::of(&QButtonGroup::idClicked),
@@ -813,6 +905,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     // TAB 0: REVENUE & STATS
     // ══════════════════════════════════════════════════════════════════════════
     auto *statsPage = new QWidget;
+    statsPage->setStyleSheet(QStringLiteral("background:#f2f6ff;"));
     auto *statsScroll = new QScrollArea;
     statsScroll->setWidgetResizable(true);
     statsScroll->setFrameShape(QFrame::NoFrame);
@@ -868,19 +961,21 @@ AdminWindow::AdminWindow(QWidget *parent)
         QLabel *&count;
         const char *label;
         const char *dotObj;
+        const char *cardObj;
+        const char *countObj;
     };
     PileCardInfo pileCards[] = {
-        {statPileIdleCount, "空闲电桩", "dotIdle"},
-        {statPileBusyCount, "充电中", "dotBusy"},
-        {statPileFaultCount, "故障", "dotFault"},
+        {statPileIdleCount, "空闲电桩", "dotIdle", "pileCardIdle", "countIdle"},
+        {statPileBusyCount, "充电中", "dotBusy", "pileCardBusy", "countBusy"},
+        {statPileFaultCount, "故障", "dotFault", "pileCardFault", "countFault"},
     };
     for (int i = 0; i < 3; ++i) {
         auto *card = new QFrame;
-        card->setObjectName(QStringLiteral("pileStatusCard"));
-        card->setMinimumHeight(100);
+        card->setObjectName(QString::fromUtf8(pileCards[i].cardObj));
+        card->setMinimumHeight(72);
         applyShadow(card, 16, 4, QColor(19, 27, 46, 12));
         auto *cl = new QHBoxLayout(card);
-        cl->setContentsMargins(20, 16, 20, 16);
+        cl->setContentsMargins(18, 14, 18, 14);
         cl->setSpacing(14);
 
         auto *dot = new QLabel;
@@ -893,7 +988,7 @@ AdminWindow::AdminWindow(QWidget *parent)
         auto *lbl = new QLabel(QString::fromUtf8(pileCards[i].label));
         lbl->setObjectName(QStringLiteral("statLabel"));
         textCol->addWidget(lbl);
-        pileCards[i].count->setObjectName(QStringLiteral("statValueSm"));
+        pileCards[i].count->setObjectName(QString::fromUtf8(pileCards[i].countObj));
         pileCards[i].count->setText(QStringLiteral("0"));
         textCol->addWidget(pileCards[i].count);
         textCol->addStretch();
@@ -938,6 +1033,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     // TAB 1: USER MANAGEMENT
     // ══════════════════════════════════════════════════════════════════════════
     auto *usersPage = new QWidget;
+    usersPage->setStyleSheet(QStringLiteral("background:#f2f8f5;"));
     auto *usersMainLayout = new QVBoxLayout(usersPage);
     usersMainLayout->setContentsMargins(28, 24, 28, 24);
     usersMainLayout->setSpacing(16);
@@ -998,6 +1094,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     // TAB 2: STATIONS & PILES
     // ══════════════════════════════════════════════════════════════════════════
     auto *stationsPage = new QWidget;
+    stationsPage->setStyleSheet(QStringLiteral("background:#fff8ef;"));
     auto *stationsScroll = new QScrollArea;
     stationsScroll->setWidgetResizable(true);
     stationsScroll->setFrameShape(QFrame::NoFrame);
@@ -1147,6 +1244,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     // TAB 3: ORDER REPORTS
     // ══════════════════════════════════════════════════════════════════════════
     auto *ordersPage = new QWidget;
+    ordersPage->setStyleSheet(QStringLiteral("background:#f6f3ff;"));
     auto *ordersMainLayout = new QVBoxLayout(ordersPage);
     ordersMainLayout->setContentsMargins(28, 24, 28, 24);
     ordersMainLayout->setSpacing(16);
@@ -1284,6 +1382,15 @@ void AdminWindow::login()
     }
 }
 
+void AdminWindow::logout()
+{
+    passwordEdit->clear();
+    loginStatus->clear();
+    pages->setCurrentIndex(0);
+    updateNavButtons(0);
+    contentStack->setCurrentIndex(0);
+}
+
 // ─── Network ───────────────────────────────────────────────────────────────────
 void AdminWindow::send(const QString &action, const QJsonObject &params)
 {
@@ -1391,10 +1498,19 @@ void AdminWindow::populateRevenueTrend(const QJsonArray &trend)
         "<td style='color:#737686; font-size:12px; font-weight:600; padding:6px 12px; border-bottom:1px solid #eaedff;'>营收（元）</td>"
         "</tr>");
 
+    QStringList dates;
+    QMap<QString, double> revenueByDate;
     for (const QJsonValue &val : trend) {
         const QJsonObject pt = val.toObject();
         const QString date = pt.value("date").toString();
-        const double rev = pt.value("revenue").toDouble();
+        dates.append(date);
+        revenueByDate.insert(date, pt.value("revenue").toDouble());
+    }
+    dates.sort(Qt::CaseSensitive);
+    std::sort(dates.begin(), dates.end(), std::greater<QString>());
+
+    for (const QString &date : dates) {
+        const double rev = revenueByDate.value(date);
         html += QStringLiteral("<tr>"
             "<td style='color:#434655; font-size:13px; padding:8px 12px; border-bottom:1px solid #f2f3ff;'>%1</td>"
             "<td style='color:#131b2e; font-family:Inter,Consolas; font-size:14px; font-weight:600; padding:8px 12px; border-bottom:1px solid #f2f3ff;'>¥%2</td>"

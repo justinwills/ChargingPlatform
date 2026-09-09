@@ -25,6 +25,7 @@ public:
 
 private slots:
     void login();
+    void logout();
     void handleResponse(const QJsonObject &response);
     void handleError(const QString &message);
     void refreshUsers();

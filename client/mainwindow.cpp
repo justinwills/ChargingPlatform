@@ -416,6 +416,37 @@ void MainWindow::onServerResponse(const QJsonObject &response)
                 m_lastOrder = data;
                 m_pendingPileId = -1;
 
+                // 订单仍在充电中：只恢复充电监控页，绝不自动结算或弹结算窗。
+                if (status == QStringLiteral("充电中")) {
+                    ui->labelMonStatus->setText(tr("正在充电 · 数据每 5 秒刷新"));
+                    ui->labelMonStation->setText(
+                        m_lastStationName.isEmpty()
+                            ? QStringLiteral("睿光充电站") : m_lastStationName);
+                    ui->labelMonOrderId->setText(
+                        tr("订单号：#%1").arg(activeOrderId));
+                    ui->labelMonStart->setText(
+                        tr("开始时间：%1")
+                            .arg(data.value("startTime").toString()));
+                    activeOrderStartTime = QDateTime::fromString(
+                        data.value("startTime").toString(),
+                        QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+                    ui->labelMonKwh->setText(
+                        QStringLiteral("%1 kWh")
+                            .arg(data.value("estimatedAmount").toDouble(
+                                currentAmount), 0, 'f', 2));
+                    ui->labelMonFee->setText(
+                        QStringLiteral("¥%1").arg(data.value("estimatedFee")
+                            .toDouble(currentFee), 0, 'f', 2));
+                    ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
+                    ui->BtnCharge->setChecked(true);
+                    ui->BtnHome->setChecked(false);
+                    ui->BtnMine->setChecked(false);
+                    displayTimer.start();
+                    orderTimer.start();
+                    return;
+                }
+
+                // 订单已是待结算状态：进入结算流程。
                 QMessageBox::information(
                     this, tr("提示"), tr("您有未完成的充电订单，请先结算"));
                 ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
@@ -569,6 +600,9 @@ void MainWindow::onServerResponse(const QJsonObject &response)
 
         // 登录成功后才进入主界面
         if(action == "login"){
+            const bool backgroundRefresh = m_backgroundBalanceRefresh;
+            m_backgroundBalanceRefresh = false;
+
             const int ongoingOrderId = data.value("ongoingOrderId").toInt(-1);
             if (ongoingOrderId > 0) {
                 activeOrderId = ongoingOrderId;
@@ -585,18 +619,23 @@ void MainWindow::onServerResponse(const QJsonObject &response)
                 activeOrderStartTime = QDateTime();
                 orderTimer.stop();
                 displayTimer.stop();
-                ui->stackedWidget->setCurrentWidget(ui->pageHome);
-                connection->sendRequest(QStringLiteral("query_stations"), {});
+                // 后台余额刷新不抢走用户当前页面，仅更新钱包数值。
+                if (!backgroundRefresh) {
+                    ui->stackedWidget->setCurrentWidget(ui->pageHome);
+                    connection->sendRequest(QStringLiteral("query_stations"), {});
+                }
             }
             ui->widgetNavigation->show();
             ui->label_title_mine_6->setText(
                 tr("欢迎%1").arg(data.value("nickname").toString()));
 
-            QMessageBox::information(
-                this,
-                tr("登陆成功"),
-                tr("欢迎,%1").arg(data.value("nickname").toString())
-                );
+            if (!backgroundRefresh) {
+                QMessageBox::information(
+                    this,
+                    tr("登陆成功"),
+                    tr("欢迎,%1").arg(data.value("nickname").toString())
+                    );
+            }
             return;
         }
 
@@ -701,10 +740,15 @@ void MainWindow::onServerResponse(const QJsonObject &response)
                 tr("开始时间：%1").arg(data.value("startTime").toString()));
             displayTimer.start();
             orderTimer.start();
-            ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
-            ui->BtnCharge->setChecked(true);
-            ui->BtnHome->setChecked(false);
-            ui->BtnMine->setChecked(false);
+            // 仅在用户当前位于充电相关页面时才切回充电监控页，
+            // 避免5秒一轮的后台刷新把用户从其他页面强行拽回充电页。
+            if (ui->stackedWidget->currentWidget() == ui->pageChargeMonitor
+                || ui->stackedWidget->currentWidget() == ui->pageCharge) {
+                ui->stackedWidget->setCurrentWidget(ui->pageChargeMonitor);
+                ui->BtnCharge->setChecked(true);
+                ui->BtnHome->setChecked(false);
+                ui->BtnMine->setChecked(false);
+            }
         }
         if (status == QStringLiteral("待结算")) {
             currentAmount = data.value("amount").toDouble(estAmount);
@@ -755,12 +799,25 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         return;
     }
 
-    if (action == QStringLiteral("settle_order") && m_paymentPreview) {
+    if (action == QStringLiteral("settle_order")) {
+        // 结算成功后服务器返回扣款后的最新余额，立即刷新钱包显示，
+        // 避免钱包值不随订单结束而减少。
+        // 注意：支付确认后结算窗会自动关闭并把 m_paymentPreview 置空，
+        // 因此余额刷新不能依赖 m_paymentPreview 是否非空。
+        if (data.contains("balance")) {
+            const double newBalance = data.value("balance").toDouble();
+            m_currentUser["balance"] = newBalance;
+            updateBalanceLabels(newBalance);
+        }
+
+        if (m_paymentPreview) {
+            m_paymentPreview->showPaymentSuccess();
+        }
+
         ui->stackedWidget->setCurrentWidget(ui->pageCharge);
         ui->BtnCharge->setChecked(true);
         ui->BtnHome->setChecked(false);
         ui->BtnMine->setChecked(false);
-        m_paymentPreview->showPaymentSuccess();
     }
 
     if (activeOrderId >= 0) {
@@ -768,12 +825,12 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         ui->labelElapsedTime->setText(QStringLiteral("00:00:00"));
         activeOrderStartTime = QDateTime();
         orderTimer.stop();
-        const int settledOrderId = activeOrderId;
         activeOrderId = -1;
         displayTimer.stop();
-        connection->sendRequest(QStringLiteral("query_order"), {
-            {"orderId", settledOrderId}
-        });
+        // 用一次登录刷新强制拿到服务器最新余额，保证钱包显示在结算后立即更新，
+        // 不再依赖 settle 回包里的 balance（即使缺失也会被这里兜底刷新）。
+        m_backgroundBalanceRefresh = true;
+        m_pendingAction = QStringLiteral("login");
         connection->sendRequest(QStringLiteral("login"), {{"phone", phoneNumber}});
     }
 }
@@ -1011,6 +1068,7 @@ void MainWindow::applyNavIcon(QAbstractButton *button, bool checked, const QStri
 
 void MainWindow::updateBalanceLabels(double balance)
 {
+    ui->labelMoney_c->setText(QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
     ui->labelRechargeBalance->setText(QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
 }
 

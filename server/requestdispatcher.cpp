@@ -874,8 +874,13 @@ QJsonObject RequestDispatcher::handleSettleOrder(const QJsonObject &params)
         return fail(1, "orderId、amount或fee参数无效");
     }
 
-    if (!Database::settleOrder(orderId, amount, fee)) {
+    double newBalance = -1;
+    if (!Database::settleOrder(orderId, amount, fee, &newBalance)) {
         return fail(2, "结算失败：订单不存在、已结算过、或余额不足");
     }
-    return ok(QJsonObject());
+    QJsonObject data;
+    if (newBalance >= 0) {
+        data["balance"] = newBalance;
+    }
+    return ok(data);
 }
