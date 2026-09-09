@@ -30,6 +30,7 @@
 #include <QGridLayout>
 #include <QButtonGroup>
 #include <QVector>
+#include <QSignalBlocker>
 
 // ─── Design System Constants ───────────────────────────────────────────────────
 // Colors
@@ -1325,12 +1326,19 @@ AdminWindow::AdminWindow(QWidget *parent)
     orderPhoneFilter->setMinimumHeight(40);
     orderFilterRow1->addWidget(orderPhoneFilter, 1);
 
+    auto *orderPhoneSearchBtn = new QPushButton(QStringLiteral("搜索"));
+    orderPhoneSearchBtn->setObjectName(QStringLiteral("primaryBtn"));
+    orderPhoneSearchBtn->setMinimumHeight(40);
+    orderPhoneSearchBtn->setCursor(Qt::PointingHandCursor);
+    orderFilterRow1->addWidget(orderPhoneSearchBtn);
+
     orderStationFilter->addItem(QStringLiteral("全部站点"), -1);
     orderStationFilter->setMinimumHeight(40);
     orderFilterRow1->addWidget(orderStationFilter);
 
     orderStatusFilter->addItem(QStringLiteral("全部状态"), QString());
     orderStatusFilter->addItem(QStringLiteral("充电中"), QStringLiteral("充电中"));
+    orderStatusFilter->addItem(QStringLiteral("待结算"), QStringLiteral("待结算"));
     orderStatusFilter->addItem(QStringLiteral("已结算"), QStringLiteral("已结算"));
     orderStatusFilter->setMinimumHeight(40);
     orderFilterRow1->addWidget(orderStatusFilter);
@@ -1389,6 +1397,14 @@ AdminWindow::AdminWindow(QWidget *parent)
     ordersMainLayout->addWidget(orderTableCard, 1);
 
     contentStack->addWidget(ordersPage);
+    connect(orderPhoneSearchBtn, &QPushButton::clicked, this, &AdminWindow::refreshOrders);
+    connect(orderPhoneFilter, &QLineEdit::returnPressed, this, &AdminWindow::refreshOrders);
+    connect(orderStationFilter, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &AdminWindow::refreshOrders);
+    connect(orderStatusFilter, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &AdminWindow::refreshOrders);
+    connect(orderFromDate, &QDateEdit::dateChanged, this, &AdminWindow::refreshOrders);
+    connect(orderToDate, &QDateEdit::dateChanged, this, &AdminWindow::refreshOrders);
     connect(ordersRefreshBtn, &QPushButton::clicked, this, &AdminWindow::refreshOrders);
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -1630,6 +1646,7 @@ void AdminWindow::handleResponse(const QJsonObject &response)
     } else if (data.contains("stations")) {
         const QJsonArray stations = data.value("stations").toArray();
         const QVariant selectedStation = orderStationFilter->currentData();
+        const QSignalBlocker blocker(orderStationFilter);
         orderStationFilter->clear();
         orderStationFilter->addItem(QStringLiteral("全部站点"), -1);
         if (stations.isEmpty()) {
@@ -1696,6 +1713,11 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         populateRevenueTrend(data.value("revenueTrend").toArray());
     } else if (data.contains("orders")) {
         const QJsonArray orders = data.value("orders").toArray();
+        if (orders.isEmpty()) {
+            showTableEmptyState(ordersTable, QStringLiteral("暂无订单数据"));
+            return;
+        }
+        ordersTable->clearSpans();
         ordersTable->setRowCount(orders.size());
         for (int row = 0; row < orders.size(); ++row) {
             const QJsonObject order = orders.at(row).toObject();

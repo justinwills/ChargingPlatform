@@ -1012,10 +1012,10 @@ QList<OrderInfo> Database::getAllOrders(const QString &phoneKeyword, int station
         sql += " and stations.id = ?";
     }
     if (!fromDate.trimmed().isEmpty()) {
-        sql += " and date(orders.end_time) >= date(?)";
+        sql += " and date(coalesce(orders.end_time, orders.start_time)) >= date(?)";
     }
     if (!toDate.trimmed().isEmpty()) {
-        sql += " and date(orders.end_time) <= date(?)";
+        sql += " and date(coalesce(orders.end_time, orders.start_time)) <= date(?)";
     }
     if (!status.trimmed().isEmpty()) {
         sql += " and orders.status = ?";
