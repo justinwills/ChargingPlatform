@@ -580,9 +580,9 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         }
 
         if (!avatar.isNull()) {
-            ui->labelPhoto->setFixedSize(100,100);
+            ui->labelPhoto->setFixedSize(80,80);
             ui->labelPhoto->setAlignment(Qt::AlignCenter);
-            ui->labelPhoto->setPixmap(circularPixmap(avatar,100));
+            ui->labelPhoto->setPixmap(circularPixmap(avatar,80));
         } else {
             qWarning() << "默认头像加载失败";
         }
