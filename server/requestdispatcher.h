@@ -62,6 +62,7 @@ private:
     static QJsonObject handleQueryUsers(const QJsonObject &params);
     static QJsonObject handleSetUserStatus(const QJsonObject &params);
     static QJsonObject handleAdminAddStation(const QJsonObject &params);
+    static QJsonObject handleAdminSetStationPileCount(const QJsonObject &params);
     static QJsonObject handleAdminQueryStations(const QJsonObject &params);
     static QJsonObject handleAdminQueryPiles(const QJsonObject &params);
     static QJsonObject handleAdminRestartPile(const QJsonObject &params);

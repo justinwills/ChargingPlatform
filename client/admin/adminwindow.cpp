@@ -621,8 +621,9 @@ AdminWindow::AdminWindow(QWidget *parent)
       userFilterEdit(new QLineEdit), usersTable(new QTableWidget),
       stationNameEdit(new QLineEdit), stationAddressEdit(new QLineEdit),
       stationLongitudeEdit(new QDoubleSpinBox), stationLatitudeEdit(new QDoubleSpinBox),
-      stationPriceEdit(new QDoubleSpinBox),
+      stationPriceEdit(new QDoubleSpinBox), stationPileCountEdit(new QSpinBox),
       stationsTable(new QTableWidget), pilesTable(new QTableWidget),
+      stationAdjustIdSpin(new QSpinBox), stationAdjustPileCountSpin(new QSpinBox),
       pileIdSpin(new QSpinBox),
       orderPhoneFilter(new QLineEdit), orderStationFilter(new QComboBox),
       orderStatusFilter(new QComboBox), orderFromDate(new QDateEdit),
@@ -1163,16 +1164,19 @@ AdminWindow::AdminWindow(QWidget *parent)
     stationPriceEdit->setDecimals(2);
     stationPriceEdit->setPrefix(QStringLiteral("¥ "));
     stationPriceEdit->setSuffix(QStringLiteral(" /kWh"));
+    stationPileCountEdit->setRange(0, 200);
+    stationPileCountEdit->setValue(2);
 
     addField(0, 0, QStringLiteral("站点名称"), stationNameEdit);
     addField(0, 1, QStringLiteral("地址"), stationAddressEdit);
     addField(1, 0, QStringLiteral("经度"), stationLongitudeEdit);
     addField(1, 1, QStringLiteral("纬度"), stationLatitudeEdit);
     addField(2, 0, QStringLiteral("充电单价"), stationPriceEdit);
+    addField(2, 1, QStringLiteral("初始电桩数量"), stationPileCountEdit);
 
     addCardLayout->addLayout(formGrid);
 
-    auto *addStationBtn = new QPushButton(QStringLiteral("+  新增充电站"));
+    auto *addStationBtn = new QPushButton(QStringLiteral("+  添加站点"));
     addStationBtn->setObjectName(QStringLiteral("primaryBtn"));
     addStationBtn->setMinimumHeight(44);
     addStationBtn->setCursor(Qt::PointingHandCursor);
@@ -1225,6 +1229,35 @@ AdminWindow::AdminWindow(QWidget *parent)
     stationsTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     stationsTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     stcLayout->addWidget(stationsTable);
+
+    auto *stationAdjustRow = new QHBoxLayout;
+    stationAdjustRow->setContentsMargins(0, 10, 0, 0);
+    stationAdjustRow->setSpacing(12);
+    auto *stationAdjustIdLabel = new QLabel(QStringLiteral("站点 ID"));
+    stationAdjustIdLabel->setStyleSheet(QStringLiteral(
+        "color:#737686; font-size:13px; font-weight:500; background:transparent; border:none;"));
+    stationAdjustRow->addWidget(stationAdjustIdLabel);
+    stationAdjustIdSpin->setRange(1, 1000000);
+    stationAdjustIdSpin->setMinimumHeight(36);
+    stationAdjustIdSpin->setFixedWidth(100);
+    stationAdjustRow->addWidget(stationAdjustIdSpin);
+
+    auto *stationAdjustCountLabel = new QLabel(QStringLiteral("电桩数量"));
+    stationAdjustCountLabel->setStyleSheet(QStringLiteral(
+        "color:#737686; font-size:13px; font-weight:500; background:transparent; border:none;"));
+    stationAdjustRow->addWidget(stationAdjustCountLabel);
+    stationAdjustPileCountSpin->setRange(0, 200);
+    stationAdjustPileCountSpin->setMinimumHeight(36);
+    stationAdjustPileCountSpin->setFixedWidth(100);
+    stationAdjustRow->addWidget(stationAdjustPileCountSpin);
+
+    auto *adjustPileCountBtn = new QPushButton(QStringLiteral("调整电桩数量"));
+    adjustPileCountBtn->setObjectName(QStringLiteral("primaryBtn"));
+    adjustPileCountBtn->setMinimumHeight(36);
+    adjustPileCountBtn->setCursor(Qt::PointingHandCursor);
+    stationAdjustRow->addWidget(adjustPileCountBtn);
+    stationAdjustRow->addStretch();
+    stcLayout->addLayout(stationAdjustRow);
     stationsMainLayout->addWidget(stationTableCard);
 
     // ── Piles Table Card ─────────────────────────────────────────────────────
@@ -1302,6 +1335,17 @@ AdminWindow::AdminWindow(QWidget *parent)
 
     connect(addStationBtn, &QPushButton::clicked, this, &AdminWindow::addStation);
     connect(stationRefreshBtn, &QPushButton::clicked, this, &AdminWindow::refreshStationsAndPiles);
+    connect(adjustPileCountBtn, &QPushButton::clicked, this, &AdminWindow::adjustStationPileCount);
+    connect(stationsTable, &QTableWidget::currentCellChanged, this,
+            [this](int currentRow, int, int, int) {
+        if (currentRow < 0 || !stationsTable->item(currentRow, 0)
+            || !stationsTable->item(currentRow, 4)) {
+            return;
+        }
+        stationAdjustIdSpin->setValue(stationsTable->item(currentRow, 0)->text().toInt());
+        const QString countText = stationsTable->item(currentRow, 4)->text().section('/', 1).trimmed();
+        stationAdjustPileCountSpin->setValue(countText.toInt());
+    });
     connect(restartBtn, &QPushButton::clicked, this, &AdminWindow::restartSelectedPile);
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -1522,7 +1566,16 @@ void AdminWindow::addStation()
         {"address", stationAddressEdit->text()},
         {"longitude", stationLongitudeEdit->value()},
         {"latitude", stationLatitudeEdit->value()},
-        {"price", stationPriceEdit->value()}
+        {"price", stationPriceEdit->value()},
+        {"pileCount", stationPileCountEdit->value()}
+    });
+}
+
+void AdminWindow::adjustStationPileCount()
+{
+    send(QStringLiteral("admin_set_station_pile_count"), {
+        {"stationId", stationAdjustIdSpin->value()},
+        {"pileCount", stationAdjustPileCountSpin->value()}
     });
 }
 
@@ -1673,6 +1726,15 @@ void AdminWindow::handleResponse(const QJsonObject &response)
             stationsTable->setItem(row, 5, new QTableWidgetItem(
                 QStringLiteral("%1%").arg(station.value("onlineRate").toDouble(), 0, 'f', 1)));
         }
+        if (!stations.isEmpty()) {
+            int row = stationsTable->currentRow();
+            if (row < 0 || row >= stations.size()) {
+                row = 0;
+                stationsTable->selectRow(row);
+            }
+            stationAdjustIdSpin->setValue(stationsTable->item(row, 0)->text().toInt());
+            stationAdjustPileCountSpin->setValue(stations.at(row).toObject().value("pileCount").toInt());
+        }
         const int selectedIndex = orderStationFilter->findData(selectedStation);
         if (selectedIndex >= 0) orderStationFilter->setCurrentIndex(selectedIndex);
         send(QStringLiteral("admin_query_piles"));
@@ -1754,6 +1816,9 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         stationLongitudeEdit->setValue(0);
         stationLatitudeEdit->setValue(0);
         stationPriceEdit->setValue(0);
+        stationPileCountEdit->setValue(2);
+        refreshStationsAndPiles();
+    } else if (action == QStringLiteral("admin_set_station_pile_count")) {
         refreshStationsAndPiles();
     } else if (action == QStringLiteral("set_user_status")) {
         refreshUsers();

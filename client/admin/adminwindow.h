@@ -32,6 +32,7 @@ private slots:
     void toggleSelectedUser();
     void refreshStationsAndPiles();
     void addStation();
+    void adjustStationPileCount();
     void restartSelectedPile();
     void refreshStats();
     void refreshOrders();
@@ -86,8 +87,11 @@ private:
     QDoubleSpinBox *stationLongitudeEdit;
     QDoubleSpinBox *stationLatitudeEdit;
     QDoubleSpinBox *stationPriceEdit;
+    QSpinBox *stationPileCountEdit;
     QTableWidget *stationsTable;
     QTableWidget *pilesTable;
+    QSpinBox *stationAdjustIdSpin;
+    QSpinBox *stationAdjustPileCountSpin;
     QSpinBox *pileIdSpin;
 
     // Orders page

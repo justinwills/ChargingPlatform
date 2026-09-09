@@ -264,6 +264,7 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
     if (action == "query_users")        return handleQueryUsers(params);
     if (action == "set_user_status")    return handleSetUserStatus(params);
     if (action == "admin_add_station") return handleAdminAddStation(params);
+    if (action == "admin_set_station_pile_count") return handleAdminSetStationPileCount(params);
     if (action == "admin_query_stations") return handleAdminQueryStations(params);
     if (action == "admin_query_piles")  return handleAdminQueryPiles(params);
     if (action == "admin_restart_pile") return handleAdminRestartPile(params);
@@ -447,13 +448,33 @@ QJsonObject RequestDispatcher::handleAdminAddStation(const QJsonObject &params)
     const double longitude = params.value("longitude").toDouble();
     const double latitude = params.value("latitude").toDouble();
     const double price = params.value("price").toDouble();
+    const int pileCount = params.value("pileCount").toInt(0);
     if (!qIsFinite(longitude) || !qIsFinite(latitude) || !qIsFinite(price)
         || longitude < -180 || longitude > 180
-        || latitude < -90 || latitude > 90 || price < 0) {
+        || latitude < -90 || latitude > 90 || price < 0
+        || pileCount < 0 || pileCount > 200) {
         return fail(1, "经纬度或价格无效");
     }
-    if (!Database::addStation(name, address, longitude, latitude, price)) {
+    if (!Database::addStation(name, address, longitude, latitude, price, pileCount)) {
         return fail(2, "新增充电站失败");
+    }
+    return ok(QJsonObject());
+}
+
+QJsonObject RequestDispatcher::handleAdminSetStationPileCount(const QJsonObject &params)
+{
+    if (!params.contains("stationId") || !params.contains("pileCount")) {
+        return fail(1, "缺少stationId或pileCount参数");
+    }
+
+    const int stationId = params.value("stationId").toInt();
+    const int pileCount = params.value("pileCount").toInt();
+    if (stationId <= 0 || pileCount < 0 || pileCount > 200) {
+        return fail(1, "站点ID或电桩数量无效");
+    }
+
+    if (!Database::setStationPileCount(stationId, pileCount)) {
+        return fail(2, "调整电桩数量失败，请确认站点存在，且减少数量时有足够的闲置电桩可删除");
     }
     return ok(QJsonObject());
 }

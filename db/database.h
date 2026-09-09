@@ -125,7 +125,9 @@ public:
     static QList<StationInfo> getAllStations();
     static bool getStationById(int stationId, StationInfo *outStation);
     static bool addStation(const QString &name, const QString &address,
-                            double longitude, double latitude, double price); // 第21项 新增电站
+                            double longitude, double latitude, double price,
+                            int pileCount = 0); // 第21项 新增电站
+    static bool setStationPileCount(int stationId, int pileCount);
     static int getFreePileCount(int stationId);        // 空闲电桩数量，充电站列表卡片要用（第2项）
     static double getStationOnlineRate(int stationId);  // 在线率(0~100)：非"故障"电桩占比（第19项）
 
