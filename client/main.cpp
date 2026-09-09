@@ -8,7 +8,6 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     a.setStyle(QStringLiteral("Fusion"));
-
     QFont appFont(QStringLiteral("Inter"));
     appFont.setStyleHint(QFont::SansSerif);
     a.setFont(appFont);

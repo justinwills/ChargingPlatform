@@ -37,7 +37,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->widgetNavigation->setGraphicsEffect(navShadow);
 
     applyShadow(ui->balanceFrame);
-    applyShadow(ui->homeBalanceCard);
     applyShadow(ui->loginCard);
     applyShadow(ui->profileCard);
     applyShadow(ui->menuCard);
@@ -111,6 +110,9 @@ MainWindow::~MainWindow()
 void MainWindow::on_BtnHome_clicked()
 {
     ui->stackedWidget->setCurrentWidget(ui->pageHome);
+    if (userId > 0 && connection->isConnected()) {
+        connection->sendRequest(QStringLiteral("query_stations"), {});
+    }
 }
 
 void MainWindow::on_BtnCharge_clicked()
@@ -144,6 +146,9 @@ void MainWindow::on_BtnStationBack_clicked()
 {
     ui->stackedWidget->setCurrentWidget(ui->pageHome);
     ui->BtnHome->setChecked(true);
+    if (userId > 0 && connection->isConnected()) {
+        connection->sendRequest(QStringLiteral("query_stations"), {});
+    }
 }
 
 void MainWindow::on_BtnStartChargeHere_clicked()
@@ -606,8 +611,11 @@ void MainWindow::onServerResponse(const QJsonObject &response)
                 orderTimer.stop();
                 displayTimer.stop();
                 ui->stackedWidget->setCurrentWidget(ui->pageHome);
+                connection->sendRequest(QStringLiteral("query_stations"), {});
             }
             ui->widgetNavigation->show();
+            ui->label_title_mine_6->setText(
+                tr("欢迎%1").arg(data.value("nickname").toString()));
 
             QMessageBox::information(
                 this,
@@ -997,7 +1005,6 @@ void MainWindow::applyShadow(QWidget *widget)
 
 void MainWindow::updateBalanceLabels(double balance)
 {
-    ui->labelHomeBalance->setText(QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
     ui->labelRechargeBalance->setText(QStringLiteral("¥ %1").arg(balance, 0, 'f', 2));
 }
 

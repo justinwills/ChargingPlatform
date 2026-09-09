@@ -503,8 +503,6 @@ QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
         if (!hasLocation && !qEnvironmentVariable("TENCENT_MAP_KEY").isEmpty()) {
             return fail(3, QStringLiteral("地址解析失败：%1").arg(geocodeError));
         }
-    } else {
-        return fail(1, "需要latitude/longitude或address参数");
     }
 
     struct StationResult {
@@ -516,7 +514,8 @@ QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
         if (hasLocation) {
             results.append({s, distanceKm(location.latitude, location.longitude,
                                           s.latitude, s.longitude)});
-        } else if (s.name.contains(addressKeyword, Qt::CaseInsensitive)
+        } else if (addressKeyword.isEmpty()
+                   || s.name.contains(addressKeyword, Qt::CaseInsensitive)
                    || s.address.contains(addressKeyword, Qt::CaseInsensitive)) {
             results.append({s, -1});
         }

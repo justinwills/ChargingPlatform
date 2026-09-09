@@ -492,70 +492,70 @@ QLabel#badgeFault {
        </property>
       </widget>
      </widget>
-     <widget class="QLabel" name="labelTrust1">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>444</y>
-        <width>166</width>
-        <height>44</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>&lt;b style="color:#131b2e;font-size:13px;"&gt;全国互联互通&lt;/b&gt;&lt;br&gt;&lt;span style="color:#737686;font-size:11px;"&gt;覆盖城市充电网络&lt;/span&gt;</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelTrust2">
-      <property name="geometry">
-       <rect>
-        <x>194</x>
-        <y>444</y>
-        <width>166</width>
-        <height>44</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>&lt;b style="color:#131b2e;font-size:13px;"&gt;实名安全保障&lt;/b&gt;&lt;br&gt;&lt;span style="color:#737686;font-size:11px;"&gt;实名认证 安全支付&lt;/span&gt;</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelTrust3">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>496</y>
-        <width>166</width>
-        <height>40</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>&lt;b style="color:#131b2e;font-size:13px;"&gt;极速充电体验&lt;/b&gt;&lt;br&gt;&lt;span style="color:#737686;font-size:11px;"&gt;快充技术 高效补能&lt;/span&gt;</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelTrust4">
-      <property name="geometry">
-       <rect>
-        <x>194</x>
-        <y>496</y>
-        <width>166</width>
-        <height>40</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>&lt;b style="color:#131b2e;font-size:13px;"&gt;自动极速扣款&lt;/b&gt;&lt;br&gt;&lt;span style="color:#737686;font-size:11px;"&gt;实时计费 透明账单&lt;/span&gt;</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
-      </property>
-     </widget>
+      <widget class="QLabel" name="labelTrust1">
+       <property name="geometry">
+        <rect>
+         <x>16</x>
+         <y>444</y>
+         <width>156</width>
+         <height>44</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;b style="color:#131b2e;font-size:13px;"&gt;全国互联互通&lt;/b&gt;&lt;br&gt;&lt;span style="color:#737686;font-size:11px;"&gt;覆盖城市充电网络&lt;/span&gt;</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QLabel" name="labelTrust2">
+       <property name="geometry">
+        <rect>
+         <x>188</x>
+         <y>444</y>
+         <width>156</width>
+         <height>44</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;b style="color:#131b2e;font-size:13px;"&gt;实名安全保障&lt;/b&gt;&lt;br&gt;&lt;span style="color:#737686;font-size:11px;"&gt;实名认证 安全支付&lt;/span&gt;</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QLabel" name="labelTrust3">
+       <property name="geometry">
+        <rect>
+         <x>16</x>
+         <y>496</y>
+         <width>156</width>
+         <height>40</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;b style="color:#131b2e;font-size:13px;"&gt;极速充电体验&lt;/b&gt;&lt;br&gt;&lt;span style="color:#737686;font-size:11px;"&gt;快充技术 高效补能&lt;/span&gt;</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+      <widget class="QLabel" name="labelTrust4">
+       <property name="geometry">
+        <rect>
+         <x>188</x>
+         <y>496</y>
+         <width>156</width>
+         <height>40</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>&lt;b style="color:#131b2e;font-size:13px;"&gt;自动极速扣款&lt;/b&gt;&lt;br&gt;&lt;span style="color:#737686;font-size:11px;"&gt;实时计费 透明账单&lt;/span&gt;</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
     </widget>
     <widget class="QWidget" name="pageHome">
      <widget class="QLabel" name="label_title_mine_6">
@@ -567,9 +567,9 @@ QLabel#badgeFault {
         <height>30</height>
        </rect>
       </property>
-      <property name="text">
-       <string>你好，车主</string>
-      </property>
+       <property name="text">
+        <string>欢迎</string>
+       </property>
      </widget>
      <widget class="QLabel" name="labelHomeSub">
       <property name="geometry">
@@ -583,175 +583,123 @@ QLabel#badgeFault {
       <property name="text">
        <string>绿色出行 · 附近极速充电网络</string>
       </property>
-     </widget>
-     <widget class="QFrame" name="homeBalanceCard">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>66</y>
-        <width>328</width>
-        <height>64</height>
-       </rect>
-      </property>
-      <property name="frameShape">
-       <enum>QFrame::StyledPanel</enum>
-      </property>
-      <widget class="QLabel" name="labelHomeBalanceTitle">
+      </widget>
+      <widget class="QLineEdit" name="editAddress">
        <property name="geometry">
         <rect>
-         <x>20</x>
-         <y>6</y>
+         <x>16</x>
+         <y>66</y>
+         <width>328</width>
+         <height>48</height>
+        </rect>
+       </property>
+       <property name="placeholderText">
+        <string>搜索充电站、地标或路名</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="BtnSearchStations">
+       <property name="geometry">
+        <rect>
+         <x>16</x>
+         <y>120</y>
+         <width>328</width>
+         <height>44</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>搜索附近充电站</string>
+       </property>
+      </widget>
+      <widget class="MapPreview" name="mapPreview">
+       <property name="geometry">
+        <rect>
+         <x>16</x>
+         <y>172</y>
+         <width>328</width>
+         <height>128</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QLabel" name="labelNearbyHeader">
+       <property name="geometry">
+        <rect>
+         <x>16</x>
+         <y>308</y>
          <width>120</width>
+         <height>22</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>附近充电站</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="labelNearbyCount">
+       <property name="geometry">
+        <rect>
+         <x>140</x>
+         <y>312</y>
+         <width>206</width>
          <height>16</height>
         </rect>
        </property>
        <property name="text">
-        <string>账户余额</string>
+        <string>共 0 个电站</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignVCenter</set>
        </property>
       </widget>
-      <widget class="QLabel" name="labelHomeBalance">
+      <widget class="QLabel" name="labelStationId">
        <property name="geometry">
         <rect>
-         <x>20</x>
-         <y>24</y>
-         <width>190</width>
-         <height>28</height>
+         <x>16</x>
+         <y>344</y>
+         <width>60</width>
+         <height>32</height>
         </rect>
        </property>
        <property name="text">
-        <string>¥0.00</string>
+        <string>站点编号</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignVCenter</set>
        </property>
       </widget>
-      <widget class="QPushButton" name="BtnHomeRecharge">
+      <widget class="QSpinBox" name="spinStationId">
        <property name="geometry">
         <rect>
-         <x>238</x>
-         <y>14</y>
+         <x>80</x>
+         <y>340</y>
          <width>78</width>
-         <height>38</height>
+         <height>40</height>
+        </rect>
+       </property>
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>99999</number>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="BtnStationDetail">
+       <property name="geometry">
+        <rect>
+         <x>170</x>
+         <y>338</y>
+         <width>174</width>
+         <height>42</height>
         </rect>
        </property>
        <property name="text">
-        <string>充值</string>
+        <string>查看站点详情</string>
        </property>
       </widget>
-     </widget>
-     <widget class="QLineEdit" name="editAddress">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>142</y>
-        <width>328</width>
-        <height>48</height>
-       </rect>
-      </property>
-      <property name="placeholderText">
-       <string>搜索充电站、地标或路名</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="BtnSearchStations">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>196</y>
-        <width>328</width>
-        <height>44</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>搜索附近充电站</string>
-      </property>
-     </widget>
-     <widget class="MapPreview" name="mapPreview">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>248</y>
-        <width>328</width>
-        <height>128</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelNearbyHeader">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>384</y>
-        <width>120</width>
-        <height>22</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>附近充电站</string>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelNearbyCount">
-      <property name="geometry">
-       <rect>
-        <x>140</x>
-        <y>388</y>
-        <width>206</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>共 0 个电站</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignVCenter</set>
-      </property>
-     </widget>
-     <widget class="QLabel" name="labelStationId">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>420</y>
-        <width>60</width>
-        <height>32</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>站点编号</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignVCenter</set>
-      </property>
-     </widget>
-     <widget class="QSpinBox" name="spinStationId">
-      <property name="geometry">
-       <rect>
-        <x>80</x>
-        <y>416</y>
-        <width>78</width>
-        <height>40</height>
-       </rect>
-      </property>
-      <property name="minimum">
-       <number>1</number>
-      </property>
-      <property name="maximum">
-       <number>99999</number>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="BtnStationDetail">
-      <property name="geometry">
-       <rect>
-        <x>170</x>
-        <y>414</y>
-        <width>174</width>
-        <height>42</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>查看站点详情</string>
-      </property>
-     </widget>
-     <widget class="QPlainTextEdit" name="stationResults">
-      <property name="geometry">
-       <rect>
-        <x>16</x>
-        <y>462</y>
-        <width>328</width>
+      <widget class="QPlainTextEdit" name="stationResults">
+       <property name="geometry">
+        <rect>
+         <x>16</x>
+         <y>386</y>
+         <width>328</width>
         <height>78</height>
        </rect>
       </property>
