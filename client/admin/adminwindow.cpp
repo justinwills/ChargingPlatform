@@ -76,6 +76,18 @@ static QFrame *makeDivider(const QString &bg = QStringLiteral("#f2f3ff"))
     return line;
 }
 
+static void showTableEmptyState(QTableWidget *table, const QString &message)
+{
+    table->clearContents();
+    table->clearSpans();
+    table->setRowCount(1);
+    auto *item = new QTableWidgetItem(message);
+    item->setTextAlignment(Qt::AlignCenter);
+    item->setForeground(QColor(cOutline));
+    table->setItem(0, 0, item);
+    table->setSpan(0, 0, 1, table->columnCount());
+}
+
 // ─── Stylesheet ────────────────────────────────────────────────────────────────
 QString AdminWindow::stylesheet()
 {
@@ -397,6 +409,8 @@ QString AdminWindow::stylesheet()
             selection-background-color: #dbe1ff;
             selection-color: #131b2e;
             outline: none;
+            gridline-color: #f2f3ff;
+            show-decoration-selected: 1;
         }
         QTableWidget::item {
             padding: 8px 10px;
@@ -1049,6 +1063,12 @@ AdminWindow::AdminWindow(QWidget *parent)
     userFilterEdit->setMinimumHeight(40);
     filterLayout->addWidget(userFilterEdit, 1);
 
+    auto *searchUsersBtn = new QPushButton(QStringLiteral("搜索"));
+    searchUsersBtn->setObjectName(QStringLiteral("secondaryBtn"));
+    searchUsersBtn->setMinimumHeight(40);
+    searchUsersBtn->setCursor(Qt::PointingHandCursor);
+    filterLayout->addWidget(searchUsersBtn);
+
     auto *refreshUsersBtn = new QPushButton(QStringLiteral("刷新"));
     refreshUsersBtn->setObjectName(QStringLiteral("secondaryBtn"));
     refreshUsersBtn->setMinimumHeight(40);
@@ -1083,10 +1103,14 @@ AdminWindow::AdminWindow(QWidget *parent)
     usersTable->setShowGrid(false);
     usersTable->verticalHeader()->setVisible(false);
     usersTable->verticalHeader()->setDefaultSectionSize(48);
+    usersTable->setMinimumHeight(220);
+    usersTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    usersTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     tableCardLayout->addWidget(usersTable);
     usersMainLayout->addWidget(tableCard, 1);
 
     contentStack->addWidget(usersPage);
+    connect(searchUsersBtn, &QPushButton::clicked, this, &AdminWindow::refreshUsers);
     connect(refreshUsersBtn, &QPushButton::clicked, this, &AdminWindow::refreshUsers);
     connect(toggleUserBtn, &QPushButton::clicked, this, &AdminWindow::toggleSelectedUser);
 
@@ -1147,7 +1171,7 @@ AdminWindow::AdminWindow(QWidget *parent)
 
     addCardLayout->addLayout(formGrid);
 
-    auto *addStationBtn = new QPushButton(QStringLiteral("＋  新增充电站"));
+    auto *addStationBtn = new QPushButton(QStringLiteral("+  新增充电站"));
     addStationBtn->setObjectName(QStringLiteral("primaryBtn"));
     addStationBtn->setMinimumHeight(44);
     addStationBtn->setCursor(Qt::PointingHandCursor);
@@ -1166,21 +1190,39 @@ AdminWindow::AdminWindow(QWidget *parent)
     stationTableCard->setObjectName(QStringLiteral("contentCard"));
     applyShadow(stationTableCard, 16, 4, QColor(19, 27, 46, 12));
     auto *stcLayout = new QVBoxLayout(stationTableCard);
-    stcLayout->setContentsMargins(0, 0, 0, 0);
+    stcLayout->setContentsMargins(20, 16, 20, 16);
+    stcLayout->setSpacing(10);
+    auto *stationTableTitle = new QLabel(QStringLiteral("站点列表"));
+    stationTableTitle->setStyleSheet(QStringLiteral(
+        "color:#131b2e; font-size:15px; font-weight:700; background:transparent; border:none;"));
+    stcLayout->addWidget(stationTableTitle);
+    stcLayout->addWidget(makeDivider());
 
     stationsTable->setColumnCount(6);
     stationsTable->setHorizontalHeaderLabels({
         QStringLiteral("ID"), QStringLiteral("名称"), QStringLiteral("地址"),
         QStringLiteral("价格"), QStringLiteral("空闲/总数"), QStringLiteral("在线率")
     });
-    stationsTable->horizontalHeader()->setStretchLastSection(true);
-    stationsTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    stationsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    stationsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
+    stationsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+    stationsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+    stationsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
+    stationsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Fixed);
+    stationsTable->setColumnWidth(0, 70);
+    stationsTable->setColumnWidth(1, 170);
+    stationsTable->setColumnWidth(3, 100);
+    stationsTable->setColumnWidth(4, 110);
+    stationsTable->setColumnWidth(5, 100);
     stationsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     stationsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     stationsTable->setAlternatingRowColors(true);
     stationsTable->setShowGrid(false);
     stationsTable->verticalHeader()->setVisible(false);
     stationsTable->verticalHeader()->setDefaultSectionSize(48);
+    stationsTable->setMinimumHeight(190);
+    stationsTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    stationsTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     stcLayout->addWidget(stationsTable);
     stationsMainLayout->addWidget(stationTableCard);
 
@@ -1189,7 +1231,13 @@ AdminWindow::AdminWindow(QWidget *parent)
     pileTableCard->setObjectName(QStringLiteral("contentCard"));
     applyShadow(pileTableCard, 16, 4, QColor(19, 27, 46, 12));
     auto *ptcLayout = new QVBoxLayout(pileTableCard);
-    ptcLayout->setContentsMargins(0, 0, 0, 0);
+    ptcLayout->setContentsMargins(20, 16, 20, 16);
+    ptcLayout->setSpacing(10);
+    auto *pileTableTitle = new QLabel(QStringLiteral("电桩列表"));
+    pileTableTitle->setStyleSheet(QStringLiteral(
+        "color:#131b2e; font-size:15px; font-weight:700; background:transparent; border:none;"));
+    ptcLayout->addWidget(pileTableTitle);
+    ptcLayout->addWidget(makeDivider());
 
     pilesTable->setColumnCount(7);
     pilesTable->setHorizontalHeaderLabels({
@@ -1197,14 +1245,29 @@ AdminWindow::AdminWindow(QWidget *parent)
         QStringLiteral("类型"), QStringLiteral("功率"), QStringLiteral("状态"),
         QStringLiteral("累计次数")
     });
-    pilesTable->horizontalHeader()->setStretchLastSection(true);
-    pilesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    pilesTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    pilesTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
+    pilesTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
+    pilesTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
+    pilesTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
+    pilesTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Fixed);
+    pilesTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Fixed);
+    pilesTable->setColumnWidth(0, 70);
+    pilesTable->setColumnWidth(1, 170);
+    pilesTable->setColumnWidth(2, 90);
+    pilesTable->setColumnWidth(3, 90);
+    pilesTable->setColumnWidth(4, 100);
+    pilesTable->setColumnWidth(5, 100);
+    pilesTable->setColumnWidth(6, 100);
     pilesTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     pilesTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     pilesTable->setAlternatingRowColors(true);
     pilesTable->setShowGrid(false);
     pilesTable->verticalHeader()->setVisible(false);
     pilesTable->verticalHeader()->setDefaultSectionSize(48);
+    pilesTable->setMinimumHeight(190);
+    pilesTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    pilesTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     ptcLayout->addWidget(pilesTable);
 
     // Pile controls row
@@ -1536,7 +1599,12 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         requestInitialData();
     } else if (data.contains("users")) {
         const QJsonArray users = data.value("users").toArray();
-        usersTable->setRowCount(users.size());
+        if (users.isEmpty()) {
+            showTableEmptyState(usersTable, QStringLiteral("暂无用户数据"));
+        } else {
+            usersTable->clearSpans();
+            usersTable->setRowCount(users.size());
+        }
         for (int row = 0; row < users.size(); ++row) {
             const QJsonObject user = users.at(row).toObject();
             usersTable->setItem(row, 0, new QTableWidgetItem(QString::number(user.value("userId").toInt())));
@@ -1562,7 +1630,12 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         const QVariant selectedStation = orderStationFilter->currentData();
         orderStationFilter->clear();
         orderStationFilter->addItem(QStringLiteral("全部站点"), -1);
-        stationsTable->setRowCount(stations.size());
+        if (stations.isEmpty()) {
+            showTableEmptyState(stationsTable, QStringLiteral("暂无站点数据"));
+        } else {
+            stationsTable->clearSpans();
+            stationsTable->setRowCount(stations.size());
+        }
         for (int row = 0; row < stations.size(); ++row) {
             const QJsonObject station = stations.at(row).toObject();
             orderStationFilter->addItem(station.value("name").toString(), station.value("stationId").toInt());
@@ -1586,7 +1659,12 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         send(QStringLiteral("admin_query_piles"));
     } else if (data.contains("piles")) {
         const QJsonArray piles = data.value("piles").toArray();
-        pilesTable->setRowCount(piles.size());
+        if (piles.isEmpty()) {
+            showTableEmptyState(pilesTable, QStringLiteral("暂无电桩数据"));
+        } else {
+            pilesTable->clearSpans();
+            pilesTable->setRowCount(piles.size());
+        }
         for (int row = 0; row < piles.size(); ++row) {
             const QJsonObject pile = piles.at(row).toObject();
             pilesTable->setItem(row, 0, new QTableWidgetItem(QString::number(pile.value("pileId").toInt())));
