@@ -43,8 +43,6 @@ private slots:
 
     void on_BtnSearchStations_clicked();
 
-    void on_BtnStationDetail_clicked();
-
     void on_BtnStationBack_clicked();
     void on_BtnStartChargeHere_clicked();
     void on_BtnNavigateHere_clicked();
@@ -74,6 +72,7 @@ private:
     void applyShadow(QWidget *widget);
     void openChargePage();
     void populateStationDetail(const QJsonObject &data);
+    void rebuildNearbyCards(const QJsonArray &stations);
     void updateBalanceLabels(double balance);
     int selectPileInCombo(int pileId);
     void setupNavIcons();

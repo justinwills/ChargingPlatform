@@ -47,7 +47,6 @@ MainWindow::MainWindow(QWidget *parent)
     applyShadow(ui->monitorCard);
     applyShadow(ui->sessionCard);
     applyShadow(ui->sdStatsCard);
-    applyShadow(ui->stationResults);
     applyShadow(ui->labelOrderStationDetails);
     applyShadow(ui->walletCard);
 
@@ -362,14 +361,6 @@ void MainWindow::on_BtnSearchStations_clicked()
     });
 }
 
-void MainWindow::on_BtnStationDetail_clicked()
-{
-    m_showStationDetailPage = true;
-    connection->sendRequest(QStringLiteral("query_station_detail"), {
-        {"stationId", ui->spinStationId->value()}
-    });
-}
-
 void MainWindow::onServerResponse(const QJsonObject &response)
 {
     QString action = m_pendingAction;
@@ -457,27 +448,7 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         const QJsonArray stations = data.value("stations").toArray();
         m_lastStations = stations;
         ui->labelNearbyCount->setText(tr("共 %1 个电站").arg(stations.size()));
-        if (stations.isEmpty()) {
-            ui->stationResults->setPlainText(tr("没有找到匹配的充电站"));
-            return;
-        }
-
-        QStringList lines;
-        for (const QJsonValue &value : stations) {
-            const QJsonObject station = value.toObject();
-            const QString distance = station.contains("distanceKm")
-                ? tr("距离：%1 公里\n").arg(station.value("distanceKm").toDouble(), 0, 'f', 2)
-                : QString();
-            lines << tr("%1\n地址：%2\n%3空闲电桩：%4/%5\n在线率：%6%\n单价：%7 元/度")
-                          .arg(station.value("name").toString())
-                          .arg(station.value("address").toString())
-                          .arg(distance)
-                          .arg(station.value("freePileCount").toInt())
-                          .arg(station.value("pileCount").toInt())
-                          .arg(station.value("onlineRate").toDouble(), 0, 'f', 1)
-                          .arg(station.value("price").toDouble(), 0, 'f', 2);
-        }
-        ui->stationResults->setPlainText(lines.join(QStringLiteral("\n\n")));
+        rebuildNearbyCards(stations);
         return;
     }
 
@@ -1124,5 +1095,77 @@ void MainWindow::populateStationDetail(const QJsonObject &data)
         ui->pileLayout->addWidget(card);
     }
     ui->pileLayout->addStretch();
+}
+
+void MainWindow::rebuildNearbyCards(const QJsonArray &stations)
+{
+    while (QLayoutItem *child = ui->nearbyListLayout->takeAt(0)) {
+        if (QWidget *w = child->widget()) {
+            w->deleteLater();
+        }
+        delete child;
+    }
+
+    if (stations.isEmpty()) {
+        auto *empty = new QLabel(tr("没有找到匹配的充电站"), ui->nearbyListHost);
+        empty->setAlignment(Qt::AlignCenter);
+        empty->setStyleSheet(QStringLiteral("color:#737686;font-size:13px;"));
+        ui->nearbyListLayout->addWidget(empty);
+        return;
+    }
+
+    for (const QJsonValue &value : stations) {
+        const QJsonObject station = value.toObject();
+        const int stationId = station.value("stationId").toInt();
+
+        auto *card = new QFrame(ui->nearbyListHost);
+        card->setObjectName(QStringLiteral("stationCard"));
+        auto *layout = new QVBoxLayout(card);
+        layout->setContentsMargins(14, 10, 12, 10);
+        layout->setSpacing(6);
+
+        auto *name = new QLabel(card);
+        name->setTextFormat(Qt::RichText);
+        name->setText(
+            QStringLiteral("<span style=\"font-size:15px;font-weight:700;color:#131b2e;\">%1</span>")
+                .arg(station.value("name").toString()));
+        layout->addWidget(name);
+
+        auto *address = new QLabel(station.value("address").toString(), card);
+        address->setWordWrap(true);
+        address->setStyleSheet(
+            QStringLiteral("color:#737686;font-size:12px;background:transparent;"));
+        layout->addWidget(address);
+
+        QString info = tr("空闲电桩：%1/%2 · 在线率：%3% · 单价：%4 元/度")
+                           .arg(station.value("freePileCount").toInt())
+                           .arg(station.value("pileCount").toInt())
+                           .arg(station.value("onlineRate").toDouble(), 0, 'f', 1)
+                           .arg(station.value("price").toDouble(), 0, 'f', 2);
+        if (station.contains("distanceKm")) {
+            info += tr(" · 距离：%1 公里")
+                        .arg(station.value("distanceKm").toDouble(), 0, 'f', 2);
+        }
+
+        auto *meta = new QLabel(info, card);
+        meta->setWordWrap(true);
+        meta->setStyleSheet(
+            QStringLiteral("color:#434655;font-size:12px;background:transparent;"));
+        layout->addWidget(meta);
+
+        auto *btn = new QPushButton(tr("查看详情"), card);
+        btn->setObjectName(QStringLiteral("stationDetailBtn"));
+        btn->setCursor(Qt::PointingHandCursor);
+        connect(btn, &QPushButton::clicked, this, [this, stationId]() {
+            m_showStationDetailPage = true;
+            connection->sendRequest(QStringLiteral("query_station_detail"), {
+                {"stationId", stationId}
+            });
+        });
+        layout->addWidget(btn, 0, Qt::AlignRight);
+
+        ui->nearbyListLayout->addWidget(card);
+    }
+    ui->nearbyListLayout->addStretch();
 }
 

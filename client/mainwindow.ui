@@ -294,6 +294,22 @@ QPushButton#pileStartBtn {
     font-weight: 600;
 }
 QPushButton#pileStartBtn:hover { background: #004ac6; }
+QScrollArea#nearbyListArea, QScrollArea#nearbyListArea > QWidget > QWidget { background: transparent; border: none; }
+QFrame#stationCard {
+    background: #ffffff;
+    border: 1px solid #eaedff;
+    border-radius: 14px;
+}
+QPushButton#stationDetailBtn {
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 9px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+QPushButton#stationDetailBtn:hover { background: #004ac6; }
 QLabel#badgeCharging {
     background: #ffddb8;
     color: #653e00;
@@ -639,68 +655,50 @@ QLabel#badgeFault {
         <set>Qt::AlignRight|Qt::AlignVCenter</set>
        </property>
       </widget>
-      <widget class="QLabel" name="labelStationId">
+      <widget class="QScrollArea" name="nearbyListArea">
        <property name="geometry">
         <rect>
          <x>16</x>
-         <y>208</y>
-         <width>60</width>
-         <height>32</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>站点编号</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignVCenter</set>
-       </property>
-      </widget>
-      <widget class="QSpinBox" name="spinStationId">
-       <property name="geometry">
-        <rect>
-         <x>80</x>
-         <y>204</y>
-         <width>78</width>
-         <height>40</height>
-        </rect>
-       </property>
-       <property name="minimum">
-        <number>1</number>
-       </property>
-       <property name="maximum">
-        <number>99999</number>
-       </property>
-      </widget>
-      <widget class="QPushButton" name="BtnStationDetail">
-       <property name="geometry">
-        <rect>
-         <x>170</x>
          <y>202</y>
-         <width>174</width>
-         <height>42</height>
+         <width>328</width>
+         <height>320</height>
         </rect>
        </property>
-       <property name="text">
-        <string>查看站点详情</string>
+       <property name="frameShape">
+        <enum>QFrame::NoFrame</enum>
        </property>
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <widget class="QWidget" name="nearbyListHost">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>326</width>
+          <height>318</height>
+         </rect>
+        </property>
+        <layout class="QVBoxLayout" name="nearbyListLayout">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>6</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <property name="spacing">
+          <number>10</number>
+         </property>
+        </layout>
+       </widget>
       </widget>
-      <widget class="QPlainTextEdit" name="stationResults">
-       <property name="geometry">
-        <rect>
-         <x>16</x>
-         <y>250</y>
-         <width>328</width>
-        <height>78</height>
-       </rect>
-      </property>
-      <property name="frameShape">
-       <enum>QFrame::NoFrame</enum>
-      </property>
-      <property name="readOnly">
-       <bool>true</bool>
-      </property>
      </widget>
-    </widget>
     <widget class="QWidget" name="pageStationDetail">
      <widget class="QPushButton" name="BtnStationBack">
       <property name="geometry">
