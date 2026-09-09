@@ -2,4 +2,12 @@
     <qresource prefix="/images">
         <file>default_avatar.jpeg</file>
     </qresource>
+    <qresource prefix="/">
+        <file>icons/nav_home.svg</file>
+        <file>icons/nav_home_active.svg</file>
+        <file>icons/nav_charge.svg</file>
+        <file>icons/nav_charge_active.svg</file>
+        <file>icons/nav_mine.svg</file>
+        <file>icons/nav_mine_active.svg</file>
+    </qresource>
 </RCC>

@@ -3,9 +3,13 @@
 
 #include <QMainWindow>
 #include <QDateTime>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QTimer>
 #include "clientconnection.h"
 #include "paymentpreview.h"
+
+class QAbstractButton;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -39,7 +43,9 @@ private slots:
 
     void on_BtnSearchStations_clicked();
 
-    void on_BtnStationDetail_clicked();
+    void on_BtnStationBack_clicked();
+    void on_BtnStartChargeHere_clicked();
+    void on_BtnNavigateHere_clicked();
 
     void on_BtnAdmin_clicked();
     void on_BtnSetting_clicked();
@@ -48,6 +54,7 @@ private slots:
     void on_BtnCancel_clicked();
     void on_BtnRecharge_clicked();
 
+    void on_Btn_20_clicked();
     void on_Btn_50_clicked();
     void on_Btn_100_clicked();
     void on_Btn_200_clicked();
@@ -62,6 +69,15 @@ private slots:
     void showPaymentPreview();
 
 private:
+    void applyShadow(QWidget *widget);
+    void openChargePage();
+    void populateStationDetail(const QJsonObject &data);
+    void rebuildNearbyCards(const QJsonArray &stations);
+    void updateBalanceLabels(double balance);
+    int selectPileInCombo(int pileId);
+    void setupNavIcons();
+    void applyNavIcon(QAbstractButton *button, bool checked, const QString &base);
+
     Ui::MainWindow *ui;
 
     ClientConnection *connection;
@@ -76,11 +92,18 @@ private:
     QString phoneNumber;
     QString m_selectedAvatarPath;
     QJsonObject m_currentUser;
+    QJsonObject m_lastOrder;
+    QJsonArray m_lastStations;
     QString m_pendingAction;
     PaymentPreview *m_paymentPreview = nullptr;
 
     double m_lastStationLat = 0.0;
     double m_lastStationLng = 0.0;
     QString m_lastStationName;
+    bool m_showStationDetailPage = false;
+    bool m_chargePagePending = false;
+    int m_pendingPileId = -1;
+    int m_settlingOrderId = -1;
+    bool m_backgroundBalanceRefresh = false;
 };
 #endif // MAINWINDOW_H
