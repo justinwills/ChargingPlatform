@@ -153,6 +153,42 @@ QSpinBox, QComboBox {
     color: #131b2e;
     font-size: 14px;
 }
+QSpinBox::up-button, QSpinBox::down-button {
+    subcontrol-origin: border;
+    width: 22px;
+    right: 3px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+}
+QSpinBox::up-button { subcontrol-position: top right; top: 3px; }
+QSpinBox::down-button { subcontrol-position: bottom right; bottom: 3px; }
+QSpinBox::up-button:hover, QSpinBox::down-button:hover,
+QComboBox::drop-down:hover { background: #e2e7ff; }
+QSpinBox::up-button:pressed, QSpinBox::down-button:pressed,
+QComboBox::drop-down:pressed { background: #dbe1ff; }
+QSpinBox::up-arrow, QSpinBox::down-arrow {
+    width: 10px;
+    height: 6px;
+}
+QSpinBox::up-arrow { image: url(:/icons/chevron_up.svg); }
+QSpinBox::down-arrow { image: url(:/icons/chevron_down.svg); }
+QComboBox {
+    padding-right: 30px;
+}
+QComboBox::drop-down {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 28px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+}
+QComboBox::down-arrow {
+    image: url(:/icons/chevron_down.svg);
+    width: 10px;
+    height: 6px;
+}
 QComboBox:focus, QSpinBox:focus { border: 1px solid #2563eb; }
 QComboBox QAbstractItemView {
     background: #ffffff;

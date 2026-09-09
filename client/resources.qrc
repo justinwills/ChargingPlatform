@@ -9,5 +9,7 @@
         <file>icons/nav_charge_active.svg</file>
         <file>icons/nav_mine.svg</file>
         <file>icons/nav_mine_active.svg</file>
+        <file>icons/chevron_up.svg</file>
+        <file>icons/chevron_down.svg</file>
     </qresource>
 </RCC>
