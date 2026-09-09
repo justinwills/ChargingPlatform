@@ -32,6 +32,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->stackedWidget->setCurrentWidget(ui->pageLogin);
     ui->widgetNavigation->hide();
+    ui->labelMonBadge->hide();
+    ui->labelMonStatus->hide();
 
     auto *navShadow = new QGraphicsDropShadowEffect(ui->widgetNavigation);
     navShadow->setBlurRadius(24);

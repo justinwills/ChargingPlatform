@@ -1243,7 +1243,7 @@ QLabel#badgeFault {
       <property name="geometry">
        <rect>
         <x>16</x>
-        <y>72</y>
+        <y>44</y>
         <width>328</width>
         <height>292</height>
        </rect>
@@ -1410,7 +1410,7 @@ QLabel#badgeFault {
       <property name="geometry">
        <rect>
         <x>16</x>
-        <y>372</y>
+        <y>344</y>
         <width>328</width>
         <height>94</height>
        </rect>
@@ -1462,7 +1462,7 @@ QLabel#badgeFault {
       <property name="geometry">
        <rect>
         <x>16</x>
-        <y>480</y>
+        <y>452</y>
         <width>150</width>
         <height>44</height>
        </rect>
@@ -1475,7 +1475,7 @@ QLabel#badgeFault {
       <property name="geometry">
        <rect>
         <x>178</x>
-        <y>480</y>
+        <y>452</y>
         <width>166</width>
         <height>44</height>
        </rect>

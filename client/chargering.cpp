@@ -24,24 +24,30 @@ void ChargeRing::paintEvent(QPaintEvent *event)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    const QRectF rect = QRectF(this->rect()).adjusted(14, 14, -14, -14);
+    const QRectF bounds(this->rect());
+    const qreal side = qMin(bounds.width(), bounds.height());
+    const QRectF square((bounds.width() - side) / 2.0,
+                        (bounds.height() - side) / 2.0,
+                        side,
+                        side);
+    const QRectF rect = square.adjusted(16, 16, -16, -16);
 
-    QPen trackPen(QColor(234, 237, 255), 14, Qt::SolidLine, Qt::RoundCap);
+    QPen trackPen(QColor(234, 237, 255), 16, Qt::SolidLine, Qt::RoundCap);
     painter.setPen(trackPen);
     painter.drawEllipse(rect);
 
     const int span = -static_cast<int>(m_percent * 3.6 * 16);
 
-    QPen glowPen(QColor(0, 83, 219, 28), 30, Qt::SolidLine, Qt::RoundCap);
+    QPen glowPen(QColor(0, 83, 219, 26), 28, Qt::SolidLine, Qt::RoundCap);
     painter.setPen(glowPen);
-    painter.drawArc(rect.adjusted(-3, -3, 3, 3), 90 * 16, span);
+    painter.drawArc(rect.adjusted(-2, -2, 2, 2), 90 * 16, span);
 
     QLinearGradient gradient(rect.topLeft(), rect.bottomRight());
     gradient.setColorAt(0.0, QColor(37, 99, 235));
     gradient.setColorAt(0.62, QColor(0, 76, 198));
     gradient.setColorAt(1.0, QColor(0, 83, 219));
 
-    QPen progressPen(QBrush(gradient), 14, Qt::SolidLine, Qt::RoundCap);
+    QPen progressPen(QBrush(gradient), 16, Qt::SolidLine, Qt::RoundCap);
     painter.setPen(progressPen);
     painter.drawArc(rect, 90 * 16, span);
 
