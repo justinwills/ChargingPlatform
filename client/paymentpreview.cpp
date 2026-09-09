@@ -132,12 +132,9 @@ PaymentPreview::PaymentPreview(int orderId, double amount, double fee, double ba
         pages->setCurrentWidget(failurePage);
     } else {
         connect(confirm, &QPushButton::clicked, this, [this, confirm]() {
-            emit paymentConfirmed();
             confirm->setEnabled(false);
+            emit paymentConfirmed();
             showPaymentSuccess();
-            QTimer::singleShot(700, this, [this]() {
-                accept();
-            });
         });
     }
 }
@@ -149,4 +146,7 @@ void PaymentPreview::showPaymentSuccess()
                               .arg(paymentFee, 0, 'f', 2));
     }
     pages->setCurrentIndex(2);
+    QTimer::singleShot(700, this, [this]() {
+        accept();
+    });
 }

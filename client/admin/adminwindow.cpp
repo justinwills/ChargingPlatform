@@ -1523,6 +1523,8 @@ void AdminWindow::populateRevenueTrend(const QJsonArray &trend)
 // ─── Response Handler ──────────────────────────────────────────────────────────
 void AdminWindow::handleResponse(const QJsonObject &response)
 {
+    const QString action = response.value(QStringLiteral("_requestAction"))
+                               .toString(pendingAction);
     const int code = response.value("code").toInt(-1);
     if (code != 0) {
         showError(response.value("msg").toString());
@@ -1530,7 +1532,7 @@ void AdminWindow::handleResponse(const QJsonObject &response)
     }
 
     const QJsonObject data = response.value("data").toObject();
-    if (pendingAction == QStringLiteral("admin_login")) {
+    if (action == QStringLiteral("admin_login")) {
         pages->setCurrentIndex(1);
         contentStack->setCurrentIndex(0);
         requestInitialData();
@@ -1646,16 +1648,16 @@ void AdminWindow::handleResponse(const QJsonObject &response)
             ordersTable->setItem(row, 9, sItem);
         }
         return;
-    } else if (pendingAction == QStringLiteral("admin_add_station")) {
+    } else if (action == QStringLiteral("admin_add_station")) {
         stationNameEdit->clear();
         stationAddressEdit->clear();
         stationLongitudeEdit->setValue(0);
         stationLatitudeEdit->setValue(0);
         stationPriceEdit->setValue(0);
         refreshStationsAndPiles();
-    } else if (pendingAction == QStringLiteral("set_user_status")) {
+    } else if (action == QStringLiteral("set_user_status")) {
         refreshUsers();
-    } else if (pendingAction == QStringLiteral("admin_restart_pile")) {
+    } else if (action == QStringLiteral("admin_restart_pile")) {
         refreshStationsAndPiles();
     }
 }

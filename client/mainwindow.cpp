@@ -326,6 +326,11 @@ void MainWindow::showPaymentPreview()
     m_paymentPreview = &preview;
 
     connect(&preview, &PaymentPreview::paymentConfirmed, this, [this]() {
+        m_balanceBeforeSettlement = m_currentUser.value("balance").toDouble();
+        const double pendingBalance = qMax(0.0, m_balanceBeforeSettlement - currentFee);
+        m_currentUser["balance"] = pendingBalance;
+        updateBalanceLabels(pendingBalance);
+
         m_pendingAction = QStringLiteral("settle_order");
         connection->sendRequest(QStringLiteral("settle_order"), {
             {"orderId", activeOrderId},
@@ -364,7 +369,8 @@ void MainWindow::on_BtnSearchStations_clicked()
 
 void MainWindow::onServerResponse(const QJsonObject &response)
 {
-    QString action = m_pendingAction;
+    const QString action = response.value(QStringLiteral("_requestAction"))
+                               .toString(m_pendingAction);
     m_pendingAction.clear();
 
     ui->Btnlogin->setEnabled(true);
@@ -382,8 +388,15 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             QMessageBox::warning(this, tr("结算失败"), response.value("msg").toString());
             return;
         }
-        if (action == QStringLiteral("settle_order") && m_paymentPreview) {
-            m_paymentPreview->reject();
+        if (action == QStringLiteral("settle_order")) {
+            if (m_balanceBeforeSettlement >= 0.0) {
+                m_currentUser["balance"] = m_balanceBeforeSettlement;
+                updateBalanceLabels(m_balanceBeforeSettlement);
+                m_balanceBeforeSettlement = -1.0;
+            }
+            if (m_paymentPreview) {
+                m_paymentPreview->reject();
+            }
         }
         if (action == QStringLiteral("query_user_ongoing_order")) {
             m_chargePagePending = false;
@@ -397,6 +410,41 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             m_pendingPileId = -1;
         }
         QMessageBox::warning(this, tr("请求失败"), response.value("msg").toString());
+        return;
+    }
+
+    if (action == QStringLiteral("settle_order")) {
+        if (!data.contains("balance")) {
+            if (m_balanceBeforeSettlement >= 0.0) {
+                m_currentUser["balance"] = m_balanceBeforeSettlement;
+                updateBalanceLabels(m_balanceBeforeSettlement);
+                m_balanceBeforeSettlement = -1.0;
+            }
+            if (m_paymentPreview) {
+                m_paymentPreview->reject();
+            }
+            QMessageBox::warning(this, tr("结算失败"), tr("服务器未返回最新余额"));
+            return;
+        }
+
+        const double newBalance = data.value("balance").toDouble();
+        m_currentUser["balance"] = newBalance;
+        updateBalanceLabels(newBalance);
+        m_balanceBeforeSettlement = -1.0;
+
+        ui->labelMonStatus->setText(tr("订单已结算，余额已更新"));
+        ui->labelElapsedTime->setText(QStringLiteral("00:00:00"));
+        activeOrderStartTime = QDateTime();
+        activeOrderId = -1;
+        currentAmount = 0;
+        currentFee = 0;
+        orderTimer.stop();
+        displayTimer.stop();
+
+        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
+        ui->BtnCharge->setChecked(true);
+        ui->BtnHome->setChecked(false);
+        ui->BtnMine->setChecked(false);
         return;
     }
 
@@ -768,6 +816,8 @@ void MainWindow::onServerResponse(const QJsonObject &response)
             ui->labelMonFee->setText(QStringLiteral("¥0.00"));
             orderTimer.stop();
             displayTimer.stop();
+            m_backgroundBalanceRefresh = true;
+            m_pendingAction = QStringLiteral("login");
             connection->sendRequest(QStringLiteral("login"), {{"phone", phoneNumber}});
         }
         return;
@@ -799,40 +849,6 @@ void MainWindow::onServerResponse(const QJsonObject &response)
         return;
     }
 
-    if (action == QStringLiteral("settle_order")) {
-        // 结算成功后服务器返回扣款后的最新余额，立即刷新钱包显示，
-        // 避免钱包值不随订单结束而减少。
-        // 注意：支付确认后结算窗会自动关闭并把 m_paymentPreview 置空，
-        // 因此余额刷新不能依赖 m_paymentPreview 是否非空。
-        if (data.contains("balance")) {
-            const double newBalance = data.value("balance").toDouble();
-            m_currentUser["balance"] = newBalance;
-            updateBalanceLabels(newBalance);
-        }
-
-        if (m_paymentPreview) {
-            m_paymentPreview->showPaymentSuccess();
-        }
-
-        ui->stackedWidget->setCurrentWidget(ui->pageCharge);
-        ui->BtnCharge->setChecked(true);
-        ui->BtnHome->setChecked(false);
-        ui->BtnMine->setChecked(false);
-    }
-
-    if (activeOrderId >= 0) {
-        ui->labelMonStatus->setText(tr("订单已结算，余额已更新"));
-        ui->labelElapsedTime->setText(QStringLiteral("00:00:00"));
-        activeOrderStartTime = QDateTime();
-        orderTimer.stop();
-        activeOrderId = -1;
-        displayTimer.stop();
-        // 用一次登录刷新强制拿到服务器最新余额，保证钱包显示在结算后立即更新，
-        // 不再依赖 settle 回包里的 balance（即使缺失也会被这里兜底刷新）。
-        m_backgroundBalanceRefresh = true;
-        m_pendingAction = QStringLiteral("login");
-        connection->sendRequest(QStringLiteral("login"), {{"phone", phoneNumber}});
-    }
 }
 
 // 进入修改用户信息界面
@@ -995,6 +1011,7 @@ void MainWindow::on_BtnLeave_clicked()
     phoneNumber.clear();
     m_selectedAvatarPath.clear();
     m_pendingAction.clear();
+    m_balanceBeforeSettlement = -1.0;
     m_chargePagePending = false;
 
     // 清除界面中的旧用户数据
@@ -1018,6 +1035,11 @@ void MainWindow::onConnectionError(const QString &message){
     m_pendingAction.clear();
     m_chargePagePending = false;
     m_settlingOrderId = -1;
+    if (m_balanceBeforeSettlement >= 0.0) {
+        m_currentUser["balance"] = m_balanceBeforeSettlement;
+        updateBalanceLabels(m_balanceBeforeSettlement);
+        m_balanceBeforeSettlement = -1.0;
+    }
 
     QMessageBox::warning(
         this,

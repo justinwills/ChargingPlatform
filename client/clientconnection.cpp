@@ -3,14 +3,24 @@
 ClientConnection::ClientConnection(QObject *parent) : QObject(parent)
 {
     connect(&m_socket, &QTcpSocket::connected, this, &ClientConnection::connected);
-    connect(&m_socket, &QTcpSocket::disconnected, this, &ClientConnection::disconnected);
+    connect(&m_socket, &QTcpSocket::disconnected, this, [this]() {
+        m_pendingActions.clear();
+        emit disconnected();
+    });
     connect(&m_socket, &QTcpSocket::errorOccurred, this, [this](QAbstractSocket::SocketError) {
         emit connectionError(m_socket.errorString());
     });
     connect(&m_socket, &QTcpSocket::readyRead, this, [this]() {
         m_receiver.feed(m_socket.readAll());
     });
-    connect(&m_receiver, &FrameReceiver::frameReady, this, &ClientConnection::responseReceived);
+    connect(&m_receiver, &FrameReceiver::frameReady, this,
+            [this](const QJsonObject &response) {
+        QJsonObject correlatedResponse = response;
+        if (!m_pendingActions.isEmpty()) {
+            correlatedResponse[QStringLiteral("_requestAction")] = m_pendingActions.dequeue();
+        }
+        emit responseReceived(correlatedResponse);
+    });
     connect(&m_receiver, &FrameReceiver::frameError, this, &ClientConnection::connectionError);
 }
 
@@ -38,5 +48,6 @@ void ClientConnection::sendRequest(const QString &action, const QJsonObject &par
     QJsonObject req;
     req["action"] = action;
     req["params"] = params;
+    m_pendingActions.enqueue(action);
     m_socket.write(ProtocolCodec::encode(req));
 }

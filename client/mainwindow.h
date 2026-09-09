@@ -104,6 +104,7 @@ private:
     bool m_chargePagePending = false;
     int m_pendingPileId = -1;
     int m_settlingOrderId = -1;
+    double m_balanceBeforeSettlement = -1.0;
     bool m_backgroundBalanceRefresh = false;
 };
 #endif // MAINWINDOW_H
