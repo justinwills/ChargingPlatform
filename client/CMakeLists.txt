@@ -26,6 +26,8 @@ add_executable(ChargingClient
     mainwindow.ui
     chargering.cpp
     chargering.h
+    flowlayout.cpp
+    flowlayout.h
     paymentpreview.cpp
     paymentpreview.h
     resources.qrc
