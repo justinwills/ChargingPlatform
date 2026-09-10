@@ -394,6 +394,20 @@ QString AdminWindow::stylesheet()
         }
         QPushButton#warningBtn:hover { background: #ffddb8; }
 
+        /* ── Pile status control button ───────────────────────────── */
+        QPushButton#pileStatusBtn {
+            background: #7c3aed;
+            color: #d81e1e;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 10px 20px;
+            min-height: 20px;
+        }
+        QPushButton#pileStatusBtn:hover { background: #6d28d9; }
+        QPushButton#pileStatusBtn:pressed { background: #5b21b6; }
+
         /* ── Success buttons ──────────────────────────────────────── */
         QPushButton#successBtn {
             background: #e2f6ec;
@@ -634,7 +648,7 @@ AdminWindow::AdminWindow(QWidget *parent)
       stationsTable(new QTableWidget), pilesTable(new QTableWidget),
       pileFilterLabel(new QLabel), showAllPilesBtn(new QPushButton),
       stationAdjustIdSpin(new QSpinBox), stationAdjustPileCountSpin(new QSpinBox),
-      pileIdSpin(new QSpinBox),
+      pileIdSpin(new QSpinBox), pileStatusCombo(new QComboBox),
       orderPhoneFilter(new QLineEdit), orderStationFilter(new QComboBox),
       orderStatusFilter(new QComboBox), orderFromDate(new QDateEdit),
       orderToDate(new QDateEdit), ordersTable(new QTableWidget),
@@ -1382,11 +1396,22 @@ AdminWindow::AdminWindow(QWidget *parent)
     pileIdSpin->setMinimumHeight(36);
     pileIdSpin->setFixedWidth(100);
     pileControlRow->addWidget(pileIdSpin);
-    auto *restartBtn = new QPushButton(QStringLiteral("重启电桩"));
-    restartBtn->setObjectName(QStringLiteral("warningBtn"));
-    restartBtn->setMinimumHeight(36);
-    restartBtn->setCursor(Qt::PointingHandCursor);
-    pileControlRow->addWidget(restartBtn);
+
+    auto *pileStatusLabel = new QLabel(QStringLiteral("目标状态"));
+    pileStatusLabel->setStyleSheet(QStringLiteral(
+        "color:#737686; font-size:13px; font-weight:500; background:transparent; border:none;"));
+    pileControlRow->addWidget(pileStatusLabel);
+    pileStatusCombo->addItem(QStringLiteral("闲置"), QStringLiteral("闲置"));
+    pileStatusCombo->addItem(QStringLiteral("在用"), QStringLiteral("在用"));
+    pileStatusCombo->addItem(QStringLiteral("故障"), QStringLiteral("故障"));
+    pileStatusCombo->setMinimumHeight(36);
+    pileStatusCombo->setFixedWidth(110);
+    pileControlRow->addWidget(pileStatusCombo);
+    auto *setPileStatusBtn = new QPushButton(QStringLiteral("设置状态"));
+    setPileStatusBtn->setObjectName(QStringLiteral("pileStatusBtn"));
+    setPileStatusBtn->setMinimumHeight(36);
+    setPileStatusBtn->setCursor(Qt::PointingHandCursor);
+    pileControlRow->addWidget(setPileStatusBtn);
     pileControlRow->addStretch();
     ptcLayout->addLayout(pileControlRow);
 
@@ -1420,7 +1445,14 @@ AdminWindow::AdminWindow(QWidget *parent)
                              stationsTable->item(row, 1)->text());
     });
     connect(showAllPilesBtn, &QPushButton::clicked, this, &AdminWindow::showAllPiles);
-    connect(restartBtn, &QPushButton::clicked, this, &AdminWindow::restartSelectedPile);
+    connect(setPileStatusBtn, &QPushButton::clicked, this, &AdminWindow::setSelectedPileStatus);
+    connect(pilesTable, &QTableWidget::cellClicked, this,
+            [this](int row, int) {
+        if (!pilesTable->item(row, 0) || !pilesTable->item(row, 5)) return;
+        pileIdSpin->setValue(pilesTable->item(row, 0)->text().toInt());
+        const int statusIndex = pileStatusCombo->findData(pilesTable->item(row, 5)->text());
+        if (statusIndex >= 0) pileStatusCombo->setCurrentIndex(statusIndex);
+    });
 
     // ══════════════════════════════════════════════════════════════════════════
     // TAB 3: ORDER REPORTS
@@ -1702,9 +1734,12 @@ void AdminWindow::adjustStationPileCount()
     });
 }
 
-void AdminWindow::restartSelectedPile()
+void AdminWindow::setSelectedPileStatus()
 {
-    send(QStringLiteral("admin_restart_pile"), {{"pileId", pileIdSpin->value()}});
+    send(QStringLiteral("admin_set_pile_status"), {
+        {"pileId", pileIdSpin->value()},
+        {"status", pileStatusCombo->currentData().toString()}
+    });
 }
 
 void AdminWindow::refreshStats()
@@ -1856,7 +1891,7 @@ void AdminWindow::populatePilesTable(const QJsonArray &piles)
 
         const QString pileStatus = pile.value("status").toString();
         auto *statusItem = new QTableWidgetItem(pileStatus);
-        if (pileStatus == QStringLiteral("空闲")) {
+        if (pileStatus == QStringLiteral("闲置")) {
             statusItem->setForeground(QColor(cSuccess));
             statusItem->setBackground(QColor(cSuccessBg));
         } else if (pileStatus == QStringLiteral("充电中") || pileStatus == QStringLiteral("在用")) {
@@ -2067,7 +2102,7 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         refreshStationsAndPiles();
     } else if (action == QStringLiteral("set_user_status")) {
         refreshUsers();
-    } else if (action == QStringLiteral("admin_restart_pile")) {
+    } else if (action == QStringLiteral("admin_set_pile_status")) {
         refreshStationsAndPiles();
     }
 }

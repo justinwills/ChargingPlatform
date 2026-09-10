@@ -39,7 +39,7 @@ private slots:
     void refreshStationsAndPiles();
     void addStation();
     void adjustStationPileCount();
-    void restartSelectedPile();
+    void setSelectedPileStatus();
     void refreshStats();
     void refreshOrders();
     void switchTab(int index);
@@ -107,6 +107,7 @@ private:
     QSpinBox *stationAdjustIdSpin;
     QSpinBox *stationAdjustPileCountSpin;
     QSpinBox *pileIdSpin;
+    QComboBox *pileStatusCombo;
 
     // Cache of the last full piles list received from the server, so a
     // station row click can filter locally without another round trip.

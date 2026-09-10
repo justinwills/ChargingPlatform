@@ -920,6 +920,26 @@ bool Database::restartPile(int pileId)
     return query.numRowsAffected() > 0;
 }
 
+bool Database::setPileStatus(int pileId, const QString &status)
+{
+    // 管理员手动控制电桩状态（第18项的扩展）：直接覆盖为"闲置"/"在用"/"故障"三者之一。
+    // 与restartPile一样，这里只负责电桩状态本身；如果该电桩当前有进行中订单，
+    // 手动改成"闲置"或"故障"不会自动处理订单，由调用方自行提示管理员。
+    if (status != QStringLiteral("闲置") && status != QStringLiteral("在用")
+        && status != QStringLiteral("故障")) {
+        return false;
+    }
+    QSqlQuery query(currentThreadDb());
+    query.prepare("update piles set status = ? where id = ?");
+    query.addBindValue(status);
+    query.addBindValue(pileId);
+    if (!query.exec()) {
+        qDebug() << "setPileStatus 失败：" << query.lastError().text();
+        return false;
+    }
+    return query.numRowsAffected() > 0;
+}
+
 QMap<QString, int> Database::getPileStatusStats()
 {
     QMap<QString, int> result;

@@ -138,6 +138,7 @@ public:
     static QList<PileInfo> getPilesByStation(int stationId); // 某电站的电桩（第3,20项 站点详情）
     static bool getPileById(int pileId, PileInfo *outPile);
     static bool restartPile(int pileId);                // 远程重启：模拟指令，重置状态为"闲置"（第18项）
+    static bool setPileStatus(int pileId, const QString &status); // 管理员手动控制电桩状态："闲置"/"在用"/"故障"
     static QMap<QString, int> getPileStatusStats();      // 状态分布统计（第16项）
 
     // ---------- 充电流程 / 订单（充电用户端 第9-12项） ----------

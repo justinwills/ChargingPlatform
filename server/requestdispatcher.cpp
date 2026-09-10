@@ -269,6 +269,7 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
     if (action == "admin_query_stations") return handleAdminQueryStations(params);
     if (action == "admin_query_piles")  return handleAdminQueryPiles(params);
     if (action == "admin_restart_pile") return handleAdminRestartPile(params);
+    if (action == "admin_set_pile_status") return handleAdminSetPileStatus(params);
     if (action == "admin_stats")        return handleAdminStats(params);
     if (action == "admin_orders")       return handleAdminOrders(params);
     if (action == "query_stations")     return handleQueryStations(params);
@@ -538,6 +539,23 @@ QJsonObject RequestDispatcher::handleAdminRestartPile(const QJsonObject &params)
     if (!params.contains("pileId")) return fail(1, "缺少pileId参数");
     if (!Database::restartPile(params.value("pileId").toInt())) {
         return fail(2, "电桩不存在或重启失败");
+    }
+    return ok(QJsonObject());
+}
+
+QJsonObject RequestDispatcher::handleAdminSetPileStatus(const QJsonObject &params)
+{
+    if (!params.contains("pileId") || !params.contains("status")) {
+        return fail(1, "缺少pileId或status参数");
+    }
+    const int pileId = params.value("pileId").toInt();
+    const QString status = params.value("status").toString().trimmed();
+    if (status != QStringLiteral("闲置") && status != QStringLiteral("在用")
+        && status != QStringLiteral("故障")) {
+        return fail(1, "status参数无效，需为\"闲置\"、\"在用\"或\"故障\"");
+    }
+    if (!Database::setPileStatus(pileId, status)) {
+        return fail(2, "电桩不存在或设置状态失败");
     }
     return ok(QJsonObject());
 }
