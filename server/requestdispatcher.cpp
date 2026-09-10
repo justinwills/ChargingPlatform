@@ -264,6 +264,7 @@ QJsonObject RequestDispatcher::handle(const QJsonObject &request)
     if (action == "query_users")        return handleQueryUsers(params);
     if (action == "set_user_status")    return handleSetUserStatus(params);
     if (action == "admin_add_station") return handleAdminAddStation(params);
+    if (action == "admin_add_pile")    return handleAdminAddPile(params);
     if (action == "admin_set_station_pile_count") return handleAdminSetStationPileCount(params);
     if (action == "admin_query_stations") return handleAdminQueryStations(params);
     if (action == "admin_query_piles")  return handleAdminQueryPiles(params);
@@ -477,6 +478,30 @@ QJsonObject RequestDispatcher::handleAdminSetStationPileCount(const QJsonObject 
         return fail(2, "调整电桩数量失败，请确认站点存在，且减少数量时有足够的闲置电桩可删除");
     }
     return ok(QJsonObject());
+}
+
+QJsonObject RequestDispatcher::handleAdminAddPile(const QJsonObject &params)
+{
+    if (!params.contains("stationId") || !params.contains("code")
+        || !params.contains("type") || !params.contains("power")) {
+        return fail(1, "缺少stationId、code、type或power参数");
+    }
+
+    const int stationId = params.value("stationId").toInt();
+    const QString code = params.value("code").toString().trimmed();
+    const QString type = params.value("type").toString().trimmed();
+    const double power = params.value("power").toDouble();
+    if (stationId <= 0 || code.isEmpty() || code.size() > 50
+        || (type != QStringLiteral("快充") && type != QStringLiteral("慢充"))
+        || !qIsFinite(power) || power <= 0 || power > 1000) {
+        return fail(1, "站点、电桩编号、类型或功率无效");
+    }
+
+    int pileId = -1;
+    if (!Database::addPile(stationId, code, type, power, &pileId)) {
+        return fail(2, "新增电桩失败，请确认站点存在、电桩数未达200上限，且站内编号未重复");
+    }
+    return ok({{"pileId", pileId}});
 }
 
 QJsonObject RequestDispatcher::handleAdminQueryStations(const QJsonObject &)
