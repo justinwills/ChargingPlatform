@@ -98,7 +98,7 @@ void NavigationPage::buildUi()
         }
         QLabel#navDestination { color: #182033; font-size: 13px; }
         QLabel#navStatus { color: #737686; font-size: 11px; }
-        QLabel#navDuration { color: #0752ce; font-size: 27px; font-weight: 800; }
+        QLabel#navDuration { color: #0752ce; font-size: 22px; font-weight: 800; }
         QLabel#navEta, QLabel#navDistance { color: #4d5162; font-size: 12px; }
         QLabel#navInstruction { color: #737686; font-size: 11px; }
         QPushButton#navPlanButton {
@@ -266,13 +266,18 @@ void NavigationPage::buildUi()
     summaryTop->setSpacing(8);
     m_durationLabel = new QLabel(tr("-- 分钟"), summaryCard);
     m_durationLabel->setObjectName(QStringLiteral("navDuration"));
+    m_durationLabel->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
     summaryTop->addWidget(m_durationLabel);
+
+    auto *etaDistanceColumn = new QVBoxLayout;
+    etaDistanceColumn->setSpacing(0);
     m_etaLabel = new QLabel(tr("等待路线规划"), summaryCard);
     m_etaLabel->setObjectName(QStringLiteral("navEta"));
-    summaryTop->addWidget(m_etaLabel, 1, Qt::AlignBottom);
+    etaDistanceColumn->addWidget(m_etaLabel);
     m_distanceLabel = new QLabel(tr("剩余距离 -- km"), summaryCard);
     m_distanceLabel->setObjectName(QStringLiteral("navDistance"));
-    summaryTop->addWidget(m_distanceLabel, 0, Qt::AlignBottom);
+    etaDistanceColumn->addWidget(m_distanceLabel);
+    summaryTop->addLayout(etaDistanceColumn, 1);
     summaryLayout->addLayout(summaryTop);
     m_instructionLabel = new QLabel(tr("腾讯地图将根据实时位置规划路线"), summaryCard);
     m_instructionLabel->setObjectName(QStringLiteral("navInstruction"));
