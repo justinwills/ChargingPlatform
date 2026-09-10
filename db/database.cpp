@@ -747,6 +747,88 @@ double Database::getStationOnlineRate(int stationId)
 }
 
 // ================= 充电桩 =================
+bool Database::addPile(int stationId, const QString &code, const QString &type,
+                       double power, int *outPileId)
+{
+    const QString normalizedCode = code.trimmed();
+    if (stationId <= 0 || normalizedCode.isEmpty()
+        || (type != QStringLiteral("快充") && type != QStringLiteral("慢充"))
+        || power <= 0) {
+        return false;
+    }
+
+    QSqlDatabase db = currentThreadDb();
+    if (!db.transaction()) {
+        qDebug() << "addPile 失败：无法开启事务";
+        return false;
+    }
+
+    auto rollback = [&db]() {
+        db.rollback();
+        return false;
+    };
+
+    QSqlQuery stationQuery(db);
+    stationQuery.prepare("select count(piles.id) from stations "
+                         "left join piles on piles.station_id = stations.id "
+                         "where stations.id = ? group by stations.id");
+    stationQuery.addBindValue(stationId);
+    if (!stationQuery.exec() || !stationQuery.next()) {
+        qDebug() << "addPile 失败：站点不存在" << stationId;
+        return rollback();
+    }
+    if (stationQuery.value(0).toInt() >= 200) {
+        qDebug() << "addPile 失败：站点电桩数已达上限" << stationId;
+        return rollback();
+    }
+
+    QSqlQuery duplicateQuery(db);
+    duplicateQuery.prepare("select id from piles where station_id = ? and lower(code) = lower(?)");
+    duplicateQuery.addBindValue(stationId);
+    duplicateQuery.addBindValue(normalizedCode);
+    if (!duplicateQuery.exec()) {
+        qDebug() << "addPile 检查编号失败：" << duplicateQuery.lastError().text();
+        return rollback();
+    }
+    if (duplicateQuery.next()) {
+        qDebug() << "addPile 失败：同一站点的电桩编号重复" << normalizedCode;
+        return rollback();
+    }
+
+    QSqlQuery insertQuery(db);
+    insertQuery.prepare("insert into piles(station_id, code, type, power, status) "
+                        "values(?, ?, ?, ?, '闲置')");
+    insertQuery.addBindValue(stationId);
+    insertQuery.addBindValue(normalizedCode);
+    insertQuery.addBindValue(type);
+    insertQuery.addBindValue(power);
+    if (!insertQuery.exec()) {
+        qDebug() << "addPile 新增电桩失败：" << insertQuery.lastError().text();
+        return rollback();
+    }
+    const int pileId = insertQuery.lastInsertId().toInt();
+
+    QSqlQuery updateCount(db);
+    updateCount.prepare("update stations set pile_count = "
+                        "(select count(*) from piles where station_id = ?) where id = ?");
+    updateCount.addBindValue(stationId);
+    updateCount.addBindValue(stationId);
+    if (!updateCount.exec() || updateCount.numRowsAffected() != 1) {
+        qDebug() << "addPile 更新站点电桩数失败：" << updateCount.lastError().text();
+        return rollback();
+    }
+
+    if (!db.commit()) {
+        qDebug() << "addPile 提交事务失败：" << db.lastError().text();
+        db.rollback();
+        return false;
+    }
+    if (outPileId) {
+        *outPileId = pileId;
+    }
+    return true;
+}
+
 QList<PileInfo> Database::getAllPiles()
 {
     QList<PileInfo> result;

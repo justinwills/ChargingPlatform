@@ -132,6 +132,8 @@ public:
     static double getStationOnlineRate(int stationId);  // 在线率(0~100)：非"故障"电桩占比（第19项）
 
     // ---------- 充电桩（充电用户端 第3项 / PC服务器端 第16-18,20项） ----------
+    static bool addPile(int stationId, const QString &code, const QString &type,
+                        double power, int *outPileId = nullptr);
     static QList<PileInfo> getAllPiles();               // 全部电桩+所属电站名（第17项 电桩列表）
     static QList<PileInfo> getPilesByStation(int stationId); // 某电站的电桩（第3,20项 站点详情）
     static bool getPileById(int pileId, PileInfo *outPile);
