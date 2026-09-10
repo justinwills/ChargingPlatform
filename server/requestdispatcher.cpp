@@ -510,6 +510,7 @@ QJsonObject RequestDispatcher::handleAdminQueryStations(const QJsonObject &)
     for (const StationInfo &station : Database::getAllStations()) {
         stations.append(QJsonObject{
             {"stationId", station.id}, {"name", station.name}, {"address", station.address},
+            {"longitude", station.longitude}, {"latitude", station.latitude},
             {"price", station.price}, {"pileCount", station.pileCount},
             {"freePileCount", Database::getFreePileCount(station.id)},
             {"onlineRate", Database::getStationOnlineRate(station.id)}

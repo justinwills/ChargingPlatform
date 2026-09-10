@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QtCharts/QChartView>
+#include <QJsonArray>
 #include "../clientconnection.h"
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -55,6 +56,9 @@ private:
     void populateStatsCards(const QJsonObject &data);
     void populateRevenueTrend(const QJsonArray &trend);
     void populateRevenueChart(const QJsonArray &trend, int days);
+    void populatePilesTable(const QJsonArray &piles);
+    void showPilesForStation(int stationId, const QString &stationName);
+    void showAllPiles();
 
     static QString stylesheet();
 
@@ -98,9 +102,17 @@ private:
     QSpinBox *stationPileCountEdit;
     QTableWidget *stationsTable;
     QTableWidget *pilesTable;
+    QLabel *pileFilterLabel;
+    QPushButton *showAllPilesBtn;
     QSpinBox *stationAdjustIdSpin;
     QSpinBox *stationAdjustPileCountSpin;
     QSpinBox *pileIdSpin;
+
+    // Cache of the last full piles list received from the server, so a
+    // station row click can filter locally without another round trip.
+    QJsonArray allPilesCache;
+    int selectedPileStationId = -1;
+    QString selectedPileStationName;
 
     // Orders page
     QLineEdit *orderPhoneFilter;

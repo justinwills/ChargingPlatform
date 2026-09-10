@@ -632,6 +632,7 @@ AdminWindow::AdminWindow(QWidget *parent)
       stationLongitudeEdit(new QDoubleSpinBox), stationLatitudeEdit(new QDoubleSpinBox),
       stationPriceEdit(new QDoubleSpinBox), stationPileCountEdit(new QSpinBox),
       stationsTable(new QTableWidget), pilesTable(new QTableWidget),
+      pileFilterLabel(new QLabel), showAllPilesBtn(new QPushButton),
       stationAdjustIdSpin(new QSpinBox), stationAdjustPileCountSpin(new QSpinBox),
       pileIdSpin(new QSpinBox),
       orderPhoneFilter(new QLineEdit), orderStationFilter(new QComboBox),
@@ -1246,10 +1247,11 @@ AdminWindow::AdminWindow(QWidget *parent)
     stcLayout->addWidget(stationTableTitle);
     stcLayout->addWidget(makeDivider());
 
-    stationsTable->setColumnCount(6);
+    stationsTable->setColumnCount(7);
     stationsTable->setHorizontalHeaderLabels({
         QStringLiteral("ID"), QStringLiteral("名称"), QStringLiteral("地址"),
-        QStringLiteral("价格"), QStringLiteral("空闲/总数"), QStringLiteral("在线率")
+        QStringLiteral("价格"), QStringLiteral("空闲/总数"), QStringLiteral("在线率"),
+        QStringLiteral("经纬度")
     });
     stationsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     stationsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
@@ -1257,11 +1259,13 @@ AdminWindow::AdminWindow(QWidget *parent)
     stationsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
     stationsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
     stationsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Fixed);
+    stationsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Fixed);
     stationsTable->setColumnWidth(0, 70);
     stationsTable->setColumnWidth(1, 170);
     stationsTable->setColumnWidth(3, 100);
     stationsTable->setColumnWidth(4, 110);
     stationsTable->setColumnWidth(5, 100);
+    stationsTable->setColumnWidth(6, 170);
     stationsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     stationsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     stationsTable->setAlternatingRowColors(true);
@@ -1271,6 +1275,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     stationsTable->setMinimumHeight(190);
     stationsTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     stationsTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    stationsTable->setToolTip(QStringLiteral("点击一行可在下方电桩列表中查看该站点的电桩明细"));
     stcLayout->addWidget(stationsTable);
 
     auto *stationAdjustRow = new QHBoxLayout;
@@ -1316,11 +1321,27 @@ AdminWindow::AdminWindow(QWidget *parent)
     ptcLayout->addWidget(pileTableTitle);
     ptcLayout->addWidget(makeDivider());
 
-    pilesTable->setColumnCount(7);
+    auto *pileFilterRow = new QHBoxLayout;
+    pileFilterRow->setContentsMargins(0, 0, 0, 0);
+    pileFilterRow->setSpacing(10);
+    pileFilterLabel->setText(QStringLiteral("当前显示：全部电桩"));
+    pileFilterLabel->setStyleSheet(QStringLiteral(
+        "color:#737686; font-size:13px; font-weight:500; background:transparent; border:none;"));
+    pileFilterRow->addWidget(pileFilterLabel);
+    pileFilterRow->addStretch();
+    showAllPilesBtn->setText(QStringLiteral("显示全部电桩"));
+    showAllPilesBtn->setObjectName(QStringLiteral("secondaryBtn"));
+    showAllPilesBtn->setMinimumHeight(30);
+    showAllPilesBtn->setCursor(Qt::PointingHandCursor);
+    showAllPilesBtn->setVisible(false);
+    pileFilterRow->addWidget(showAllPilesBtn);
+    ptcLayout->addLayout(pileFilterRow);
+
+    pilesTable->setColumnCount(8);
     pilesTable->setHorizontalHeaderLabels({
         QStringLiteral("ID"), QStringLiteral("站点"), QStringLiteral("编号"),
         QStringLiteral("类型"), QStringLiteral("功率"), QStringLiteral("状态"),
-        QStringLiteral("累计次数")
+        QStringLiteral("累计次数"), QStringLiteral("累计充电时长")
     });
     pilesTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     pilesTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
@@ -1329,6 +1350,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     pilesTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
     pilesTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Fixed);
     pilesTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Fixed);
+    pilesTable->horizontalHeader()->setSectionResizeMode(7, QHeaderView::Fixed);
     pilesTable->setColumnWidth(0, 70);
     pilesTable->setColumnWidth(1, 170);
     pilesTable->setColumnWidth(2, 90);
@@ -1336,6 +1358,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     pilesTable->setColumnWidth(4, 100);
     pilesTable->setColumnWidth(5, 100);
     pilesTable->setColumnWidth(6, 100);
+    pilesTable->setColumnWidth(7, 130);
     pilesTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     pilesTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     pilesTable->setAlternatingRowColors(true);
@@ -1389,6 +1412,14 @@ AdminWindow::AdminWindow(QWidget *parent)
         const QString countText = stationsTable->item(currentRow, 4)->text().section('/', 1).trimmed();
         stationAdjustPileCountSpin->setValue(countText.toInt());
     });
+    // 点击电站行，可查看该站所有电桩的实时状态明细
+    connect(stationsTable, &QTableWidget::cellClicked, this,
+            [this](int row, int) {
+        if (!stationsTable->item(row, 0) || !stationsTable->item(row, 1)) return;
+        showPilesForStation(stationsTable->item(row, 0)->text().toInt(),
+                             stationsTable->item(row, 1)->text());
+    });
+    connect(showAllPilesBtn, &QPushButton::clicked, this, &AdminWindow::showAllPiles);
     connect(restartBtn, &QPushButton::clicked, this, &AdminWindow::restartSelectedPile);
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -1805,6 +1836,73 @@ void AdminWindow::populateRevenueChart(const QJsonArray &trend, int days)
     delete oldChart;
 }
 
+// ─── Piles Table Population ────────────────────────────────────────────────────
+void AdminWindow::populatePilesTable(const QJsonArray &piles)
+{
+    if (piles.isEmpty()) {
+        showTableEmptyState(pilesTable, QStringLiteral("暂无电桩数据"));
+    } else {
+        pilesTable->clearSpans();
+        pilesTable->setRowCount(piles.size());
+    }
+    for (int row = 0; row < piles.size(); ++row) {
+        const QJsonObject pile = piles.at(row).toObject();
+        pilesTable->setItem(row, 0, new QTableWidgetItem(QString::number(pile.value("pileId").toInt())));
+        pilesTable->setItem(row, 1, new QTableWidgetItem(pile.value("stationName").toString()));
+        pilesTable->setItem(row, 2, new QTableWidgetItem(pile.value("code").toString()));
+        pilesTable->setItem(row, 3, new QTableWidgetItem(pile.value("type").toString()));
+        pilesTable->setItem(row, 4, new QTableWidgetItem(
+            QStringLiteral("%1 kW").arg(pile.value("power").toDouble(), 0, 'f', 1)));
+
+        const QString pileStatus = pile.value("status").toString();
+        auto *statusItem = new QTableWidgetItem(pileStatus);
+        if (pileStatus == QStringLiteral("空闲")) {
+            statusItem->setForeground(QColor(cSuccess));
+            statusItem->setBackground(QColor(cSuccessBg));
+        } else if (pileStatus == QStringLiteral("充电中") || pileStatus == QStringLiteral("在用")) {
+            statusItem->setForeground(QColor(cWarning));
+            statusItem->setBackground(QColor(cWarningBg));
+        } else {
+            statusItem->setForeground(QColor(cDanger));
+            statusItem->setBackground(QColor(cDangerBg));
+        }
+        pilesTable->setItem(row, 5, statusItem);
+        pilesTable->setItem(row, 6, new QTableWidgetItem(QString::number(pile.value("totalSessions").toInt())));
+
+        // totalDuration is stored in minutes; show it as "Xh Ym" once it's an hour or more.
+        const int totalMinutes = pile.value("totalDuration").toInt();
+        const QString durationText = totalMinutes >= 60
+            ? QStringLiteral("%1 小时 %2 分钟").arg(totalMinutes / 60).arg(totalMinutes % 60)
+            : QStringLiteral("%1 分钟").arg(totalMinutes);
+        pilesTable->setItem(row, 7, new QTableWidgetItem(durationText));
+    }
+}
+
+void AdminWindow::showPilesForStation(int stationId, const QString &stationName)
+{
+    selectedPileStationId = stationId;
+    selectedPileStationName = stationName;
+    QJsonArray filtered;
+    for (const QJsonValue &val : allPilesCache) {
+        if (val.toObject().value("stationId").toInt() == stationId) {
+            filtered.append(val);
+        }
+    }
+    populatePilesTable(filtered);
+    pileFilterLabel->setText(QStringLiteral("当前显示：%1 的电桩（共 %2 个）")
+                                  .arg(stationName).arg(filtered.size()));
+    showAllPilesBtn->setVisible(true);
+}
+
+void AdminWindow::showAllPiles()
+{
+    selectedPileStationId = -1;
+    selectedPileStationName.clear();
+    populatePilesTable(allPilesCache);
+    pileFilterLabel->setText(QStringLiteral("当前显示：全部电桩"));
+    showAllPilesBtn->setVisible(false);
+}
+
 // ─── Response Handler ──────────────────────────────────────────────────────────
 void AdminWindow::handleResponse(const QJsonObject &response)
 {
@@ -1878,6 +1976,11 @@ void AdminWindow::handleResponse(const QJsonObject &response)
 
             stationsTable->setItem(row, 5, new QTableWidgetItem(
                 QStringLiteral("%1%").arg(station.value("onlineRate").toDouble(), 0, 'f', 1)));
+
+            stationsTable->setItem(row, 6, new QTableWidgetItem(
+                QStringLiteral("%1, %2")
+                    .arg(station.value("longitude").toDouble(), 0, 'f', 6)
+                    .arg(station.value("latitude").toDouble(), 0, 'f', 6)));
         }
         if (!stations.isEmpty()) {
             int row = stationsTable->currentRow();
@@ -1892,36 +1995,20 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         if (selectedIndex >= 0) orderStationFilter->setCurrentIndex(selectedIndex);
         send(QStringLiteral("admin_query_piles"));
     } else if (data.contains("piles")) {
-        const QJsonArray piles = data.value("piles").toArray();
-        if (piles.isEmpty()) {
-            showTableEmptyState(pilesTable, QStringLiteral("暂无电桩数据"));
-        } else {
-            pilesTable->clearSpans();
-            pilesTable->setRowCount(piles.size());
-        }
-        for (int row = 0; row < piles.size(); ++row) {
-            const QJsonObject pile = piles.at(row).toObject();
-            pilesTable->setItem(row, 0, new QTableWidgetItem(QString::number(pile.value("pileId").toInt())));
-            pilesTable->setItem(row, 1, new QTableWidgetItem(pile.value("stationName").toString()));
-            pilesTable->setItem(row, 2, new QTableWidgetItem(pile.value("code").toString()));
-            pilesTable->setItem(row, 3, new QTableWidgetItem(pile.value("type").toString()));
-            pilesTable->setItem(row, 4, new QTableWidgetItem(
-                QStringLiteral("%1 kW").arg(pile.value("power").toDouble(), 0, 'f', 1)));
-
-            const QString pileStatus = pile.value("status").toString();
-            auto *statusItem = new QTableWidgetItem(pileStatus);
-            if (pileStatus == QStringLiteral("空闲")) {
-                statusItem->setForeground(QColor(cSuccess));
-                statusItem->setBackground(QColor(cSuccessBg));
-            } else if (pileStatus == QStringLiteral("充电中") || pileStatus == QStringLiteral("在用")) {
-                statusItem->setForeground(QColor(cWarning));
-                statusItem->setBackground(QColor(cWarningBg));
-            } else {
-                statusItem->setForeground(QColor(cDanger));
-                statusItem->setBackground(QColor(cDangerBg));
+        allPilesCache = data.value("piles").toArray();
+        if (selectedPileStationId >= 0) {
+            // Refreshing data shouldn't silently drop an active station filter.
+            QJsonArray filtered;
+            for (const QJsonValue &val : allPilesCache) {
+                if (val.toObject().value("stationId").toInt() == selectedPileStationId) {
+                    filtered.append(val);
+                }
             }
-            pilesTable->setItem(row, 5, statusItem);
-            pilesTable->setItem(row, 6, new QTableWidgetItem(QString::number(pile.value("totalSessions").toInt())));
+            populatePilesTable(filtered);
+            pileFilterLabel->setText(QStringLiteral("当前显示：%1 的电桩（共 %2 个）")
+                                          .arg(selectedPileStationName).arg(filtered.size()));
+        } else {
+            populatePilesTable(allPilesCache);
         }
     } else if (data.contains("revenueToday") && data.contains("pileStatus")) {
         populateStatsCards(data);
