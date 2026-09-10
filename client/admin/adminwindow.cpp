@@ -31,6 +31,15 @@
 #include <QButtonGroup>
 #include <QVector>
 #include <QSignalBlocker>
+#include <QPainter>
+#include <QDateTime>
+#include <QTime>
+#include <QtCharts/QChart>
+#include <QtCharts/QDateTimeAxis>
+#include <QtCharts/QLegend>
+#include <QtCharts/QLineSeries>
+#include <QtCharts/QValueAxis>
+#include <cmath>
 
 // ─── Design System Constants ───────────────────────────────────────────────────
 // Colors
@@ -630,7 +639,8 @@ AdminWindow::AdminWindow(QWidget *parent)
       orderToDate(new QDateEdit), ordersTable(new QTableWidget),
       statTodayValue(new QLabel), statMonthValue(new QLabel), statTotalValue(new QLabel),
       statPileIdleCount(new QLabel), statPileBusyCount(new QLabel), statPileFaultCount(new QLabel),
-      revenueTrendLabel(new QLabel)
+      revenueTrendLabel(new QLabel), revenuePeriodCombo(new QComboBox),
+      revenueChartView(new QChartView)
 {
     setWindowTitle(QStringLiteral("东软电动汽车充电平台 · 管理后台"));
     resize(1120, 700);
@@ -1013,7 +1023,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     }
     statsMainLayout->addLayout(pileRow);
 
-    // ── 7-Day Revenue Trend ──────────────────────────────────────────────────
+    // ── Revenue details ──────────────────────────────────────────────────────
     auto *trendCard = new QFrame;
     trendCard->setObjectName(QStringLiteral("contentCard"));
     applyShadow(trendCard, 16, 4, QColor(19, 27, 46, 12));
@@ -1021,7 +1031,7 @@ AdminWindow::AdminWindow(QWidget *parent)
     trendCardLayout->setContentsMargins(24, 20, 24, 24);
     trendCardLayout->setSpacing(12);
 
-    auto *trendTitle = new QLabel(QStringLiteral("近 7 日营收趋势"));
+    auto *trendTitle = new QLabel(QStringLiteral("营收明细"));
     trendTitle->setStyleSheet(QStringLiteral(
         "color:#131b2e; font-size:16px; font-weight:700; background:transparent; border:none;"));
     trendCardLayout->addWidget(trendTitle);
@@ -1037,6 +1047,39 @@ AdminWindow::AdminWindow(QWidget *parent)
     trendCardLayout->addStretch();
 
     statsMainLayout->addWidget(trendCard);
+
+    // ── Revenue trend chart (bottom of the statistics page) ─────────────────
+    auto *chartCard = new QFrame;
+    chartCard->setObjectName(QStringLiteral("contentCard"));
+    applyShadow(chartCard, 16, 4, QColor(19, 27, 46, 12));
+    auto *chartCardLayout = new QVBoxLayout(chartCard);
+    chartCardLayout->setContentsMargins(24, 20, 24, 24);
+    chartCardLayout->setSpacing(12);
+
+    auto *chartHeader = new QHBoxLayout;
+    auto *chartTitle = new QLabel(QStringLiteral("营收变化趋势"));
+    chartTitle->setStyleSheet(QStringLiteral(
+        "color:#131b2e; font-size:16px; font-weight:700; background:transparent; border:none;"));
+    revenuePeriodCombo->addItem(QStringLiteral("近 7 日"), 7);
+    revenuePeriodCombo->addItem(QStringLiteral("近 30 日"), 30);
+    revenuePeriodCombo->setMinimumWidth(110);
+    revenuePeriodCombo->setCursor(Qt::PointingHandCursor);
+    chartHeader->addWidget(chartTitle);
+    chartHeader->addStretch();
+    chartHeader->addWidget(new QLabel(QStringLiteral("时间维度：")));
+    chartHeader->addWidget(revenuePeriodCombo);
+    chartCardLayout->addLayout(chartHeader);
+    chartCardLayout->addWidget(makeDivider());
+
+    auto *initialChart = new QChart;
+    initialChart->setTitle(QStringLiteral("近 7 日营收趋势"));
+    initialChart->setBackgroundVisible(false);
+    revenueChartView->setChart(initialChart);
+    revenueChartView->setRenderHint(QPainter::Antialiasing);
+    revenueChartView->setMinimumHeight(330);
+    revenueChartView->setStyleSheet(QStringLiteral("background:transparent; border:none;"));
+    chartCardLayout->addWidget(revenueChartView);
+    statsMainLayout->addWidget(chartCard);
     statsMainLayout->addStretch();
 
     statsScroll->setWidget(statsInner);
@@ -1450,6 +1493,8 @@ AdminWindow::AdminWindow(QWidget *parent)
     connect(orderFromDate, &QDateEdit::dateChanged, this, &AdminWindow::refreshOrders);
     connect(orderToDate, &QDateEdit::dateChanged, this, &AdminWindow::refreshOrders);
     connect(ordersRefreshBtn, &QPushButton::clicked, this, &AdminWindow::refreshOrders);
+    connect(revenuePeriodCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int) { refreshStats(); });
 
     // ══════════════════════════════════════════════════════════════════════════
     // Connection signals
@@ -1633,7 +1678,9 @@ void AdminWindow::restartSelectedPile()
 
 void AdminWindow::refreshStats()
 {
-    send(QStringLiteral("admin_stats"));
+    send(QStringLiteral("admin_stats"), {
+        {"days", revenuePeriodCombo->currentData().toInt()}
+    });
 }
 
 void AdminWindow::refreshOrders()
@@ -1697,6 +1744,65 @@ void AdminWindow::populateRevenueTrend(const QJsonArray &trend)
     }
     html += QStringLiteral("</table>");
     revenueTrendLabel->setText(html);
+}
+
+void AdminWindow::populateRevenueChart(const QJsonArray &trend, int days)
+{
+    auto *chart = new QChart;
+    chart->setTitle(QStringLiteral("近 %1 日营收趋势").arg(days));
+    chart->setBackgroundVisible(false);
+    chart->setAnimationOptions(QChart::SeriesAnimations);
+    chart->legend()->setVisible(false);
+
+    auto *series = new QLineSeries(chart);
+    series->setName(QStringLiteral("营收（元）"));
+    series->setPointsVisible(true);
+    QPen linePen{QColor(cPrimary)};
+    linePen.setWidth(3);
+    series->setPen(linePen);
+
+    QDateTime firstPoint;
+    QDateTime lastPoint;
+    double maximumRevenue = 0.0;
+    for (const QJsonValue &value : trend) {
+        const QJsonObject point = value.toObject();
+        const QDate date = QDate::fromString(point.value("date").toString(), Qt::ISODate);
+        if (!date.isValid()) continue;
+
+        const QDateTime dateTime(date, QTime(12, 0));
+        const double revenue = point.value("revenue").toDouble();
+        series->append(dateTime.toMSecsSinceEpoch(), revenue);
+        if (!firstPoint.isValid()) firstPoint = dateTime;
+        lastPoint = dateTime;
+        maximumRevenue = qMax(maximumRevenue, revenue);
+    }
+
+    chart->addSeries(series);
+    if (series->count() > 0) {
+        auto *dateAxis = new QDateTimeAxis(chart);
+        dateAxis->setFormat(QStringLiteral("MM-dd"));
+        dateAxis->setTitleText(QStringLiteral("日期"));
+        dateAxis->setTickCount(days == 7 ? 7 : 8);
+        dateAxis->setRange(firstPoint, lastPoint);
+
+        auto *valueAxis = new QValueAxis(chart);
+        valueAxis->setTitleText(QStringLiteral("营收（元）"));
+        valueAxis->setLabelFormat(QStringLiteral("%.2f"));
+        const double upperBound = qMax(10.0,
+            std::ceil(maximumRevenue * 1.2 / 10.0) * 10.0);
+        valueAxis->setRange(0.0, upperBound);
+
+        chart->addAxis(dateAxis, Qt::AlignBottom);
+        chart->addAxis(valueAxis, Qt::AlignLeft);
+        series->attachAxis(dateAxis);
+        series->attachAxis(valueAxis);
+    } else {
+        chart->setTitle(QStringLiteral("近 %1 日暂无已结算订单数据").arg(days));
+    }
+
+    QChart *oldChart = revenueChartView->chart();
+    revenueChartView->setChart(chart);
+    delete oldChart;
 }
 
 // ─── Response Handler ──────────────────────────────────────────────────────────
@@ -1819,7 +1925,11 @@ void AdminWindow::handleResponse(const QJsonObject &response)
         }
     } else if (data.contains("revenueToday") && data.contains("pileStatus")) {
         populateStatsCards(data);
-        populateRevenueTrend(data.value("revenueTrend").toArray());
+        const QJsonArray trend = data.value("revenueTrend").toArray();
+        const int days = data.value("trendDays").toInt(
+            revenuePeriodCombo->currentData().toInt());
+        populateRevenueTrend(trend);
+        populateRevenueChart(trend, days);
     } else if (data.contains("orders")) {
         const QJsonArray orders = data.value("orders").toArray();
         if (orders.isEmpty()) {

@@ -2,7 +2,12 @@
 #define ADMINWINDOW_H
 
 #include <QMainWindow>
+#include <QtCharts/QChartView>
 #include "../clientconnection.h"
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+QT_CHARTS_USE_NAMESPACE
+#endif
 
 class QLineEdit;
 class QLabel;
@@ -49,6 +54,7 @@ private:
     void updateNavButtons(int activeIndex);
     void populateStatsCards(const QJsonObject &data);
     void populateRevenueTrend(const QJsonArray &trend);
+    void populateRevenueChart(const QJsonArray &trend, int days);
 
     static QString stylesheet();
 
@@ -76,6 +82,8 @@ private:
     QLabel *statPileBusyCount;
     QLabel *statPileFaultCount;
     QLabel *revenueTrendLabel;
+    QComboBox *revenuePeriodCombo;
+    QChartView *revenueChartView;
 
     // Users page
     QLineEdit *userFilterEdit;

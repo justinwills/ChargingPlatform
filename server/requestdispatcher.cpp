@@ -516,22 +516,24 @@ QJsonObject RequestDispatcher::handleAdminRestartPile(const QJsonObject &params)
     return ok(QJsonObject());
 }
 
-QJsonObject RequestDispatcher::handleAdminStats(const QJsonObject &)
+QJsonObject RequestDispatcher::handleAdminStats(const QJsonObject &params)
 {
+    const int requestedDays = params.value("days").toInt(7);
+    const int days = requestedDays == 30 ? 30 : 7;
     QJsonObject pileStatus;
     const QMap<QString, int> stats = Database::getPileStatusStats();
     for (auto it = stats.cbegin(); it != stats.cend(); ++it) {
         pileStatus[it.key()] = it.value();
     }
     QJsonArray trend;
-    for (const auto &point : Database::getRevenueTrend(7)) {
+    for (const auto &point : Database::getRevenueTrend(days)) {
         trend.append(QJsonObject{{"date", point.first}, {"revenue", point.second}});
     }
     return ok({
         {"revenueToday", Database::getRevenueToday()},
         {"revenueThisMonth", Database::getRevenueThisMonth()},
         {"revenueTotal", Database::getRevenueTotal()},
-        {"pileStatus", pileStatus}, {"revenueTrend", trend}
+        {"pileStatus", pileStatus}, {"trendDays", days}, {"revenueTrend", trend}
     });
 }
 
