@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>东软电动汽车充电桩应用管理平台 · 大数据可视化大屏</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0b1220;
+    color: #e6ecff;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #7c8aad;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: linear-gradient(135deg, #131c33, #0f1728);
+    border: 1px solid #1f2c4a;
+    border-radius: 10px;
+    padding: 18px 22px;
+  }
+  .card .label { color: #7c8aad; font-size: 13px; margin-bottom: 8px; }
+  .card .value { font-size: 30px; font-weight: 700; color: #4fd1ff; }
+  .grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .panel {
+    background: #101a2e;
+    border: 1px solid #1f2c4a;
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .panel-title {
+    font-size: 14px;
+    color: #a6b4d6;
+    padding: 4px 8px 0;
+  }
+  .chart { width: 100%; height: 320px; }
+  .chart-small { width: 100%; height: 260px; }
+  #stationTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #stationTable th, #stationTable td {
+    padding: 8px 10px; text-align: left; border-bottom: 1px solid #1f2c4a;
+  }
+  #stationTable th { color: #7c8aad; font-weight: 500; }
+  .toggle { text-align: right; padding: 4px 8px; }
+  .toggle button {
+    background: #16223d; border: 1px solid #2a3a5f; color: #a6b4d6;
+    border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; margin-left: 6px;
+  }
+  .toggle button.active { background: #2a5cff; color: #fff; border-color: #2a5cff; }
+  .updated { text-align: center; color: #536087; font-size: 12px; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<h1>东软电动汽车充电桩应用管理平台</h1>
+<div class="subtitle">大数据可视化大屏 · 运营实时看板</div>
+
+<div class="cards">
+  <div class="card"><div class="label">今日营收</div><div class="value" id="revenueToday">¥ --</div></div>
+  <div class="card"><div class="label">本月营收</div><div class="value" id="revenueMonth">¥ --</div></div>
+  <div class="card"><div class="label">累计营收</div><div class="value" id="revenueTotal">¥ --</div></div>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <div class="toggle">
+      <button id="btn7" class="active">近7日</button>
+      <button id="btn30">近30日</button>
+    </div>
+    <div class="panel-title">营收趋势</div>
+    <div id="trendChart" class="chart"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">电桩状态分布</div>
+    <div id="statusChart" class="chart-small"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">充电站在线率</div>
+  <table id="stationTable">
+    <thead>
+      <tr><th>站点</th><th>总电桩数</th><th>空闲数</th><th>在线率</th></tr>
+    </thead>
+    <tbody id="stationTableBody"></tbody>
+  </table>
+</div>
+
+<div class="updated" id="updatedAt">加载中...</div>
+
+<script>
+// 服务器HTTP接口地址：跟ChargingServer在同一台机器上跑时用localhost即可，
+// 如果服务器在别的机器上，把这里改成对应的IP。
+const API_BASE = "";
+const REFRESH_INTERVAL_MS = 10000; // 10秒刷新一次，模拟"实时"看板
+
+let currentDays = 7;
+const trendChart = echarts.init(document.getElementById('trendChart'));
+const statusChart = echarts.init(document.getElementById('statusChart'));
+
+function renderTrend(trend, days) {
+  trendChart.setOption({
+    backgroundColor: 'transparent',
+    textStyle: { color: '#a6b4d6' },
+    grid: { left: 50, right: 20, top: 20, bottom: 30 },
+    tooltip: { trigger: 'axis' },
+    xAxis: {
+      type: 'category',
+      data: trend.map(p => p.date),
+      axisLine: { lineStyle: { color: '#2a3a5f' } }
+    },
+    yAxis: {
+      type: 'value',
+      name: '元',
+      axisLine: { lineStyle: { color: '#2a3a5f' } },
+      splitLine: { lineStyle: { color: '#1a2440' } }
+    },
+    series: [{
+      name: '营收',
+      type: 'line',
+      smooth: true,
+      data: trend.map(p => p.revenue),
+      lineStyle: { color: '#4fd1ff', width: 3 },
+      itemStyle: { color: '#4fd1ff' },
+      areaStyle: { color: 'rgba(79,209,255,0.12)' }
+    }]
+  });
+}
+
+function renderStatus(pileStatus) {
+  const colorMap = { '在用': '#4fd1ff', '闲置': '#39d98a', '故障': '#ff6b6b' };
+  const data = Object.entries(pileStatus).map(([name, value]) => ({
+    name, value, itemStyle: { color: colorMap[name] || '#7c8aad' }
+  }));
+  statusChart.setOption({
+    backgroundColor: 'transparent',
+    textStyle: { color: '#a6b4d6' },
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: 0, textStyle: { color: '#a6b4d6' } },
+    series: [{
+      type: 'pie',
+      radius: ['45%', '70%'],
+      avoidLabelOverlap: true,
+      label: { color: '#e6ecff' },
+      data
+    }]
+  });
+}
+
+function renderStations(stations) {
+  const body = document.getElementById('stationTableBody');
+  body.innerHTML = stations.map(s => `
+    <tr>
+      <td>${s.name}</td>
+      <td>${s.pileCount}</td>
+      <td>${s.freePileCount}</td>
+      <td>${s.onlineRate.toFixed(1)}%</td>
+    </tr>
+  `).join('');
+}
+
+async function refresh() {
+  try {
+    const res = await fetch(`${API_BASE}/api/stats?days=${currentDays}`);
+    const json = await res.json();
+    if (json.code !== 0) throw new Error(json.msg || '接口返回错误');
+    const d = json.data;
+
+    document.getElementById('revenueToday').textContent = '¥ ' + d.revenueToday.toFixed(2);
+    document.getElementById('revenueMonth').textContent = '¥ ' + d.revenueThisMonth.toFixed(2);
+    document.getElementById('revenueTotal').textContent = '¥ ' + d.revenueTotal.toFixed(2);
+
+    renderTrend(d.revenueTrend, d.trendDays);
+    renderStatus(d.pileStatus);
+    renderStations(d.stations);
+
+    document.getElementById('updatedAt').textContent =
+      '最后更新：' + new Date().toLocaleTimeString('zh-CN');
+  } catch (err) {
+    document.getElementById('updatedAt').textContent = '数据获取失败：' + err.message;
+  }
+}
+
+document.getElementById('btn7').addEventListener('click', () => {
+  currentDays = 7;
+  document.getElementById('btn7').classList.add('active');
+  document.getElementById('btn30').classList.remove('active');
+  refresh();
+});
+document.getElementById('btn30').addEventListener('click', () => {
+  currentDays = 30;
+  document.getElementById('btn30').classList.add('active');
+  document.getElementById('btn7').classList.remove('active');
+  refresh();
+});
+
+window.addEventListener('resize', () => { trendChart.resize(); statusChart.resize(); });
+
+refresh();
+setInterval(refresh, REFRESH_INTERVAL_MS);
+</script>
+
+</body>
+</html>

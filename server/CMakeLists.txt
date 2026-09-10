@@ -5,6 +5,8 @@ add_library(server STATIC
     requestdispatcher.h
     serverlistener.cpp
     serverlistener.h
+    httpdashboard.cpp
+    httpdashboard.h
 )
 
 set_target_properties(server PROPERTIES
@@ -32,4 +34,11 @@ target_link_libraries(ChargingServer PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Network
     server
+)
+
+add_custom_command(TARGET ChargingServer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/dashboard
+        $<TARGET_FILE_DIR:ChargingServer>/dashboard
+    COMMENT "Copying dashboard/ next to ChargingServer executable"
 )

@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QtGlobal>
 
+#include "httpdashboard.h"
 #include "database.h"
 #include "serverlistener.h"
 
@@ -36,5 +37,16 @@ int main(int argc, char *argv[])
     }
 
     qInfo() << "Charging server listening on port 8888";
+
+    HttpDashboard dashboard;
+    QObject::connect(&dashboard, &HttpDashboard::logMessage,
+                     [](const QString &message) { qInfo().noquote() << message; });
+
+    if (!dashboard.listen(QHostAddress::Any, 8080)) {
+        qWarning() << "大数据大屏HTTP接口启动失败:" << dashboard.errorString();
+    } else {
+        qInfo() << "Dashboard API listening on port 8080 (GET /api/stats)";
+    }
+
     return app.exec();
 }
