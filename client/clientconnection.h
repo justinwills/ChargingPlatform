@@ -7,7 +7,7 @@
 #include <QQueue>
 #include "protocolcodec.h"
 
-// ClientConnection：充电用户端（邱辰笙）用来跟PC服务器端说话的封装。
+// ClientConnection：充电用户端用来跟PC服务器端说话的封装。
 // 只需要 connectToServer() 一次，之后反复调用 sendRequest(action, params)，
 // 响应会从 responseReceived 信号里拿到。连接层按TCP请求顺序记录action，
 // 并在响应对象的_requestAction字段中带回对应action。
