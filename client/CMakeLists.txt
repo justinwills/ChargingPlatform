@@ -25,6 +25,17 @@ add_executable(ChargingClient
     mainwindow.cpp
     mainwindow.h
     mainwindow.ui
+    mainwindow_chargeui.cpp
+    mainwindow_chargeselectors.cpp
+    mainwindow_homenav.cpp
+    mainwindow_stationdetail.cpp
+    mainwindow_accountpage.cpp
+    mainwindow_chargingsession.cpp
+    mainwindow_settingspage.cpp
+    mainwindow_rechargepage.cpp
+    mainwindow_response.cpp
+    mainwindow_response_charging.cpp
+    mainwindow_response_account.cpp
     chargering.cpp
     chargering.h
     flowlayout.cpp
@@ -34,6 +45,19 @@ add_executable(ChargingClient
     resources.qrc
     admin/adminwindow.cpp
     admin/adminwindow.h
+    admin/admindesign.h
+    admin/adminwindow_style.cpp
+    admin/adminwindow_loginpage.cpp
+    admin/adminwindow_dashboardshell.cpp
+    admin/adminwindow_statstab.cpp
+    admin/adminwindow_userstab.cpp
+    admin/adminwindow_stationstab.cpp
+    admin/adminwindow_orderstab.cpp
+    admin/adminwindow_login.cpp
+    admin/adminwindow_datarefresh.cpp
+    admin/adminwindow_statscards.cpp
+    admin/adminwindow_pilestable.cpp
+    admin/adminwindow_response.cpp
     clientconnection.cpp
     clientconnection.h
     navigationpage.cpp

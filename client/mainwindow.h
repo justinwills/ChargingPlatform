@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QTimer>
+#include <QPixmap>
 #include "clientconnection.h"
 #include "paymentpreview.h"
 
@@ -68,12 +69,26 @@ private slots:
 
     void onServerResponse(const QJsonObject &response);
 
+private:
+    // onServerResponse is split by action domain across two source files:
+    //   mainwindow_response_charging.cpp - navigation/settlement/order/charge actions
+    //   mainwindow_response_account.cpp  - profile/login/recharge/misc actions
+    // Both are called in order from onServerResponse (mainwindow.cpp).
+    // A handled branch returns true so onServerResponse can stop dispatching.
+    bool handleChargingResponse(const QString &action, const QJsonObject &data,
+                                 const QJsonObject &response);
+    bool handleAccountResponse(const QString &action, const QJsonObject &data,
+                                const QJsonObject &response);
+
+private slots:
+
     void onConnectionError(const QString &message);
 
     void showPaymentPreview();
 
 private:
     void applyShadow(QWidget *widget);
+    QPixmap circularPixmap(const QPixmap &pixmap, int size);
     void openChargePage();
     void populateStationDetail(const QJsonObject &data);
     void rebuildNearbyCards(const QJsonArray &stations);

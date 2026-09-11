@@ -53,6 +53,15 @@ private:
     void applyDashboardStyle();
     void applyCommonStyle();
     void updateNavButtons(int activeIndex);
+
+    // Constructor helpers: each builds one page/tab of the UI and adds it
+    // to `pages` or `contentStack`. Called in order from the constructor.
+    void buildLoginPage();
+    void buildDashboardShell();
+    void buildStatsTab();
+    void buildUsersTab();
+    void buildStationsTab();
+    void buildOrdersTab();
     void populateStatsCards(const QJsonObject &data);
     void populateRevenueTrend(const QJsonArray &trend);
     void populateRevenueChart(const QJsonArray &trend, int days);

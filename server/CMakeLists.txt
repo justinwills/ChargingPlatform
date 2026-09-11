@@ -3,6 +3,16 @@ add_library(server STATIC
     clientthread.h
     requestdispatcher.cpp
     requestdispatcher.h
+    dispatcher_account.cpp
+    dispatcher_admin.cpp
+    dispatcher_stations.cpp
+    dispatcher_navigation.cpp
+    dispatcher_navigation_helpers.cpp
+    dispatcher_orders.cpp
+    dispatchernavhelpers.h
+    dispatchernavhelpers.cpp
+    dispatcherorderhelpers.h
+    dispatcherorderhelpers.cpp
     serverlistener.cpp
     serverlistener.h
     httpdashboard.cpp

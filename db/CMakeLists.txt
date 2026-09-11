@@ -1,6 +1,12 @@
 add_library(database STATIC
     database.cpp
     database.h
+    database_auth.cpp
+    database_users.cpp
+    database_stations.cpp
+    database_piles.cpp
+    database_orders.cpp
+    database_revenue.cpp
 )
 
 target_include_directories(database PUBLIC
