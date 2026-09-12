@@ -5,3 +5,13 @@ ui
 # Local runtime and test databases
 charging.db
 protocol_test.db
+
+# Phase 2 (Python)
+__pycache__/
+*.pyc
+.venv/
+data/raw/*.csv
+data/processed/*
+!data/processed/.gitkeep
+ml/model_registry/*
+!ml/model_registry/.gitkeep

@@ -1,3 +1,36 @@
+<!--
+  ChargingPlatform Phase 2 — dashboard.html
+  =========================================
+  This file starts as a copy of the Phase 1 dashboard (revenue/status/online-rate
+  cards only). Phase 2 extends it with the charts and interactions below.
+  Owners and task IDs are from the Phase 2 task list.
+
+  New chart panels to add (call new /api/stats endpoints from api/routes_stats.py):
+    [#70] chargingVolumeTrend   - charging volume over time            (owner: 薛学刚)
+    [#71] revenueTrendChart     - revenue over time (extends existing) (owner: 薛学刚)
+    [#72] sessionCountTrend     - session count over time              (owner: 洪维斌)
+    [#73] stationRankingChart   - top stations bar chart                (owner: 洪维斌)
+    [#74] hourlyDistribution    - 24h charging demand histogram         (owner: 洪维斌)
+    [#75] weekdayHeatmap        - weekday x hour heatmap                (owner: 洪维斌)
+    [#76] stationDistribution   - station list/map from metadata        (owner: 洪维斌)
+    [#77] socTrendChart         - battery SOC over a session            (owner: 邱辰笙)
+    [#78] temperatureChart      - battery temperature analysis          (owner: 邱辰笙)
+    [#79] voltageCurrentChart   - pack voltage / charge current         (owner: 洪维斌)
+    [#80] energyCapacityChart   - available energy / capacity           (owner: 洪维斌)
+
+  Interaction to add:
+    [#81] Filters by date / weekday / station that re-query the API and
+          re-render the charts above.                                   (owner: 洪维斌)
+    [#82] Keep/extend the existing polling refresh for the new panels.  (owner: 特布新)
+    [#110] Wire every panel above to its real backend endpoint under
+           api/routes_stats.py, api/routes_predict.py, api/routes_recommend.py
+           once those are implemented.                                  (owner: 王清香)
+
+  TODO: add the corresponding <div id="..."></div> containers and
+  echarts.init(...) calls for each chart above, following the pattern
+  already used for trendChart / statusChart.
+-->
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
