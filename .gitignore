@@ -8,3 +8,6 @@ __pycache__/
 # Local runtime and test databases
 charging.db
 protocol_test.db
+
+# Generated output files
+outputs/
