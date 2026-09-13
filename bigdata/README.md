@@ -259,7 +259,7 @@ http://服务器IP:8080/api/bigdata
 | 星期充电规律 | `data.weekdays` |
 | 数据质量统计 | `data.quality` |
 
-## 10. 编译并启动后端
+## 10. 编译并启动后端(其实就是在QT运行server)
 
 编译：
 
