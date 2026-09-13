@@ -21,7 +21,7 @@ def _require_dwd(df: DataFrame) -> None:
     if missing:
         raise ValueError("Missing required DWD columns: " + ", ".join(missing))
 
-
+# 计算整体充电 KPI总充电次数。总充电量。总充电费用。平均充电时长。平均单次充电量。
 def overall_charging_kpis(df: DataFrame) -> DataFrame:
     """Task #66: return one ADS row containing overall charging KPIs."""
     _require_dwd(df)
@@ -78,7 +78,7 @@ def station_kpis(charging_df: DataFrame, station_df: DataFrame) -> DataFrame:
         """
     )
 
-
+# 每个用户生成一行：- 用户充电次数。- 累计充电量。- 累计充电费用。- 平均单次充电量。- 平均充电时长。
 def user_kpis(df: DataFrame) -> DataFrame:
     """Task #68: return one DWS row per user; row count is total users."""
     _require_dwd(df)
@@ -98,7 +98,10 @@ def user_kpis(df: DataFrame) -> DataFrame:
         """
     )
 
-
+#在用户汇总基础上继续生成 ADS 总体用户指标：
+# - 总用户数。
+# - 平均每个用户充电次数。
+# - 平均每个用户累计充电量。
 def user_summary_kpis(df: DataFrame) -> DataFrame:
     """Task #68 ADS summary containing user count and behavior averages."""
     _require_dwd(df)
@@ -121,7 +124,11 @@ def user_summary_kpis(df: DataFrame) -> DataFrame:
         """
     )
 
-
+#统计星期一到星期日的：
+# - 充电次数。
+# - 总充电量。
+# - 平均单次充电量。
+# 它先生成完整的七天维度，所以某一天没有数据时，也会输出该天，并用 0 补齐。
 def weekday_patterns(df: DataFrame) -> DataFrame:
     """Task #69: return all seven weekdays, filling missing days with zero."""
     _require_dwd(df)
@@ -156,7 +163,8 @@ def weekday_patterns(df: DataFrame) -> DataFrame:
         """
     )
 
-
+#生成 0～23 点共 24 行数据，统计每个小时的充电次数。
+# 即使某小时没有订单，也会输出该小时，并用 0 补齐。
 def hourly_distribution(df: DataFrame) -> DataFrame:
     """Task #74: return 24 hourly counts without collecting on the driver."""
     _require_dwd(df)
@@ -174,8 +182,8 @@ def hourly_distribution(df: DataFrame) -> DataFrame:
         ORDER BY hours.hour
         """
     )
-
-
+#生成：7个星期 × 24个小时 = 168行
+#每行记录某星期、某小时的充电次数。
 def weekday_hour_heatmap(df: DataFrame) -> DataFrame:
     """Task #75: return 168 rows for an ECharts weekday/hour heatmap."""
     _require_dwd(df)

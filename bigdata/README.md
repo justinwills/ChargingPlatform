@@ -46,9 +46,9 @@ spark-submit \
 `--format csv` 会生成含多个 `part-*.csv` 的 Hadoop 目录；演示用小数据若需要
 单个数据分片，可增加 `--partitions 1`。
 
-教师数据的 `created`/`ended` 使用了 `0014` 等脱敏年份。两个任务入口已将
-Parquet 的 INT96 和日期写入模式设为 `CORRECTED`，以保留 Spark 3 使用的
-Proleptic Gregorian 时间值，避免旧版日历兼容检查阻止写出。
+当前教师数据的 `created`、`ended` 和电池 `record_time` 使用
+`日/月/年 时:分`（例如 `18/11/2014 17:11`）格式。两个任务入口按该格式解析，
+并将 Parquet 的 INT96 和日期写入模式设为 `CORRECTED`。
 
 ## 主要输出
 
@@ -65,3 +65,25 @@ warehouse/ads/overall_charging_kpis
 warehouse/ads/user_summary_kpis
 warehouse/ads/data_quality
 ```
+
+## 导出 HTTP 接口数据
+
+数仓运行完成后，将现有 ADS/DWS 表整理为一个 JSON 快照：
+
+```bash
+spark-submit \
+  --master 'local[2]' \
+  bigdata/export_api_snapshot.py \
+  --warehouse-root hdfs:///user/$USER/charging-platform/warehouse \
+  --output dashboard/data/bigdata.json
+```
+
+开发环境启动 `ChargingServer` 前，让它直接读取源码目录中的最新快照：
+
+```bash
+export DASHBOARD_ROOT="$(pwd)/dashboard"
+```
+
+接口地址为 `GET http://服务器地址:8080/api/bigdata`。响应一次返回现有的总体
+指标、用户汇总、站点指标、用户指标、星期规律和数据质量结果。每次重跑数仓后，
+再执行一次快照导出命令即可刷新接口数据。

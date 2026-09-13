@@ -18,6 +18,7 @@ from pyspark.sql.types import StringType
 
 if __package__:
     from .ingest import read_battery_ods, read_charging_ods, read_station_ods
+    from .schemas import SOURCE_TIMESTAMP_FORMAT
 else:
     # ``spark-submit bigdata/etl/load_data.py`` 会将此文件作为普通脚本运行。
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -26,6 +27,7 @@ else:
         read_charging_ods,
         read_station_ods,
     )
+    from bigdata.etl.schemas import SOURCE_TIMESTAMP_FORMAT
 
 
 DATA_ROOT = os.environ.get(
@@ -33,6 +35,12 @@ DATA_ROOT = os.environ.get(
 ).rstrip("/")
 RAW_DIR = f"{DATA_ROOT}/raw"
 PROCESSED_DIR = f"{DATA_ROOT}/processed"
+
+# Conservative physical limits used by the basic telemetry loader.  These
+# bounds are intentionally wider than the current source distribution, while
+# still rejecting values that cannot represent a usable EV battery reading.
+MIN_BATTERY_TEMPERATURE_C = -50.0
+MAX_BATTERY_TEMPERATURE_C = 100.0
 
 
 def _uri_join(root: str, *parts: str) -> str:
@@ -50,6 +58,42 @@ def _trim_strings(df: DataFrame) -> DataFrame:
 def _try_cast(column: str, spark_type: str):
     """使用 Spark 3.x 的宽松转换方式转换源数据值。"""
     return F.col(column).cast(spark_type)
+
+
+def _valid_charging_measurements():
+    """返回充电订单数值字段的基础有效性条件。"""
+    return (
+        F.col("kwhTotal").isNotNull()
+        & (F.col("kwhTotal") >= 0)
+        & F.col("charging_fees").isNotNull()
+        & (F.col("charging_fees") >= 0)
+        & F.col("chargeTimeHrs").isNotNull()
+        & (F.col("chargeTimeHrs") > 0)
+        & (F.col("chargeTimeHrs") <= 24)
+        & F.col("startTime").between(0, 23)
+        & F.col("endTime").between(0, 23)
+    )
+
+
+def _valid_battery_measurements():
+    """返回电池遥测字段的物理范围和字段一致性条件。"""
+    return (
+        F.col("soc").between(0, 100)
+        & (F.col("pack_voltage") > 0)
+        & F.col("charge_current").isNotNull()
+        & (F.col("max_cell_voltage") > 0)
+        & (F.col("min_cell_voltage") > 0)
+        & (F.col("max_cell_voltage") >= F.col("min_cell_voltage"))
+        & F.col("max_temperature").between(
+            MIN_BATTERY_TEMPERATURE_C, MAX_BATTERY_TEMPERATURE_C
+        )
+        & F.col("min_temperature").between(
+            MIN_BATTERY_TEMPERATURE_C, MAX_BATTERY_TEMPERATURE_C
+        )
+        & (F.col("max_temperature") >= F.col("min_temperature"))
+        & (F.col("available_energy") >= 0)
+        & (F.col("available_capacity") >= 0)
+    )
 
 
 def _business_columns(df: DataFrame) -> list[str]:
@@ -101,8 +145,6 @@ def load_charging_orders(
     casts = {
         "kwhTotal": "double",
         "charging_fees": "double",
-        "created": "timestamp",
-        "ended": "timestamp",
         "startTime": "int",
         "endTime": "int",
         "chargeTimeHrs": "double",
@@ -118,17 +160,17 @@ def load_charging_orders(
     }
     for column, spark_type in casts.items():
         df = df.withColumn(column, _try_cast(column, spark_type))
+    df = df.withColumn(
+        "created", F.to_timestamp(F.trim("created"), SOURCE_TIMESTAMP_FORMAT)
+    ).withColumn(
+        "ended", F.to_timestamp(F.trim("ended"), SOURCE_TIMESTAMP_FORMAT)
+    )
 
     df = (
         df.filter(F.col("sessionId").isNotNull() & (F.col("sessionId") != ""))
         .filter(F.col("userId").isNotNull() & (F.col("userId") != ""))
         .filter(F.col("stationId").isNotNull())
-        .filter(F.col("kwhTotal").isNotNull() & (F.col("kwhTotal") >= 0))
-        .filter(F.col("charging_fees").isNotNull() & (F.col("charging_fees") >= 0))
-        .filter(
-            F.col("chargeTimeHrs").isNotNull()
-            & F.col("chargeTimeHrs").between(0, 24)
-        )
+        .filter(_valid_charging_measurements())
         .dropDuplicates(["sessionId"])
         .orderBy("sessionId")
     )
@@ -205,7 +247,7 @@ def load_battery_telemetry(
 
     df = df.withColumn("esd", _try_cast("esd", "long")).withColumn(
         "record_time",
-        (_try_cast("record_time", "double") / F.lit(1000.0)).cast("timestamp"),
+        F.to_timestamp(F.trim("record_time"), SOURCE_TIMESTAMP_FORMAT),
     )
     numeric_columns = (
         "soc",
@@ -224,9 +266,7 @@ def load_battery_telemetry(
     df = (
         df.filter(F.col("esd").isNotNull())
         .filter(F.col("record_time").isNotNull())
-        .filter(F.col("soc").isNotNull() & F.col("soc").between(0, 100))
-        .filter(F.col("pack_voltage").isNotNull())
-        .filter(F.col("available_capacity").isNotNull())
+        .filter(_valid_battery_measurements())
         .dropDuplicates(_business_columns(df))
         .orderBy("esd", "record_time")
     )
@@ -267,8 +307,7 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
     spark = SparkSession.builder.appName("ChargingPlatform-LoadData").getOrCreate()
     spark.conf.set("spark.sql.session.timeZone", "UTC")
     spark.conf.set("spark.sql.ansi.enabled", "false")
-    # The supplied charging timestamps use anonymized years such as 0014.
-    # Preserve Spark 3's proleptic Gregorian values when writing Parquet.
+    # Preserve Spark 3's corrected calendar behavior when writing Parquet.
     spark.conf.set("spark.sql.parquet.int96RebaseModeInWrite", "CORRECTED")
     spark.conf.set("spark.sql.parquet.datetimeRebaseModeInWrite", "CORRECTED")
 

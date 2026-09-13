@@ -9,6 +9,8 @@ from typing import Iterable
 from pyspark.sql import DataFrame, Window, functions as F
 from pyspark.sql.types import DecimalType
 
+from .schemas import SOURCE_TIMESTAMP_FORMAT
+
 
 WEEKDAY_TO_NUM = {
     "Mon": 0,
@@ -71,30 +73,34 @@ def _require_columns(df: DataFrame, required: Iterable[str]) -> None:
     if missing:
         raise ValueError("缺少必需的充电数据列：" + ", ".join(missing))
 
-
+# 检查列是否为空
 def _blank(column_name: str):
     value = F.col(column_name)
     return value.isNull() | (F.trim(value) == "")
 
-
+# 将星期几名称映射为数字
 def _weekday_number():
     entries = []
     for name, number in WEEKDAY_TO_NUM.items():
         entries.extend((F.lit(name), F.lit(number)))
     return F.create_map(*entries).getItem(F.trim(F.col("weekday")))
 
-
+# 把 ODS 的字符串字段转换为“DWD 候选字段”。
 def process_charging_time(df: DataFrame) -> DataFrame:
     """解析原始时间字段，并添加标准化的 DWD 候选列。
 
     在提供的数据集中，``startTime`` 和 ``endTime`` 是整数小时。
-    ``created`` 和 ``ended`` 是完整时间戳，但年份已经匿名化处理。
+    ``created`` 和 ``ended`` 使用教师当前 CSV 的日/月/年 时:分格式。
     """
     _require_columns(df, RAW_REQUIRED_COLUMNS)
 
     return (
-        df.withColumn("_created_at", F.to_timestamp(F.trim("created"), "dd/MM/yyyy HH:mm:ss"))
-        .withColumn("_ended_at", F.to_timestamp(F.trim("ended"), "dd/MM/yyyy HH:mm:ss"))
+        df.withColumn(
+            "_created_at", F.to_timestamp(F.trim("created"), SOURCE_TIMESTAMP_FORMAT)
+        )
+        .withColumn(
+            "_ended_at", F.to_timestamp(F.trim("ended"), SOURCE_TIMESTAMP_FORMAT)
+        )
         .withColumn("_kwh_total", F.trim("kwhTotal").cast(DecimalType(14, 3)))
         .withColumn("_charging_fees", F.trim("charging_fees").cast(DecimalType(14, 2)))
         .withColumn("_start_hour", F.trim("startTime").cast("int"))
@@ -112,7 +118,25 @@ def process_charging_time(df: DataFrame) -> DataFrame:
         .withColumn("_sun", F.trim("Sun").cast("int"))
     )
 
-
+'''
+当前检测的异常主要包括：
+- CSV 坏行。
+- 会话、用户、充电站、位置 ID 缺失。
+- 充电量或费用缺失。
+- 数字类型无法转换。
+- 充电量或费用为负。
+- 开始、结束时间缺失或格式错误。
+- 结束时间早于开始时间。
+- 开始/结束小时不在 0～23。
+- 充电时长小于等于 0 或大于 24 小时。
+- 星期值不是 Mon～Sun。
+- 平台不是 android、ios、web。
+- managerVehicle 不是 0/1。
+- facilityType 无效。
+- Mon～Sun 独热编码不是 0/1 或总和不等于 1。
+- weekday 与 Mon～Sun 标记不一致。
+- sessionId 重复。
+'''
 def detect_charging_quality_issues(df: DataFrame) -> DataFrame:
     """在保留每一条 ODS 数据的同时，添加 ``quality_issues`` 数组。"""
     typed = process_charging_time(df)

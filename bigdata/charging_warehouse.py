@@ -24,7 +24,7 @@ from bigdata.etl.clean_charging import (
 )
 from bigdata.etl.ingest import read_charging_ods, read_station_ods
 
-
+# 清洗充电站维度数据。
 def clean_station_dimension(df: DataFrame) -> DataFrame:
     """Create the typed station dimension needed by station KPIs."""
     required = {
@@ -137,8 +137,7 @@ def main() -> None:
     spark = (
         SparkSession.builder.appName("ChargingWarehouse")
         .config("spark.sql.ansi.enabled", "false")
-        # Source timestamps contain anonymized years such as 0014. Keep the
-        # Spark 3 proleptic Gregorian representation in Parquet outputs.
+        # Keep Spark 3's corrected calendar behavior in Parquet outputs.
         .config("spark.sql.parquet.int96RebaseModeInWrite", "CORRECTED")
         .config("spark.sql.parquet.datetimeRebaseModeInWrite", "CORRECTED")
         .getOrCreate()

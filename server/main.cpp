@@ -45,7 +45,8 @@ int main(int argc, char *argv[])
     if (!dashboard.listen(QHostAddress::Any, 8080)) {
         qWarning() << "大数据大屏HTTP接口启动失败:" << dashboard.errorString();
     } else {
-        qInfo() << "Dashboard API listening on port 8080 (GET /api/stats)";
+        qInfo() << "Dashboard API listening on port 8080"
+                   " (GET /api/stats, GET /api/bigdata)";
     }
 
     return app.exec();

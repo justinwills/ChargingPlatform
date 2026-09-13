@@ -35,6 +35,8 @@ Git忽略。
 - `GET /api/stats?days=7|30` - 返回JSON格式的数据，包括今日/本月/总营收、
   所选时间窗口内的营收趋势、电桩状态分布、各充电站在线率。底层复用的是
   跟主协议里 `admin_stats` 完全相同的 `Database::` 查询函数。
+- `GET /api/bigdata` - 返回Spark数仓已计算完成的总体、站点、用户、星期和
+  数据质量JSON快照。运行方式见`bigdata/README.md`。
 - 其余所有路径 - 会去 `dashboard/` 文件夹下找对应的静态文件（目前只有
   `dashboard.html`），所以直接用浏览器打开 `http://localhost:8080/` 就能
   看到大屏页面。

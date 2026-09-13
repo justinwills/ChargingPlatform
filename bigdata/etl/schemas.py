@@ -8,6 +8,11 @@ turning into indistinguishable nulls during CSV parsing.
 from pyspark.sql.types import StringType, StructField, StructType
 
 
+# Current teacher CSV files use values such as ``18/11/2014 17:11`` and
+# ``3/12/2014 21:02`` for charging and battery timestamps.
+SOURCE_TIMESTAMP_FORMAT = "d/M/yyyy H:mm"
+
+
 def _raw_string_schema(field_names):
     fields = [StructField(name, StringType(), True) for name in field_names]
     fields.append(StructField("_corrupt_record", StringType(), True))
