@@ -1,110 +1,267 @@
+"""使用 PySpark 进行充电会话质量检查和 DWD 数据清洗。
+
+兼容 Spark 3.3.x。所有函数都返回延迟计算的 Spark DataFrame；ETL 层内部不会
+隐藏调用 ``collect``。
 """
-Clean Charging — Phase 2
 
-Owner(s): 洪维斌
-"""
+from typing import Iterable
 
-import pandas as pd
-import numpy as np
-
-# 星期缩写标准化映射：数据集里 weekday 列用的是 Mon/Tue/Wed/Thu/Fri/Sat/Sun，
-# 但 Mon~Sun 那7个one-hot列用的是 Mon/Tues/Wed/Thurs/Fri/Sat/Sun（Tues/Thurs拼法不同），
-# 这里统一成数字0-6（0=周一），后续按小时/星期分析都用这个数字版本，避免字符串拼法不一致导致分组出错。
-_WEEKDAY_TO_NUM = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
+from pyspark.sql import DataFrame, Window, functions as F
+from pyspark.sql.types import DecimalType
 
 
-def _safe_timestamp(value):
+WEEKDAY_TO_NUM = {
+    "Mon": 0,
+    "Tue": 1,
+    "Wed": 2,
+    "Thu": 3,
+    "Fri": 4,
+    "Sat": 5,
+    "Sun": 6,
+}
+
+RAW_REQUIRED_COLUMNS = (
+    "sessionId",
+    "kwhTotal",
+    "charging_fees",
+    "created",
+    "ended",
+    "startTime",
+    "endTime",
+    "chargeTimeHrs",
+    "weekday",
+    "platform",
+    "userId",
+    "stationId",
+    "locationId",
+    "managerVehicle",
+    "facilityType",
+    "Mon",
+    "Tues",
+    "Wed",
+    "Thurs",
+    "Fri",
+    "Sat",
+    "Sun",
+)
+
+DWD_COLUMNS = (
+    "session_id",
+    "kwh_total",
+    "charging_fees",
+    "created_at",
+    "ended_at",
+    "start_hour",
+    "end_hour",
+    "charge_time_hrs",
+    "start_weekday",
+    "weekday_name",
+    "start_date",
+    "platform",
+    "user_id",
+    "station_id",
+    "location_id",
+    "manager_vehicle",
+    "facility_type",
+)
+
+
+def _require_columns(df: DataFrame, required: Iterable[str]) -> None:
+    missing = sorted(set(required) - set(df.columns))
+    if missing:
+        raise ValueError("缺少必需的充电数据列：" + ", ".join(missing))
+
+
+def _blank(column_name: str):
+    value = F.col(column_name)
+    return value.isNull() | (F.trim(value) == "")
+
+
+def _weekday_number():
+    entries = []
+    for name, number in WEEKDAY_TO_NUM.items():
+        entries.extend((F.lit(name), F.lit(number)))
+    return F.create_map(*entries).getItem(F.trim(F.col("weekday")))
+
+
+def process_charging_time(df: DataFrame) -> DataFrame:
+    """解析原始时间字段，并添加标准化的 DWD 候选列。
+
+    在提供的数据集中，``startTime`` 和 ``endTime`` 是整数小时。
+    ``created`` 和 ``ended`` 是完整时间戳，但年份已经匿名化处理。
     """
-    pd.to_datetime() 在 pandas 2.3.3 上对 "0014-11-18 15:40:26" 这种年份很小的字符串会
-    莫名返回 NaT（已实测确认是这个版本的解析怪癖），但 pd.Timestamp() 对同一个字符串可以
-    正常解析。这里逐个转换，格式错误的值返回 NaT，效果等同于 errors="coerce"，只是绕开了那个bug。
-    """
-    try:
-        return pd.Timestamp(value)
-    except (ValueError, TypeError):
-        return pd.NaT
+    _require_columns(df, RAW_REQUIRED_COLUMNS)
+
+    return (
+        df.withColumn("_created_at", F.to_timestamp(F.trim("created"), "dd/MM/yyyy HH:mm:ss"))
+        .withColumn("_ended_at", F.to_timestamp(F.trim("ended"), "dd/MM/yyyy HH:mm:ss"))
+        .withColumn("_kwh_total", F.trim("kwhTotal").cast(DecimalType(14, 3)))
+        .withColumn("_charging_fees", F.trim("charging_fees").cast(DecimalType(14, 2)))
+        .withColumn("_start_hour", F.trim("startTime").cast("int"))
+        .withColumn("_end_hour", F.trim("endTime").cast("int"))
+        .withColumn("_charge_time_hrs", F.trim("chargeTimeHrs").cast("double"))
+        .withColumn("_start_weekday", _weekday_number())
+        .withColumn("_manager_vehicle", F.trim("managerVehicle").cast("int"))
+        .withColumn("_facility_type", F.trim("facilityType").cast("int"))
+        .withColumn("_mon", F.trim("Mon").cast("int"))
+        .withColumn("_tues", F.trim("Tues").cast("int"))
+        .withColumn("_wed", F.trim("Wed").cast("int"))
+        .withColumn("_thurs", F.trim("Thurs").cast("int"))
+        .withColumn("_fri", F.trim("Fri").cast("int"))
+        .withColumn("_sat", F.trim("Sat").cast("int"))
+        .withColumn("_sun", F.trim("Sun").cast("int"))
+    )
 
 
-def process_charging_time(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    [Task #64] 大数据可视化大屏（Web端） / 数据预处理 / 充电时间处理
-    Owner: 洪维斌
+def detect_charging_quality_issues(df: DataFrame) -> DataFrame:
+    """在保留每一条 ODS 数据的同时，添加 ``quality_issues`` 数组。"""
+    typed = process_charging_time(df)
 
-    对nvv2t.csv中的startTime、endTime、chargeTimeHrs等字段进行转换和规范化，提取小时、星期等时间特征。
+    duplicate_window = Window.partitionBy(F.trim(F.col("sessionId"))).orderBy(
+        F.col("_created_at").asc_nulls_last(),
+        F.col("_ended_at").asc_nulls_last(),
+        F.trim(F.col("stationId")).asc_nulls_last(),
+    )
+    typed = typed.withColumn("_session_row_number", F.row_number().over(duplicate_window))
 
-    实测数据说明（与最初假设不同，已按真实教师数据集调整）：
-        - startTime / endTime 在原始数据里就是 0-23 的整数小时，不是完整时间戳，直接使用即可
-        - 真正的完整时间戳在 created / ended 两列（形如 "0014-11-18 15:40:26"，年份是脱敏过的占位值）
-        - weekday 列已提供 Mon/Tue/Wed/Thu/Fri/Sat/Sun，本函数转成 0-6 数字版本方便分组统计
+    one_hot_columns = ["_mon", "_tues", "_wed", "_thurs", "_fri", "_sat", "_sun"]
+    one_hot_sum = sum((F.col(name) for name in one_hot_columns), F.lit(0))
+    one_hot_values_valid = F.lit(True)
+    for name in one_hot_columns:
+        one_hot_values_valid = one_hot_values_valid & F.coalesce(
+            F.col(name).isin(0, 1), F.lit(False)
+        )
 
-    输出: 新增以下列
-        - created / ended: 转为 pandas datetime 类型
-        - chargeTimeHrs: 转为数值类型（防止读入时被当成字符串）
-        - start_hour: 直接取用原始 startTime 列（已经是0-23小时）
-        - start_weekday: 由 weekday 列映射成的 0-6 数字（0=周一），无法识别的值变NaN
-        - start_date: 从 created 提取的日期（不含时间），供按天聚合使用
-    """
-    df = df.copy()
+    expected_one_hot = (
+        F.when(F.col("_start_weekday") == 0, F.col("_mon"))
+        .when(F.col("_start_weekday") == 1, F.col("_tues"))
+        .when(F.col("_start_weekday") == 2, F.col("_wed"))
+        .when(F.col("_start_weekday") == 3, F.col("_thurs"))
+        .when(F.col("_start_weekday") == 4, F.col("_fri"))
+        .when(F.col("_start_weekday") == 5, F.col("_sat"))
+        .when(F.col("_start_weekday") == 6, F.col("_sun"))
+    )
 
-    df["created"] = df["created"].apply(_safe_timestamp)
-    df["ended"] = df["ended"].apply(_safe_timestamp)
-    df["chargeTimeHrs"] = pd.to_numeric(df["chargeTimeHrs"], errors="coerce")
+    corrupt_record = F.col("_corrupt_record") if "_corrupt_record" in typed.columns else F.lit(None)
+    issue_conditions = (
+        (corrupt_record.isNotNull(), "corrupt_csv_row"),
+        (_blank("sessionId"), "missing_session_id"),
+        (_blank("userId"), "missing_user_id"),
+        (_blank("stationId"), "missing_station_id"),
+        (_blank("locationId"), "missing_location_id"),
+        (_blank("kwhTotal"), "missing_kwh_total"),
+        (~_blank("kwhTotal") & F.col("_kwh_total").isNull(), "invalid_kwh_total_type"),
+        (F.col("_kwh_total") < 0, "negative_kwh_total"),
+        (_blank("charging_fees"), "missing_charging_fees"),
+        (~_blank("charging_fees") & F.col("_charging_fees").isNull(), "invalid_charging_fees_type"),
+        (F.col("_charging_fees") < 0, "negative_charging_fees"),
+        (_blank("created"), "missing_created"),
+        (~_blank("created") & F.col("_created_at").isNull(), "invalid_created_timestamp"),
+        (_blank("ended"), "missing_ended"),
+        (~_blank("ended") & F.col("_ended_at").isNull(), "invalid_ended_timestamp"),
+        (F.col("_ended_at") < F.col("_created_at"), "ended_before_created"),
+        (
+            F.col("_start_hour").isNull() | ~F.col("_start_hour").between(0, 23),
+            "invalid_start_hour",
+        ),
+        (F.col("_end_hour").isNull() | ~F.col("_end_hour").between(0, 23), "invalid_end_hour"),
+        (
+            F.col("_charge_time_hrs").isNull()
+            | (F.col("_charge_time_hrs") <= 0)
+            | (F.col("_charge_time_hrs") > 24),
+            "invalid_charge_duration",
+        ),
+        (F.col("_start_weekday").isNull(), "invalid_weekday"),
+        (
+            _blank("platform") | ~F.trim(F.col("platform")).isin("android", "ios", "web"),
+            "invalid_platform",
+        ),
+        (
+            F.col("_manager_vehicle").isNull() | ~F.col("_manager_vehicle").isin(0, 1),
+            "invalid_manager_vehicle",
+        ),
+        (
+            F.col("_facility_type").isNull() | (F.col("_facility_type") <= 0),
+            "invalid_facility_type",
+        ),
+        (~one_hot_values_valid | (one_hot_sum != 1), "invalid_weekday_one_hot"),
+        (
+            F.col("_start_weekday").isNotNull()
+            & one_hot_values_valid
+            & (one_hot_sum == 1)
+            & (expected_one_hot != 1),
+            "weekday_one_hot_mismatch",
+        ),
+        (~_blank("sessionId") & (F.col("_session_row_number") > 1), "duplicate_session_id"),
+    )
 
-    # startTime本身就是小时数字，直接转数值类型即可，不需要再从时间戳里提取
-    df["start_hour"] = pd.to_numeric(df["startTime"], errors="coerce")
-    df["start_weekday"] = df["weekday"].map(_WEEKDAY_TO_NUM)
-    # 注意：这里不能用 df["created"].dt.date —— 因为 created 年份（如"0014"）超出了
-    # pandas datetime64[ns] 能表示的范围（约1677~2262年），会导致.dt访问器报错。
-    # created 列保留为 Timestamp 对象（不是datetime64类型），用 apply 逐个取 .date() 即可。
-    df["start_date"] = df["created"].apply(lambda x: x.date() if pd.notna(x) else None)
-
-    return df
-
-
-def clean_charging_data(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    [Task #65] 大数据可视化大屏（Web端） / 数据预处理 / 充电数据清洗
-    Owner: 洪维斌
-
-    对充电量、费用、充电时长等字段进行缺失值、重复值和异常值检查，保证可视化数据质量。
-
-    输入: df 通常是先经过 process_charging_time() 处理后的DataFrame
-    输出: 清洗后的DataFrame，同时在控制台打印一份清洗报告，方便答辩时展示"数据质量保证"这一步
-
-    清洗规则（按真实列名 kwhTotal / charging_fees 调整）：
-        1. 缺失值：created/ended/kwhTotal/charging_fees 任一为空的行直接剔除
-        2. 重复值：完全重复的行（同一充电session被记录两次）只保留一条
-        3. 异常值：
-           - kwhTotal（充电电量）或 charging_fees（费用）为负数 → 剔除（物理上不可能为负）
-           - chargeTimeHrs 大于 24 小时 → 剔除（充电一次超过24小时基本是异常记录）
-    """
-    df = df.copy()
-    report = {}
-    report["原始行数"] = len(df)
-
-    core_cols = [c for c in ["created", "ended", "kwhTotal", "charging_fees"] if c in df.columns]
-    df = df.dropna(subset=core_cols)
-    report["剔除缺失值后"] = len(df)
-
-    df = df.drop_duplicates()
-    report["剔除重复行后"] = len(df)
-
-    if "kwhTotal" in df.columns:
-        df = df[df["kwhTotal"] >= 0]
-    if "charging_fees" in df.columns:
-        df = df[df["charging_fees"] >= 0]
-    if "chargeTimeHrs" in df.columns:
-        df = df[df["chargeTimeHrs"] <= 24]
-    report["剔除异常值后"] = len(df)
-
-    print("=== 数据清洗报告（Task #65）===")
-    for step, count in report.items():
-        print(f"{step}: {count} 行")
-    print(f"共剔除 {report['原始行数'] - len(df)} 行问题数据"
-          f"（{(report['原始行数']-len(df))/max(report['原始行数'],1)*100:.1f}%）")
-
-    return df
+    raw_issues = F.array(
+        *[F.when(condition, F.lit(issue_name)) for condition, issue_name in issue_conditions]
+    )
+    return (
+        typed.withColumn("_raw_quality_issues", raw_issues)
+        .withColumn(
+            "quality_issues",
+            F.expr("filter(_raw_quality_issues, issue -> issue is not null)"),
+        )
+        .drop("_raw_quality_issues")
+    )
 
 
+def clean_charging_data(df: DataFrame) -> DataFrame:
+    """返回有效的 DWD 充电会话数据，并统一列名。"""
+    checked = df if "quality_issues" in df.columns else detect_charging_quality_issues(df)
+
+    return checked.where(F.size("quality_issues") == 0).select(
+        F.trim("sessionId").alias("session_id"),
+        F.col("_kwh_total").alias("kwh_total"),
+        F.col("_charging_fees").alias("charging_fees"),
+        F.col("_created_at").alias("created_at"),
+        F.col("_ended_at").alias("ended_at"),
+        F.col("_start_hour").alias("start_hour"),
+        F.col("_end_hour").alias("end_hour"),
+        F.col("_charge_time_hrs").alias("charge_time_hrs"),
+        F.col("_start_weekday").alias("start_weekday"),
+        F.trim("weekday").alias("weekday_name"),
+        F.to_date("_created_at").alias("start_date"),
+        F.trim("platform").alias("platform"),
+        F.trim("userId").alias("user_id"),
+        F.trim("stationId").alias("station_id"),
+        F.trim("locationId").alias("location_id"),
+        F.col("_manager_vehicle").alias("manager_vehicle"),
+        F.col("_facility_type").alias("facility_type"),
+    )
 
 
+def rejected_charging_data(df: DataFrame) -> DataFrame:
+    """返回未通过一条或多条质量规则的原始 ODS 数据。"""
+    checked = df if "quality_issues" in df.columns else detect_charging_quality_issues(df)
+    visible_columns = [name for name in RAW_REQUIRED_COLUMNS if name in checked.columns]
+    visible_columns.extend(
+        name
+        for name in ("_corrupt_record", "_source_file", "_ingested_at", "quality_issues")
+        if name in checked.columns
+    )
+    return checked.where(F.size("quality_issues") > 0).select(*visible_columns)
+
+
+def quality_issue_summary(df: DataFrame) -> DataFrame:
+    """返回总行数、有效/拒绝行数以及每类问题的数量。"""
+    checked = df if "quality_issues" in df.columns else detect_charging_quality_issues(df)
+    overview = checked.agg(
+        F.count("*").alias("total_rows"),
+        F.sum(F.when(F.size("quality_issues") == 0, 1).otherwise(0)).alias("valid_rows"),
+        F.sum(F.when(F.size("quality_issues") > 0, 1).otherwise(0)).alias("rejected_rows"),
+    ).selectExpr(
+        "stack(3, "
+        "'total_rows', total_rows, "
+        "'valid_rows', valid_rows, "
+        "'rejected_rows', rejected_rows) AS (metric, count)"
+    )
+    issues = (
+        checked.select(F.explode("quality_issues").alias("issue"))
+        .groupBy("issue")
+        .count()
+        .select(F.concat(F.lit("issue:"), F.col("issue")).alias("metric"), "count")
+    )
+    return overview.unionByName(issues).orderBy("metric")

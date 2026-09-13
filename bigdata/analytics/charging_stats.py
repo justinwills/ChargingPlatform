@@ -1,90 +1,209 @@
-"""
-Charging Stats — Phase 2 stub
+"""SparkSQL charging-operation metrics for DWS and ADS layers."""
 
-Owner(s): 洪维斌, 邱辰笙
-"""
-
-import pandas as pd
+from pyspark.sql import DataFrame, functions as F
 
 
-def overall_charging_kpis(*args, **kwargs):
-    """
-    [Task #66] 大数据可视化大屏（Web端） / 数据统计 / 充电业务指标
-    Owner: 邱辰笙
-
-    统计总充电次数、总充电量、总充电费用、平均充电时长、平均单次充电量等运营指标。
-    """
-    # TODO: implement
-    raise NotImplementedError("Task #66: 充电业务指标")
-
-
-def station_kpis(*args, **kwargs):
-    """
-    [Task #67] 大数据可视化大屏（Web端） / 数据统计 / 充电站指标
-    Owner: 邱辰笙
-
-    根据stationId统计各充电站的充电次数、充电量、充电费用及设备数量，并进行站点之间的运营情况对比。
-    """
-    # TODO: implement
-    raise NotImplementedError("Task #67: 充电站指标")
+REQUIRED_DWD_COLUMNS = {
+    "session_id",
+    "kwh_total",
+    "charging_fees",
+    "charge_time_hrs",
+    "start_hour",
+    "start_weekday",
+    "weekday_name",
+    "user_id",
+    "station_id",
+}
 
 
-def user_kpis(*args, **kwargs):
-    """
-    [Task #68] 大数据可视化大屏（Web端） / 数据统计 / 用户指标
-    Owner: 邱辰笙
-
-    根据userId统计用户数量及用户充电行为，包括充电次数、累计充电量及平均单次充电量等。
-    """
-    # TODO: implement
-    raise NotImplementedError("Task #68: 用户指标")
+def _require_dwd(df: DataFrame) -> None:
+    missing = sorted(REQUIRED_DWD_COLUMNS - set(df.columns))
+    if missing:
+        raise ValueError("Missing required DWD columns: " + ", ".join(missing))
 
 
-def weekday_patterns(*args, **kwargs):
-    """
-    [Task #69] 大数据可视化大屏（Web端） / 数据统计 / 星期充电规律
-    Owner: 邱辰笙
-
-    根据weekday及Mon~Sun字段分析不同星期的充电次数和充电量变化情况。
-    """
-    # TODO: implement
-    raise NotImplementedError("Task #69: 星期充电规律")
-
-
-def hourly_distribution(df: pd.DataFrame) -> list:
-    """
-    [Task #74] 大数据可视化大屏（Web端） / 数据可视化 / 充电时段分析
-    Owner: 洪维斌
-
-    根据startTime分析不同小时的充电需求，绘制24小时充电分布图，识别高频充电时段。
-
-    输入: df 需已经过 etl/clean_charging.py 的 process_charging_time() 处理（含 start_hour 列）
-    输出: 长度为24的列表，形如 [{"hour": 0, "count": 12}, {"hour": 1, "count": 5}, ...]
-          缺少数据的小时会补0，保证前端ECharts画24小时柱状图时横轴不缺格子。
-    """
-    counts = df.groupby("start_hour").size()
-    result = [{"hour": h, "count": int(counts.get(h, 0))} for h in range(24)]
-    return result
+def overall_charging_kpis(df: DataFrame) -> DataFrame:
+    """Task #66: return one ADS row containing overall charging KPIs."""
+    _require_dwd(df)
+    df.createOrReplaceTempView("_dwd_charging_overall")
+    return df.sparkSession.sql(
+        """
+        SELECT
+            COUNT(DISTINCT session_id) AS total_charging_sessions,
+            ROUND(SUM(kwh_total), 3) AS total_kwh,
+            ROUND(SUM(charging_fees), 2) AS total_charging_fees,
+            ROUND(AVG(charge_time_hrs), 4) AS avg_charge_time_hrs,
+            ROUND(SUM(kwh_total) / COUNT(DISTINCT session_id), 3)
+                AS avg_kwh_per_session
+        FROM _dwd_charging_overall
+        """
+    )
 
 
-def weekday_hour_heatmap(df: pd.DataFrame) -> list:
-    """
-    [Task #75] 大数据可视化大屏（Web端） / 数据可视化 / 星期热力图
-    Owner: 洪维斌
+def station_kpis(charging_df: DataFrame, station_df: DataFrame) -> DataFrame:
+    """Task #67: aggregate sessions and join station names/device counts."""
+    _require_dwd(charging_df)
+    required_station = {"station_id", "station_name", "device_count"}
+    missing = sorted(required_station - set(station_df.columns))
+    if missing:
+        raise ValueError("Missing required station columns: " + ", ".join(missing))
 
-    根据星期和小时统计充电次数或充电量，使用ECharts热力图展示不同日期和时间的充电活跃程度。
+    charging_df.createOrReplaceTempView("_dwd_charging_station")
+    station_df.createOrReplaceTempView("_dwd_station_dimension")
+    return charging_df.sparkSession.sql(
+        """
+        WITH station_usage AS (
+            SELECT
+                station_id,
+                COUNT(DISTINCT session_id) AS charging_sessions,
+                ROUND(SUM(kwh_total), 3) AS total_kwh,
+                ROUND(SUM(charging_fees), 2) AS total_charging_fees,
+                ROUND(AVG(charge_time_hrs), 4) AS avg_charge_time_hrs
+            FROM _dwd_charging_station
+            GROUP BY station_id
+        )
+        SELECT
+            COALESCE(dimension.station_id, usage.station_id) AS station_id,
+            dimension.station_name,
+            dimension.device_count,
+            COALESCE(usage.charging_sessions, 0) AS charging_sessions,
+            COALESCE(usage.total_kwh, CAST(0 AS DECIMAL(24, 3))) AS total_kwh,
+            COALESCE(usage.total_charging_fees, CAST(0 AS DECIMAL(24, 2)))
+                AS total_charging_fees,
+            usage.avg_charge_time_hrs
+        FROM _dwd_station_dimension dimension
+        FULL OUTER JOIN station_usage usage
+          ON usage.station_id = dimension.station_id
+        ORDER BY charging_sessions DESC, station_id
+        """
+    )
 
-    输入: df 需已经过 process_charging_time() 处理（含 start_weekday, start_hour 列）
-    输出: ECharts heatmap 组件要求的 [x轴索引, y轴索引, 值] 三元组列表，
-          形如 [[0, 8, 3], [0, 9, 5], ...]，第一个数字是小时(0-23)，第二个数字是星期(0=周一...6=周日)，
-          第三个数字是该组合下的充电次数。没有数据的格子输出0，避免前端热力图渲染缺格。
-    """
-    counts = df.groupby(["start_hour", "start_weekday"]).size()
-    result = []
-    for hour in range(24):
-        for weekday in range(7):
-            value = int(counts.get((hour, weekday), 0))
-            result.append([hour, weekday, value])
-    return result
+
+def user_kpis(df: DataFrame) -> DataFrame:
+    """Task #68: return one DWS row per user; row count is total users."""
+    _require_dwd(df)
+    df.createOrReplaceTempView("_dwd_charging_user")
+    return df.sparkSession.sql(
+        """
+        SELECT
+            user_id,
+            COUNT(DISTINCT session_id) AS charging_sessions,
+            ROUND(SUM(kwh_total), 3) AS total_kwh,
+            ROUND(SUM(charging_fees), 2) AS total_charging_fees,
+            ROUND(AVG(kwh_total), 3) AS avg_kwh_per_session,
+            ROUND(AVG(charge_time_hrs), 4) AS avg_charge_time_hrs
+        FROM _dwd_charging_user
+        GROUP BY user_id
+        ORDER BY charging_sessions DESC, user_id
+        """
+    )
 
 
+def user_summary_kpis(df: DataFrame) -> DataFrame:
+    """Task #68 ADS summary containing user count and behavior averages."""
+    _require_dwd(df)
+    df.createOrReplaceTempView("_dwd_charging_user_summary")
+    return df.sparkSession.sql(
+        """
+        WITH user_usage AS (
+            SELECT
+                user_id,
+                COUNT(DISTINCT session_id) AS charging_sessions,
+                SUM(kwh_total) AS total_kwh
+            FROM _dwd_charging_user_summary
+            GROUP BY user_id
+        )
+        SELECT
+            COUNT(*) AS total_users,
+            ROUND(AVG(charging_sessions), 3) AS avg_sessions_per_user,
+            ROUND(AVG(total_kwh), 3) AS avg_kwh_per_user
+        FROM user_usage
+        """
+    )
+
+
+def weekday_patterns(df: DataFrame) -> DataFrame:
+    """Task #69: return all seven weekdays, filling missing days with zero."""
+    _require_dwd(df)
+    df.createOrReplaceTempView("_dwd_charging_weekday")
+    return df.sparkSession.sql(
+        """
+        WITH weekday_dimension AS (
+            SELECT * FROM VALUES
+                (0, 'Mon'), (1, 'Tue'), (2, 'Wed'), (3, 'Thu'),
+                (4, 'Fri'), (5, 'Sat'), (6, 'Sun')
+            AS weekdays(start_weekday, weekday_name)
+        ), weekday_usage AS (
+            SELECT
+                start_weekday,
+                COUNT(DISTINCT session_id) AS charging_sessions,
+                ROUND(SUM(kwh_total), 3) AS total_kwh,
+                ROUND(AVG(kwh_total), 3) AS avg_kwh_per_session
+            FROM _dwd_charging_weekday
+            GROUP BY start_weekday
+        )
+        SELECT
+            dimension.start_weekday,
+            dimension.weekday_name,
+            COALESCE(usage.charging_sessions, 0) AS charging_sessions,
+            COALESCE(usage.total_kwh, CAST(0 AS DECIMAL(20, 3))) AS total_kwh,
+            COALESCE(usage.avg_kwh_per_session, CAST(0 AS DECIMAL(20, 3)))
+                AS avg_kwh_per_session
+        FROM weekday_dimension dimension
+        LEFT JOIN weekday_usage usage
+          ON dimension.start_weekday = usage.start_weekday
+        ORDER BY dimension.start_weekday
+        """
+    )
+
+
+def hourly_distribution(df: DataFrame) -> DataFrame:
+    """Task #74: return 24 hourly counts without collecting on the driver."""
+    _require_dwd(df)
+    df.createOrReplaceTempView("_dwd_charging_hour")
+    return df.sparkSession.sql(
+        """
+        WITH hours AS (SELECT explode(sequence(0, 23)) AS hour),
+        usage AS (
+            SELECT start_hour AS hour, COUNT(DISTINCT session_id) AS charging_sessions
+            FROM _dwd_charging_hour
+            GROUP BY start_hour
+        )
+        SELECT hours.hour, COALESCE(usage.charging_sessions, 0) AS charging_sessions
+        FROM hours LEFT JOIN usage ON hours.hour = usage.hour
+        ORDER BY hours.hour
+        """
+    )
+
+
+def weekday_hour_heatmap(df: DataFrame) -> DataFrame:
+    """Task #75: return 168 rows for an ECharts weekday/hour heatmap."""
+    _require_dwd(df)
+    df.createOrReplaceTempView("_dwd_charging_heatmap")
+    result = df.sparkSession.sql(
+        """
+        WITH grid AS (
+            SELECT hour, weekday
+            FROM (SELECT explode(sequence(0, 23)) AS hour)
+            CROSS JOIN (SELECT explode(sequence(0, 6)) AS weekday)
+        ), usage AS (
+            SELECT
+                start_hour AS hour,
+                start_weekday AS weekday,
+                COUNT(DISTINCT session_id) AS charging_sessions
+            FROM _dwd_charging_heatmap
+            GROUP BY start_hour, start_weekday
+        )
+        SELECT
+            grid.hour,
+            grid.weekday,
+            COALESCE(usage.charging_sessions, 0) AS charging_sessions
+        FROM grid
+        LEFT JOIN usage
+          ON grid.hour = usage.hour AND grid.weekday = usage.weekday
+        ORDER BY grid.hour, grid.weekday
+        """
+    )
+    return result.withColumn(
+        "echarts_value", F.array("hour", "weekday", "charging_sessions")
+    )

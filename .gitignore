@@ -1,6 +1,9 @@
 .qtcreator
 build
 ui
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
 # Local runtime and test databases
 charging.db

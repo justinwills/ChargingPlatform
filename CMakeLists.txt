@@ -9,3 +9,7 @@ add_subdirectory(protocol)
 add_subdirectory(db)
 add_subdirectory(server)
 add_subdirectory(client)
+
+# PySpark ETL/analytics sources are not compiled by CMake. Register the
+# directory so CMake-aware IDEs can display the Phase 2 source files.
+add_subdirectory(bigdata)

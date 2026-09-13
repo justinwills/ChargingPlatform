@@ -43,6 +43,23 @@ Git忽略。
 [ECharts](https://echarts.apache.org/) 画图，每10秒自动轮询一次
 `/api/stats` 刷新数据。
 
+### Hadoop 数据导入
+
+`bigdata/etl/load_data.py` 使用 PySpark 从 HDFS 读取三份教师数据集，完成字段
+转换、无效记录过滤和去重后，再写回 HDFS。默认目录为
+`hdfs:///charging-platform/data`，也可通过参数指定：
+
+```bash
+pip install -r requirements-bigdata.txt
+spark-submit --master local[2] bigdata/etl/load_data.py \
+  --data-root hdfs:///charging-platform/data \
+  --format parquet
+```
+
+若需在本机联调，可把 `--data-root` 改成 `file:///绝对路径/data`。Spark 的 CSV
+输出是包含多个 `part-*.csv` 的目录；只有演示用小数据需要单个分片时才添加
+`--partitions 1`。
+
 构建时会自动把整个 `dashboard/` 文件夹复制到编译出来的 `ChargingServer`
 可执行文件旁边（见 `server/CMakeLists.txt`），所以运行时不需要依赖源码树
 里的相对路径也能找到这个文件夹。
