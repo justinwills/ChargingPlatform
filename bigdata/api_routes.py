@@ -1,10 +1,7 @@
 """
-bigdata/api_routes.py — Phase 2 stub
-FastAPI route handlers for the Web dashboard (charging/revenue/session
-trends, station distribution, filtered stats). See run_api.py for how this
-gets mounted.
+FastAPI route task scaffold for the Web dashboard.
 
-Owner(s): 洪维斌, 邱辰笙
+Owners: 洪维斌, 邱辰笙
 """
 
 import pandas as pd
@@ -12,71 +9,82 @@ import pandas as pd
 
 def charging_volume_trend(*args, **kwargs):
     """
-    [Task #70] 大数据可视化大屏（Web端） / 数据可视化 / 充电量趋势图
+    [Task #80] 大数据可视化大屏（Web端）/ 数据可视化 / 充电量趋势图
     Owner: 邱辰笙
 
-    使用ECharts绘制不同时间段的充电量变化趋势，展示整体充电需求变化。
+    使用 ECharts 绘制不同时间段的充电量变化趋势，展示整体充电需求变化。
     """
     # TODO: implement
-    raise NotImplementedError("Task #70: 充电量趋势图")
+    raise NotImplementedError("Task #80: 充电量趋势图")
 
 
 def revenue_trend(*args, **kwargs):
     """
-    [Task #71] 大数据可视化大屏（Web端） / 数据可视化 / 营收趋势图
+    [Task #81] 大数据可视化大屏（Web端）/ 数据可视化 / 营收趋势图
     Owner: 邱辰笙
 
-    根据charging_fees统计不同时间段的充电费用，并使用ECharts折线图展示营收变化趋势。
+    根据 fee_amount_cny 统计不同时间段的充电费用，并使用 ECharts 折线图
+    展示营收变化趋势。
     """
     # TODO: implement
-    raise NotImplementedError("Task #71: 营收趋势图")
+    raise NotImplementedError("Task #81: 营收趋势图")
 
 
 def session_count_trend(*args, **kwargs):
     """
-    [Task #72] 大数据可视化大屏（Web端） / 数据可视化 / 充电次数趋势图
+    [Task #82] 大数据可视化大屏（Web端）/ 数据可视化 / 充电次数趋势图
     Owner: 洪维斌
 
     统计不同时间段的充电会话数量，并通过柱状图或折线图展示充电次数变化。
     """
     # TODO: implement
-    raise NotImplementedError("Task #72: 充电次数趋势图")
+    raise NotImplementedError("Task #82: 充电次数趋势图")
 
 
 def station_distribution(*args, **kwargs):
     """
-    [Task #76] 大数据可视化大屏（Web端） / 数据可视化 / 充电站分布展示
+    [Task #88] 大数据可视化大屏（Web端）/ 数据可视化 / 充电站分布展示
     Owner: 洪维斌
 
-    根据station_name、address及站点信息展示教师数据集中的充电站分布情况。
+    根据 station_name、address、latitude 和 longitude 展示充电站地理分布情况。
     """
     # TODO: implement
-    raise NotImplementedError("Task #76: 充电站分布展示")
+    raise NotImplementedError("Task #88: 充电站分布展示")
+
+
+def device_status_chart(*args, **kwargs):
+    """
+    [Task #89] 大数据可视化大屏（Web端）/ 数据可视化 / 设备运行状态图
+    Owner: 洪维斌
+
+    根据设备状态日志展示设备在线率、故障情况、健康评分及平均输出功率等运行指标。
+    """
+    # TODO: implement
+    raise NotImplementedError("Task #89: 设备运行状态图")
 
 
 def filtered_stats(*args, **kwargs):
     """
-    [Task #81] 大数据可视化大屏（Web端） / 页面交互 / 图表筛选
+    [Task #90] 大数据可视化大屏（Web端）/ 页面交互 / 图表筛选
     Owner: 洪维斌
 
-    支持按照日期、星期、充电站等条件筛选统计数据，并动态更新ECharts图表。
+    支持按照日期、星期、充电站、设备、节假日及天气等条件筛选统计数据，
+    并动态更新 ECharts 图表。
     """
     # TODO: implement
-    raise NotImplementedError("Task #81: 图表筛选")
+    raise NotImplementedError("Task #90: 图表筛选")
 
 
 def register_stats_routes(app):
     """
-    [Task #107] 智能推荐与系统集成 / 后端接口 / 数据接口
+    [Task #121] 智能推荐与系统集成 / 后端接口 / 数据接口
     Owner: 邱辰笙
 
-    建立后端接口，为Web大屏提供充电量、费用、站点统计、电池分析等数据。
+    建立后端接口，为 Web 大屏提供充电量、费用、站点统计、设备运行、
+    天气影响等数据。
 
-    Wires up GET endpoints backed by the functions above (and by
-    analytics/charging_stats.py, analytics/battery_stats.py,
-    analytics/station_ranking.py). Each handler currently returns 501 until
-    its underlying function is implemented — replace the try/except once
-    the corresponding TODO above is done.
+    Routes remain scaffolding and return 501 until their corresponding
+    analytics functions are implemented.
     """
 
     @app.get("/api/stats/charging-volume-trend")
@@ -108,10 +116,22 @@ def register_stats_routes(app):
             return {"error": str(e)}, 501
 
     @app.get("/api/stats/filtered")
-    def _filtered_stats(date: str = None, weekday: str = None, station_id: str = None):
+    def _filtered_stats(
+        date: str = None,
+        weekday: str = None,
+        station_id: str = None,
+        device_id: str = None,
+        is_holiday: int = None,
+        weather_type: str = None,
+    ):
         try:
-            return filtered_stats(date=date, weekday=weekday, station_id=station_id)
+            return filtered_stats(
+                date=date,
+                weekday=weekday,
+                station_id=station_id,
+                device_id=device_id,
+                is_holiday=is_holiday,
+                weather_type=weather_type,
+            )
         except NotImplementedError as e:
             return {"error": str(e)}, 501
-
-

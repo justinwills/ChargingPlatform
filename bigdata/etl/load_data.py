@@ -1,7 +1,9 @@
 """
-Load Data — Phase 2
+Load Data - Phase 2 task scaffold.
 
-Owner(s): 王清香, 薛学刚
+The updated tasklist uses six raw CSV tables:
+charging_orders.csv, stations.csv, devices.csv, users.csv,
+weather_hourly.csv, and device_status_log.csv.
 """
 
 from pathlib import Path
@@ -22,10 +24,11 @@ def _save_processed(df: pd.DataFrame, filename: str) -> Path:
 
 def load_charging_orders(*args, **kwargs):
     """
-    [Task #61] 大数据可视化大屏（Web端） / 数据导入 / 充电订单数据导入
+    [Task #61] 大数据可视化大屏（Web端）/ 数据导入 / 充电订单数据导入
     Owner: 王清香
 
-    读取教师提供的nvv2t.csv数据集，导入充电会话、充电电量、充电费用、充电时间、用户及充电站等数据，为大数据可视化提供数据来源。
+    读取 charging_orders.csv，导入充电会话、用户、充电站、充电桩、
+    充电时间、充电电量、充电费用、星期及节假日等订单数据。
     """
     # TODO: implement
     raise NotImplementedError("Task #61: 充电订单数据导入")
@@ -33,93 +36,71 @@ def load_charging_orders(*args, **kwargs):
 
 def load_stations(path=None) -> pd.DataFrame:
     """
-    [Task #62] 大数据可视化大屏（Web端） / 数据导入 / 充电站数据导入
+    [Task #62] 大数据可视化大屏（Web端）/ 数据导入 / 充电站数据导入
     Owner: 薛学刚
 
-    读取教师提供的nvv2t_md_end.csv数据集，获取充电站ID、站点名称、地址、电桩数量、开放时间等信息，
-    清洗后返回DataFrame并保存到data/processed/stations.csv。
-
-    字段映射：
-        stationId    -> 充电站ID
-        station_name -> 站点名称
-        address      -> 地址
-        device_count -> 电桩数量
-        open_time    -> 开放时间
+    读取 stations.csv，获取充电站ID、站点名称、地址、经纬度、电桩数量、
+    开放时间、电价、服务费及站点状态等信息。
     """
-    path = Path(path) if path else RAW_DIR / "nvv2t_md_end.csv"
-    if not path.exists():
-        raise FileNotFoundError(f"充电站数据文件不存在: {path}")
-
-    df = pd.read_csv(path)
-    df.columns = df.columns.str.strip()
-
-    for col in ("stationId", "locationId", "device_count"):
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-    for col in df.select_dtypes(include="object").columns:
-        df[col] = df[col].str.strip()
-
-    df = df[df["stationId"].notna()]
-    df = df[df["station_name"].notna() & (df["station_name"] != "")]
-    df = df.drop_duplicates(subset=["stationId"])
-    df = df.sort_values("stationId").reset_index(drop=True)
-
-    _save_processed(df, "stations.csv")
-    return df
+    # TODO: implement
+    raise NotImplementedError("Task #62: 充电站数据导入")
 
 
-def load_battery_telemetry(path=None) -> pd.DataFrame:
+def load_devices(path=None) -> pd.DataFrame:
     """
-    [Task #63] 大数据可视化大屏（Web端） / 数据导入 / 电池运行数据导入
+    [Task #63] 大数据可视化大屏（Web端）/ 数据导入 / 充电设备数据导入
     Owner: 薛学刚
 
-    读取教师提供的dsv13r2.csv数据集，获取SOC、电池电压、充电电流、电池温度、可用能量及可用容量等
-    车辆运行数据，清洗后返回DataFrame并保存到data/processed/battery_telemetry.csv。
-
-    字段映射：
-        soc                   -> 荷电状态SOC
-        pack_voltage          -> 电池组电压
-        charge_current        -> 充电电流
-        max/min_temperature   -> 电池最高/最低温度
-        available_energy      -> 可用能量
-        available_capacity    -> 可用容量
+    读取 devices.csv，获取电桩ID、所属充电站、充电类型、额定功率、
+    接口数量、制造商及当前运行状态等信息。
     """
-    path = Path(path) if path else RAW_DIR / "dsv13r2.csv"
-    if not path.exists():
-        raise FileNotFoundError(f"电池运行数据文件不存在: {path}")
-
-    df = pd.read_csv(path)
-    df.columns = df.columns.str.strip()
-
-    rename_map = {
-        "pack_voltage (V)": "pack_voltage",
-        "charge_current (A)": "charge_current",
-        "max_cell_voltage (V)": "max_cell_voltage",
-        "min_cell_voltage (V)": "min_cell_voltage",
-        "max_temperature (℃)": "max_temperature",
-        "min_temperature (℃)": "min_temperature",
-        "available_energy (kw)": "available_energy",
-        "available_capacity (Ah)": "available_capacity",
-    }
-    df = df.rename(columns=rename_map)
-
-    df["esd"] = pd.to_numeric(df["esd"], errors="coerce")
-    df["record_time"] = pd.to_datetime(df["record_time"], unit="ms", errors="coerce")
-
-    numeric_cols = [
-        "soc", "pack_voltage", "charge_current", "max_cell_voltage",
-        "min_cell_voltage", "max_temperature", "min_temperature",
-        "available_energy", "available_capacity",
-    ]
-    for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    df = df[df["esd"].notna()]
-    df = df[df["soc"].notna() & df["pack_voltage"].notna() & df["available_capacity"].notna()]
-    df = df[(df["soc"] >= 0) & (df["soc"] <= 100)]
-    df = df.drop_duplicates()
-    df = df.sort_values(["esd", "record_time"]).reset_index(drop=True)
-
-    _save_processed(df, "battery_telemetry.csv")
-    return df
+    # TODO: implement
+    raise NotImplementedError("Task #63: 充电设备数据导入")
 
 
+def load_users(path=None) -> pd.DataFrame:
+    """
+    [Task #64] 大数据可视化大屏（Web端）/ 数据导入 / 用户数据导入
+    Owner: 薛学刚
+
+    读取 users.csv，获取用户ID、注册时间、城市、会员等级、车辆类型、
+    电池容量、使用平台及用户状态等信息。
+    """
+    # TODO: implement
+    raise NotImplementedError("Task #64: 用户数据导入")
+
+
+def load_weather(path=None) -> pd.DataFrame:
+    """
+    [Task #65] 大数据可视化大屏（Web端）/ 数据导入 / 天气数据导入
+    Owner: 薛学刚
+
+    读取 weather_hourly.csv，获取小时级天气类型、温度、湿度、降水量、
+    风速、能见度及降雨状态等数据。
+    """
+    # TODO: implement
+    raise NotImplementedError("Task #65: 天气数据导入")
+
+
+def load_device_status(path=None) -> pd.DataFrame:
+    """
+    [Task #66] 大数据可视化大屏（Web端）/ 数据导入 / 电桩运行数据导入
+    Owner: 薛学刚
+
+    读取 device_status_log.csv，获取电桩在线时长、离线时长、故障时长、
+    故障次数、成功充电次数、平均输出功率、可用率、健康评分及维护状态等数据。
+    """
+    # TODO: implement
+    raise NotImplementedError("Task #66: 电桩运行数据导入")
+
+
+def associate_charging_data(*args, **kwargs):
+    """
+    [Task #67] 大数据可视化大屏（Web端）/ 数据关联 / 多表数据关联
+    Owner: 薛学刚
+
+    根据 user_id、station_id、device_id、location_id 和 weather_id 等关联字段，
+    对订单、用户、充电站、充电设备及天气数据进行关联。
+    """
+    # TODO: implement
+    raise NotImplementedError("Task #67: 多表数据关联")

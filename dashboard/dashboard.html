@@ -1,11 +1,20 @@
 <!--
+  Updated tasklist: dashboard visualization tasks are #80-#91; Web integration is #124.
+  The dashboard data model now uses charging orders, stations, devices, users,
+  weather, and device status logs as described in PHASE2.md.
   ChargingPlatform Phase 2 — dashboard.html
   =========================================
   This file starts as a copy of the Phase 1 dashboard (revenue/status/online-rate
   cards only). Phase 2 extends it with the charts and interactions below.
   Owners and task IDs are from the Phase 2 task list.
 
-  New chart panels to add (call new /api/stats endpoints from api/routes_stats.py):
+  Updated tasklist mapping:
+    #80 charging volume, #81 revenue, #82 session count, #83 station ranking
+    #84 hourly distribution, #85 weekday heatmap, #86 holiday comparison
+    #87 weather impact, #88 station distribution, #89 device status
+    #90 chart filters, #91 automatic refresh, #124 Web integration
+
+  Legacy scaffold notes below are retained only as placeholders:
     [#70] chargingVolumeTrend   - charging volume over time            (owner: 薛学刚)
     [#71] revenueTrendChart     - revenue over time (extends existing) (owner: 薛学刚)
     [#72] sessionCountTrend     - session count over time              (owner: 洪维斌)
