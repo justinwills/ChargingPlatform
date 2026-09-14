@@ -10,10 +10,14 @@ if __package__ in (None, ""):
 from pyspark.sql import DataFrame, SparkSession, Window, functions as F
 
 from bigdata.analytics.charging_stats import (
+    hourly_distribution,
     overall_charging_kpis,
+    rank_stations,
+    session_count_trend,
     station_kpis,
     user_kpis,
     user_summary_kpis,
+    weekday_hour_heatmap,
     weekday_patterns,
 )
 from bigdata.etl.clean_charging import (
@@ -111,12 +115,20 @@ def build_warehouse(
     user_summary = user_summary_kpis(dwd_charging)
     weekday_metrics = weekday_patterns(dwd_charging)
     overall_metrics = overall_charging_kpis(dwd_charging)
+    hourly_metrics = hourly_distribution(dwd_charging)
+    heatmap_metrics = weekday_hour_heatmap(dwd_charging)
+    trend_metrics = session_count_trend(dwd_charging)
+    ranking_metrics = rank_stations(dwd_charging, dwd_stations)
 
     _write(station_metrics, f"{root}/dws/station_kpis", mode)
     _write(user_metrics, f"{root}/dws/user_kpis", mode)
     _write(weekday_metrics, f"{root}/dws/weekday_patterns", mode)
     _write(overall_metrics, f"{root}/ads/overall_charging_kpis", mode)
     _write(user_summary, f"{root}/ads/user_summary_kpis", mode)
+    _write(hourly_metrics, f"{root}/dws/hourly_distribution", mode)
+    _write(heatmap_metrics, f"{root}/dws/weekday_heatmap", mode)
+    _write(trend_metrics, f"{root}/dws/session_count_trend", mode)
+    _write(ranking_metrics, f"{root}/dws/station_ranking", mode)
 
 
 def _parse_args():
