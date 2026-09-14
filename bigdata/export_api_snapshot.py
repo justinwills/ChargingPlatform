@@ -55,10 +55,20 @@ def build_snapshot(spark: SparkSession, warehouse_root: str) -> dict[str, Any]:
             ),
             "stations": _rows(spark.read.parquet(f"{root}/dws/station_kpis")),
             "users": _rows(spark.read.parquet(f"{root}/dws/user_kpis")),
+            "devices": _rows(spark.read.parquet(f"{root}/dws/device_kpis")),
             "weekdays": _rows(
                 spark.read.parquet(f"{root}/dws/weekday_patterns").orderBy(
                     "start_weekday"
                 )
+            ),
+            "holidays": _rows(
+                spark.read.parquet(f"{root}/dws/holiday_patterns")
+            ),
+            "weatherImpact": _rows(
+                spark.read.parquet(f"{root}/dws/weather_impact")
+            ),
+            "deviceOperations": _rows(
+                spark.read.parquet(f"{root}/dws/device_operation_kpis")
             ),
             "hourlyDistribution": _rows(
                 spark.read.parquet(f"{root}/dws/hourly_distribution").orderBy("hour")

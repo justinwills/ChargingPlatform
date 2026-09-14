@@ -1,16 +1,19 @@
-"""Explicit ODS schemas for the teacher-provided CSV files.
+"""Explicit raw-string ODS schemas for the six charging-platform CSV tables.
 
-ODS intentionally keeps source values as strings. Type conversion belongs to
-DWD so malformed values remain visible and can be counted instead of silently
-turning into indistinguishable nulls during CSV parsing.
+ODS deliberately preserves source values as strings. Casting and validation
+belong to DWD so malformed values remain observable instead of being silently
+converted to null by Spark's CSV reader.
 """
 
 from pyspark.sql.types import StringType, StructField, StructType
 
 
-# Current teacher CSV files use values such as ``18/11/2014 17:11`` and
-# ``3/12/2014 21:02`` for charging and battery timestamps.
-SOURCE_TIMESTAMP_FORMAT = "d/M/yyyy H:mm"
+ORDER_TIMESTAMP_FORMAT = "d/M/yyyy H:mm"
+STANDARD_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss"
+STANDARD_DATE_FORMAT = "yyyy-MM-dd"
+
+# Compatibility for code that imported the former constant.
+SOURCE_TIMESTAMP_FORMAT = ORDER_TIMESTAMP_FORMAT
 
 
 def _raw_string_schema(field_names):
@@ -19,56 +22,53 @@ def _raw_string_schema(field_names):
     return StructType(fields)
 
 
-CHARGING_ODS_COLUMNS = (
-    "sessionId",
-    "kwhTotal",
-    "charging_fees",
-    "created",
-    "ended",
-    "startTime",
-    "endTime",
-    "chargeTimeHrs",
-    "weekday",
-    "platform",
-    "userId",
-    "stationId",
-    "locationId",
-    "managerVehicle",
-    "facilityType",
-    "Mon",
-    "Tues",
-    "Wed",
-    "Thurs",
-    "Fri",
-    "Sat",
-    "Sun",
+CHARGING_ORDER_ODS_COLUMNS = (
+    "session_id", "user_id", "station_id", "device_id", "location_id",
+    "weather_id", "created_at", "ended_at", "charge_time_hrs",
+    "start_hour", "weekday", "weekday_name", "is_weekend", "is_holiday",
+    "holiday_name", "is_workday", "energy_kwh", "fee_amount_cny",
+    "platform", "order_status", "payment_status",
+)
+
+USER_ODS_COLUMNS = (
+    "user_id", "registered_at", "city", "member_level", "vehicle_type",
+    "battery_capacity_kwh", "preferred_platform", "registration_channel",
+    "user_status",
 )
 
 STATION_ODS_COLUMNS = (
-    "stationId",
-    "locationId",
-    "facilityType",
-    "station_name",
-    "address",
-    "device_count",
-    "open_time",
-    "update_time",
+    "station_id", "location_id", "station_name", "address", "city",
+    "latitude", "longitude", "facility_type", "device_count", "open_time",
+    "electricity_price_cny_kwh", "service_fee_cny_kwh", "station_status",
+    "updated_on",
 )
 
-BATTERY_ODS_COLUMNS = (
-    "esd",
-    "record_time",
-    "soc",
-    "pack_voltage (V)",
-    "charge_current (A)",
-    "max_cell_voltage (V)",
-    "min_cell_voltage (V)",
-    "max_temperature (℃)",
-    "min_temperature (℃)",
-    "available_energy (kw)",
-    "available_capacity (Ah)",
+DEVICE_ODS_COLUMNS = (
+    "device_id", "station_id", "device_code", "charger_type",
+    "rated_power_kw", "connector_count", "manufacturer", "commissioned_at",
+    "last_maintenance_at", "current_status",
 )
 
-CHARGING_ODS_SCHEMA = _raw_string_schema(CHARGING_ODS_COLUMNS)
+WEATHER_ODS_COLUMNS = (
+    "weather_id", "location_id", "weather_time", "weather_type",
+    "weather_name", "temperature_c", "humidity_pct", "precipitation_mm",
+    "wind_speed_mps", "visibility_km", "is_rain",
+)
+
+DEVICE_STATUS_ODS_COLUMNS = (
+    "status_id", "device_id", "station_id", "record_time", "online_minutes",
+    "offline_minutes", "fault_minutes", "fault_count", "primary_fault_code",
+    "successful_sessions", "failed_sessions", "avg_output_power_kw",
+    "availability_rate", "health_score", "maintenance_flag",
+)
+
+CHARGING_ORDER_ODS_SCHEMA = _raw_string_schema(CHARGING_ORDER_ODS_COLUMNS)
+USER_ODS_SCHEMA = _raw_string_schema(USER_ODS_COLUMNS)
 STATION_ODS_SCHEMA = _raw_string_schema(STATION_ODS_COLUMNS)
-BATTERY_ODS_SCHEMA = _raw_string_schema(BATTERY_ODS_COLUMNS)
+DEVICE_ODS_SCHEMA = _raw_string_schema(DEVICE_ODS_COLUMNS)
+WEATHER_ODS_SCHEMA = _raw_string_schema(WEATHER_ODS_COLUMNS)
+DEVICE_STATUS_ODS_SCHEMA = _raw_string_schema(DEVICE_STATUS_ODS_COLUMNS)
+
+# The old public names now refer to the current charging_orders.csv schema.
+CHARGING_ODS_COLUMNS = CHARGING_ORDER_ODS_COLUMNS
+CHARGING_ODS_SCHEMA = CHARGING_ORDER_ODS_SCHEMA
