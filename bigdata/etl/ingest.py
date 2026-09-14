@@ -1,8 +1,15 @@
-"""CSV 到 ODS 的读取器，支持本地路径或 HDFS URI。"""
+"""CSV-to-ODS readers for local paths and distributed filesystem URIs."""
 
 from pyspark.sql import DataFrame, SparkSession, functions as F
 
-from .schemas import BATTERY_ODS_SCHEMA, CHARGING_ODS_SCHEMA, STATION_ODS_SCHEMA
+from .schemas import (
+    CHARGING_ORDER_ODS_SCHEMA,
+    DEVICE_ODS_SCHEMA,
+    DEVICE_STATUS_ODS_SCHEMA,
+    STATION_ODS_SCHEMA,
+    USER_ODS_SCHEMA,
+    WEATHER_ODS_SCHEMA,
+)
 
 
 def _read_csv(spark: SparkSession, path: str, schema) -> DataFrame:
@@ -21,16 +28,30 @@ def _read_csv(spark: SparkSession, path: str, schema) -> DataFrame:
     )
 
 
-def read_charging_ods(spark: SparkSession, path: str) -> DataFrame:
-    """读取 nvv2t.csv，同时保留格式错误的源数据值。"""
-    return _read_csv(spark, path, CHARGING_ODS_SCHEMA)
+def read_charging_orders_ods(spark: SparkSession, path: str) -> DataFrame:
+    return _read_csv(spark, path, CHARGING_ORDER_ODS_SCHEMA)
 
 
-def read_station_ods(spark: SparkSession, path: str) -> DataFrame:
-    """将 nvv2t_md_end.csv 作为充电站维度数据源读取。"""
+def read_users_ods(spark: SparkSession, path: str) -> DataFrame:
+    return _read_csv(spark, path, USER_ODS_SCHEMA)
+
+
+def read_stations_ods(spark: SparkSession, path: str) -> DataFrame:
     return _read_csv(spark, path, STATION_ODS_SCHEMA)
 
 
-def read_battery_ods(spark: SparkSession, path: str) -> DataFrame:
-    """将 dsv13r2.csv 作为原始电池遥测数据读取。"""
-    return _read_csv(spark, path, BATTERY_ODS_SCHEMA)
+def read_devices_ods(spark: SparkSession, path: str) -> DataFrame:
+    return _read_csv(spark, path, DEVICE_ODS_SCHEMA)
+
+
+def read_weather_ods(spark: SparkSession, path: str) -> DataFrame:
+    return _read_csv(spark, path, WEATHER_ODS_SCHEMA)
+
+
+def read_device_status_ods(spark: SparkSession, path: str) -> DataFrame:
+    return _read_csv(spark, path, DEVICE_STATUS_ODS_SCHEMA)
+
+
+# Compatibility aliases for callers using the previous singular names.
+read_charging_ods = read_charging_orders_ods
+read_station_ods = read_stations_ods

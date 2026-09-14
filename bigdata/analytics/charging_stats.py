@@ -70,7 +70,28 @@ def station_kpis(charging_df: DataFrame, station_df: DataFrame) -> DataFrame:
             COALESCE(usage.total_kwh, CAST(0 AS DECIMAL(24, 3))) AS total_kwh,
             COALESCE(usage.total_charging_fees, CAST(0 AS DECIMAL(24, 2)))
                 AS total_charging_fees,
-            usage.avg_charge_time_hrs
+            usage.avg_charge_time_hrs,
+            ROUND(
+                CASE WHEN dimension.device_count > 0
+                    THEN COALESCE(usage.charging_sessions, 0)
+                        / dimension.device_count
+                END,
+                3
+            ) AS sessions_per_device,
+            ROUND(
+                CASE WHEN dimension.device_count > 0
+                    THEN COALESCE(usage.total_kwh, 0)
+                        / dimension.device_count
+                END,
+                3
+            ) AS kwh_per_device,
+            ROUND(
+                CASE WHEN dimension.device_count > 0
+                    THEN COALESCE(usage.total_charging_fees, 0)
+                        / dimension.device_count
+                END,
+                2
+            ) AS charging_fees_per_device
         FROM _dwd_station_dimension dimension
         FULL OUTER JOIN station_usage usage
           ON usage.station_id = dimension.station_id
@@ -160,6 +181,54 @@ def weekday_patterns(df: DataFrame) -> DataFrame:
         LEFT JOIN weekday_usage usage
           ON dimension.start_weekday = usage.start_weekday
         ORDER BY dimension.start_weekday
+        """
+    )
+
+
+def holiday_patterns(df: DataFrame) -> DataFrame:
+    """Compare holidays, ordinary workdays and non-holiday rest days."""
+    required = {"is_holiday", "holiday_name", "is_workday", "is_weekend"}
+    missing = sorted(required - set(df.columns))
+    if missing:
+        raise ValueError("Missing holiday-analysis columns: " + ", ".join(missing))
+    _require_dwd(df)
+    df.createOrReplaceTempView("_dwd_charging_holiday")
+    return df.sparkSession.sql(
+        """
+        SELECT
+            CASE
+                WHEN is_holiday = 1 THEN 'holiday'
+                WHEN is_workday = 1 THEN 'workday'
+                ELSE 'non_holiday_rest_day'
+            END AS day_type,
+            is_holiday,
+            holiday_name,
+            is_workday,
+            is_weekend,
+            COUNT(DISTINCT session_id) AS charging_sessions,
+            ROUND(SUM(kwh_total), 3) AS total_kwh,
+            ROUND(SUM(charging_fees), 2) AS total_charging_fees,
+            ROUND(AVG(kwh_total), 3) AS avg_kwh_per_session,
+            ROUND(AVG(charge_time_hrs), 4) AS avg_charge_time_hrs
+        FROM _dwd_charging_holiday
+        GROUP BY
+            CASE
+                WHEN is_holiday = 1 THEN 'holiday'
+                WHEN is_workday = 1 THEN 'workday'
+                ELSE 'non_holiday_rest_day'
+            END,
+            is_holiday,
+            holiday_name,
+            is_workday,
+            is_weekend
+        ORDER BY
+            CASE day_type
+                WHEN 'holiday' THEN 0
+                WHEN 'workday' THEN 1
+                ELSE 2
+            END,
+            holiday_name,
+            is_weekend
         """
     )
 
