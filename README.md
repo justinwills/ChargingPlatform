@@ -43,8 +43,10 @@ Git忽略。
   看到大屏页面。
 
 大屏页面（`dashboard/dashboard.html`）是纯HTML/JS写的，用CDN引入的
-[ECharts](https://echarts.apache.org/) 画图，每10秒自动轮询一次
-`/api/stats` 刷新数据。
+[ECharts](https://echarts.apache.org/) 画图。页面优先读取 `/api/bigdata`，并在
+普通静态HTTP服务器环境下自动回退到 `dashboard/data/bigdata.json`。页面展示
+充电业务、站点、用户、设备、星期、节假日、天气影响和设备运行八类指标；点击
+页面右上角的“刷新数据”可重新读取最新快照。
 
 ### Hadoop 数据导入
 
