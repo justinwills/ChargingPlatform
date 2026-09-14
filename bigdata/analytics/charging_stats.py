@@ -1,4 +1,3 @@
-from pyspark.sql import SparkSession
 """SparkSQL charging-operation metrics for DWS and ADS layers."""
 
 from pyspark.sql import DataFrame, SparkSession, functions as F
