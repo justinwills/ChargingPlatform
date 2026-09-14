@@ -12,9 +12,12 @@ add_custom_target(bigdata_sources SOURCES
     etl/ingest.py
     etl/load_data.py
     etl/clean_charging.py
+    etl/clean_tables.py
 
     analytics/__init__.py
     analytics/charging_stats.py
+    analytics/device_stats.py
+    analytics/weather_stats.py
     analytics/battery_stats.py
     analytics/station_ranking.py
 
