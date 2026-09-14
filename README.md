@@ -35,13 +35,37 @@ Git忽略。
 - `GET /api/stats?days=7|30` - 返回JSON格式的数据，包括今日/本月/总营收、
   所选时间窗口内的营收趋势、电桩状态分布、各充电站在线率。底层复用的是
   跟主协议里 `admin_stats` 完全相同的 `Database::` 查询函数。
+- `GET /api/bigdata` - 返回Spark数仓已计算完成的总体、站点、用户、设备、
+  星期、节假日、天气影响、设备运行和数据质量JSON快照。运行方式见
+  `bigdata/README.md`。
 - 其余所有路径 - 会去 `dashboard/` 文件夹下找对应的静态文件（目前只有
   `dashboard.html`），所以直接用浏览器打开 `http://localhost:8080/` 就能
   看到大屏页面。
 
 大屏页面（`dashboard/dashboard.html`）是纯HTML/JS写的，用CDN引入的
-[ECharts](https://echarts.apache.org/) 画图，每10秒自动轮询一次
-`/api/stats` 刷新数据。
+[ECharts](https://echarts.apache.org/) 画图。页面优先读取 `/api/bigdata`，并在
+普通静态HTTP服务器环境下自动回退到 `dashboard/data/bigdata.json`。页面展示
+充电业务、站点、用户、设备、星期、节假日、天气影响和设备运行八类指标；点击
+页面右上角的“刷新数据”可重新读取最新快照。
+
+### Hadoop 数据导入
+
+`bigdata/etl/load_data.py` 使用 PySpark 从 HDFS 读取 `users.csv`、
+`stations.csv`、`devices.csv`、`weather_hourly.csv`、`charging_orders.csv` 和
+`device_status_log.csv`，完成字段转换、无效记录过滤和主键去重后，再写回
+HDFS。默认目录为
+`hdfs:///charging-platform/data`，也可通过参数指定：
+
+```bash
+pip install -r requirements-bigdata.txt
+spark-submit --master local[2] bigdata/etl/load_data.py \
+  --data-root hdfs:///charging-platform/data \
+  --format parquet
+```
+
+若需在本机联调，可把 `--data-root` 改成 `file:///绝对路径/data`。Spark 的 CSV
+输出是包含多个 `part-*.csv` 的目录；只有演示用小数据需要单个分片时才添加
+`--partitions 1`。
 
 构建时会自动把整个 `dashboard/` 文件夹复制到编译出来的 `ChargingServer`
 可执行文件旁边（见 `server/CMakeLists.txt`），所以运行时不需要依赖源码树
