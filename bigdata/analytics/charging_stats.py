@@ -297,3 +297,50 @@ def station_distribution(station_df: DataFrame) -> DataFrame:
         ORDER BY device_count DESC, station_id
         """
     )
+
+
+def filtered_stats(
+    df: DataFrame,
+    date: str = None,
+    weekday: int = None,
+    station_id: str = None,
+) -> DataFrame:
+    """Task #81: hourly distribution filtered by date/weekday/station.
+
+    Owner: 洪维斌
+
+    Applies optional filters (any combination, or none) on top of the DWD
+    charging table, then returns the same 0-23 hourly count shape as
+    hourly_distribution() so the front end can swap this result straight
+    into the existing hourly bar chart when a filter is applied.
+
+    Note: this is a batch/query function, not a live HTTP endpoint — this
+    branch's export_api_snapshot.py produces a static JSON snapshot rather
+    than a dynamic API route. Wiring this into an interactive "select a
+    filter, chart updates immediately" UI requires a live endpoint on the
+    C++ backend (httpdashboard.cpp) that calls this function per request;
+    that wiring is outside the Python/Spark scope of this task.
+    """
+    _require_dwd(df)
+    filtered = df
+    if date is not None:
+        filtered = filtered.filter(F.col("start_date") == date)
+    if weekday is not None:
+        filtered = filtered.filter(F.col("start_weekday") == weekday)
+    if station_id is not None:
+        filtered = filtered.filter(F.col("station_id") == station_id)
+
+    filtered.createOrReplaceTempView("_dwd_charging_filtered")
+    return SparkSession.builder.getOrCreate().sql(
+        """
+        WITH hours AS (SELECT explode(sequence(0, 23)) AS hour),
+        usage AS (
+            SELECT start_hour AS hour, COUNT(DISTINCT session_id) AS charging_sessions
+            FROM _dwd_charging_filtered
+            GROUP BY start_hour
+        )
+        SELECT hours.hour, COALESCE(usage.charging_sessions, 0) AS charging_sessions
+        FROM hours LEFT JOIN usage ON hours.hour = usage.hour
+        ORDER BY hours.hour
+        """
+    )
