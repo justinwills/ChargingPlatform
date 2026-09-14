@@ -1,6 +1,9 @@
 .qtcreator
 build
 ui
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
 # Local runtime and test databases
 charging.db
@@ -15,3 +18,6 @@ data/processed/*
 !data/processed/.gitkeep
 ml/model_registry/*
 !ml/model_registry/.gitkeep
+
+# Generated output files
+outputs/

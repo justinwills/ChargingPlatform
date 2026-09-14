@@ -14,7 +14,7 @@ from ml.recommend.ops_advice import generate_ops_advice
 
 def register_predict_routes(app):
     """
-    [Task #108] 智能推荐与系统集成 / 后端接口 / 预测接口
+    [Task #122] 智能推荐与系统集成 / 后端接口 / 预测接口
     Owner: 邱辰笙
 
     建立机器学习预测API，为Web大屏提供未来1小时、6小时和24小时预测结果。
@@ -54,13 +54,13 @@ def register_predict_routes(app):
 
 def register_recommend_routes(app):
     """
-    [Task #109] 智能推荐与系统集成 / 后端接口 / 推荐接口
+    [Task #123] 智能推荐与系统集成 / 后端接口 / 推荐接口
     Owner: 邱辰笙
 
     建立智能推荐API，根据预测负荷和站点信息返回推荐充电站。
 
     This is the endpoint the Phase 1 Qt client should eventually call
-    (see ml/qt_integration.md, Task #111) instead of sorting stations
+    (see ml/qt_integration.md, Task #125) instead of sorting stations
     by distance alone.
     """
 

@@ -1,7 +1,7 @@
 """
 Phase 2 backend entrypoint (data dashboard + ML forecasting + recommendation).
 
-[Task #107/#108/#109/#110] Exposes three groups of endpoints that the
+[Task #121/#122/#123/#124] Exposes three groups of endpoints that the
 Web dashboard (and, indirectly, the Phase 1 Qt client for recommendations)
 consume:
 

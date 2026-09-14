@@ -1,4 +1,4 @@
-# Qt client integration (Task #111)
+# Qt client integration (Task #125)
 
 Owner: 王清香
 
@@ -7,7 +7,7 @@ Phase 1's station query in the Qt client (`client/mainwindow_stationdetail.cpp`
 on the backend) currently sorts nearby stations purely by distance.
 
 Phase 2 goal: once `/api/recommend/stations` (see `ml/api_routes.py`,
-Task #109) is live, have the station list also take the recommendation score
+Task #123) is live, have the station list also take the recommendation score
 into account instead of distance alone.
 
 ## Suggested approach
@@ -24,7 +24,7 @@ into account instead of distance alone.
    `recommend_score` (from the payload) rather than (or blended with)
    distance.
 3. Add a toggle or setting so distance-only sorting is still available for
-   testing/comparison, per Task #112 (functional testing across the whole
+   testing/comparison, per Task #126 (functional testing across the whole
    pipeline).
 
 ## Data contract (draft — confirm before implementing)
@@ -44,4 +44,4 @@ into account instead of distance alone.
 ```
 
 This is a starting point, not a finalized spec — align it with whatever
-`ml/recommend/scoring.py` (Task #102) actually returns once implemented.
+`ml/recommend/scoring.py` (Task #116) actually returns once implemented.

@@ -16,5 +16,3 @@ def rank_stations(*args, **kwargs):
     """
     # TODO: implement
     raise NotImplementedError("Task #73: 充电站排名")
-
-

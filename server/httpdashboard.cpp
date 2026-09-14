@@ -51,6 +51,7 @@ void HttpDashboard::sendFile(QTcpSocket *socket, const QFileInfo &info)
     if (suffix == QStringLiteral("html")) contentType = "text/html; charset=utf-8";
     else if (suffix == QStringLiteral("js")) contentType = "application/javascript; charset=utf-8";
     else if (suffix == QStringLiteral("css")) contentType = "text/css; charset=utf-8";
+    else if (suffix == QStringLiteral("json")) contentType = "application/json; charset=utf-8";
 
     QByteArray response;
     response += "HTTP/1.1 200 OK\r\n";
@@ -166,6 +167,11 @@ void HttpDashboard::handleRequest(qintptr socketDescriptor)
             QUrlQuery query(url);
             const int requestedDays = query.queryItemValue(QStringLiteral("days")).toInt();
             writeJson(socket, 200, "OK", buildStatsJson(requestedDays));
+            return;
+        }
+
+        if (url.path() == QStringLiteral("/api/bigdata")) {
+            writeStaticFile(socket, QStringLiteral("data/bigdata.json"));
             return;
         }
 
