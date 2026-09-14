@@ -1,6 +1,6 @@
 """Device utilization and operating-health metrics for DWS tables."""
 
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
 
 def _require(df: DataFrame, required: set[str], source_name: str) -> None:
@@ -26,7 +26,7 @@ def device_kpis(charging_df: DataFrame, device_df: DataFrame) -> DataFrame:
     )
     charging_df.createOrReplaceTempView("_dwd_charging_device")
     device_df.createOrReplaceTempView("_dwd_device_dimension")
-    return charging_df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         WITH coverage AS (
             SELECT
@@ -93,7 +93,7 @@ def device_operation_kpis(status_df: DataFrame, device_df: DataFrame) -> DataFra
     )
     status_df.createOrReplaceTempView("_dwd_device_status")
     device_df.createOrReplaceTempView("_dwd_device_operation_dimension")
-    return status_df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         WITH operation AS (
             SELECT

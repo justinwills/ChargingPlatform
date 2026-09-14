@@ -193,7 +193,7 @@ def holiday_patterns(df: DataFrame) -> DataFrame:
         raise ValueError("Missing holiday-analysis columns: " + ", ".join(missing))
     _require_dwd(df)
     df.createOrReplaceTempView("_dwd_charging_holiday")
-    return df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         SELECT
             CASE

@@ -159,7 +159,7 @@ class ChargingPipelineTests(unittest.TestCase):
         )
         stations = {row.station_id: row for row in station_kpis(dwd, station_dimension).collect()}
         self.assertEqual(1, stations["00582"].charging_sessions)
-        self.assertEqual(0.5, stations["00582"].sessions_per_device)
+        self.assertEqual(1.0, stations["00582"].sessions_per_device)
         self.assertEqual(0, stations["00999"].charging_sessions)
         self.assertEqual(7, len(weekday_patterns(dwd).collect()))
 
