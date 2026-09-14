@@ -2,8 +2,8 @@
 
 Phase 2 is a separate Python service next to the C++ client/server project.
 The Python service contains the big-data dashboard pipeline, machine-learning
-forecasting, recommendations, and API integration. This repository currently
-keeps the task functions as stubs until they are implemented.
+forecasting, recommendations, and API integration. Wang Qingxiang's data
+preparation tasks (#92-#98) are implemented in `ml/features.py`.
 
 ## Updated Raw Data
 
@@ -50,10 +50,27 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # Copy the six CSV files into data/raw/.
-# Implement the stubs in task order.
+# Build the station-hour ML dataset:
+spark-submit --master 'local[2]' ml/features.py \
+  --input-root data/raw \
+  --output data/processed/ml_training_dataset.csv
+
+# The remaining task stubs belong to other task owners.
 uvicorn run_api:app --reload --port 8090
 ```
 
-Search for `TODO: implement` or `NotImplementedError` to find the remaining
-task scaffolds. The old `nvv2t.csv`, `nvv2t_md_end.csv`, and `dsv13r2.csv`
-dataset descriptions are no longer part of the updated tasklist.
+The feature pipeline reads `charging_orders.csv`, `stations.csv`,
+`devices.csv`, `users.csv`, `weather_hourly.csv`, and
+`device_status_log.csv` through the existing PySpark ODS/DWD cleaners. It
+joins weather by `weather_id`, aggregates device status by station, preserves
+zero-demand station-hours, and excludes `weather_id`, `user_id`, `device_id`,
+`fee_amount_cny`, and `ended_at` from model features.
+
+Task #91 automatic refresh is implemented in `dashboard/dashboard.html`.
+The page polls `/api/bigdata` every 60 seconds with cache disabled and updates
+all dashboard charts from the latest `dashboard/data/bigdata.json` snapshot.
+The existing manual refresh button still triggers the same refresh path.
+
+The Spark CSV output is a directory named
+`data/processed/ml_training_dataset.csv` containing one or more
+`part-*.csv` files and a header file.

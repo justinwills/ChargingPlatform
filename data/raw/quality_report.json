@@ -1,0 +1,83 @@
+{
+  "row_counts": {
+    "users": 600,
+    "stations": 105,
+    "devices": 562,
+    "weather_hourly": 192600,
+    "charging_orders": 24091,
+    "device_status_log": 180402
+  },
+  "checks": {
+    "unique_user_id": true,
+    "unique_station_id": true,
+    "unique_device_id": true,
+    "unique_weather_id": true,
+    "unique_session_id": true,
+    "unique_status_id": true,
+    "order_user_fk": true,
+    "order_station_fk": true,
+    "order_device_fk": true,
+    "order_weather_fk": true,
+    "status_device_fk": true,
+    "order_device_belongs_to_station": true,
+    "station_device_count_matches": true,
+    "users_registered_before_orders": true,
+    "orders_end_after_start": true,
+    "order_holiday_fields_match_calendar": true,
+    "rain_reduces_demand": true
+  },
+  "weather_demand_rates": [
+    {
+      "weather_type": "sunny",
+      "station_hours": 296208,
+      "orders": 10080,
+      "orders_per_1000_station_hours": 34.03
+    },
+    {
+      "weather_type": "cloudy",
+      "station_hours": 215232,
+      "orders": 7139,
+      "orders_per_1000_station_hours": 33.169
+    },
+    {
+      "weather_type": "overcast",
+      "station_hours": 105792,
+      "orders": 2927,
+      "orders_per_1000_station_hours": 27.667
+    },
+    {
+      "weather_type": "fog",
+      "station_hours": 40848,
+      "orders": 1002,
+      "orders_per_1000_station_hours": 24.53
+    },
+    {
+      "weather_type": "light_rain",
+      "station_hours": 100272,
+      "orders": 2234,
+      "orders_per_1000_station_hours": 22.279
+    },
+    {
+      "weather_type": "snow",
+      "station_hours": 7560,
+      "orders": 117,
+      "orders_per_1000_station_hours": 15.476
+    },
+    {
+      "weather_type": "heavy_rain",
+      "station_hours": 43008,
+      "orders": 602,
+      "orders_per_1000_station_hours": 13.997
+    }
+  ],
+  "notes": [
+    "All generated rows are synthetic and reproducible from the recorded seed.",
+    "Weather affects order arrival intensity; do not use weather_id as a model feature.",
+    "Join weather attributes through weather_id before training a demand model."
+  ],
+  "seed": 20260914,
+  "source_date_range": {
+    "start": "2014-11-18",
+    "end": "2015-10-04"
+  }
+}

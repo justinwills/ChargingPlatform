@@ -76,6 +76,7 @@
   .brand small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
   .header-actions { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
   .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
+  .refresh-meta { color: #b6c7de; font-variant-numeric: tabular-nums; }
   button { border: 1px solid #2a4568; border-radius: 8px; padding: 7px 12px; color: #cfe0fa; background: #12243c; cursor: pointer; }
   button:hover { border-color: var(--cyan); color: white; }
   main { width: min(1500px, calc(100% - 40px)); margin: 0 auto; padding: 26px 0 38px; }
@@ -137,7 +138,7 @@
 <body>
 <header>
   <div class="brand"><div class="brand-mark">⚡</div><div><h1>充电平台大数据中心</h1><small>CHARGING OPERATIONS INTELLIGENCE</small></div></div>
-  <div class="header-actions"><span class="status-dot"></span><span>数据快照已连接</span><button id="reloadButton" type="button">刷新数据</button></div>
+  <div class="header-actions"><span class="status-dot"></span><span id="refreshStatus">数据快照已连接</span><span class="refresh-meta" id="refreshCountdown">自动刷新：--s</span><button id="reloadButton" type="button">刷新数据</button></div>
 </header>
 <main>
   <div class="hero">
@@ -247,6 +248,10 @@ const COLORS = ['#35d7ff','#4f7cff','#34d399','#f6c453','#ff6b7a','#a78bfa','#fb
 let currentData = {};
 const charts = {};
 const chartIds = ['weekdayChart','holidayChart','weatherChart','stationChart','userChart','deviceChart','statusChart','operationChart','sessionTrendChart','hourlyChart','weekdayHeatmapChart','stationRankingChart','stationDistChart'];
+const AUTO_REFRESH_MS = 60 * 1000;
+let refreshInFlight = false;
+let nextAutoRefreshAt = Date.now() + AUTO_REFRESH_MS;
+let autoRefreshTimer = null;
 const axisStyle = { axisLine: { lineStyle: { color: '#2a4262' } }, axisLabel: { color: '#8499b7' }, splitLine: { lineStyle: { color: '#182b45' } } };
 const tooltipStyle = { backgroundColor: 'rgba(7,17,31,.96)', borderColor: '#294564', textStyle: { color: '#eaf2ff' } };
 const number = value => Number(value || 0);
@@ -419,7 +424,9 @@ async function fetchSnapshot() {
 }
 
 async function refresh() {
-  const button=document.getElementById('reloadButton'); const errorBox=document.getElementById('errorBox'); button.disabled=true; errorBox.style.display='none';
+  if (refreshInFlight) return;
+  refreshInFlight = true;
+  const button=document.getElementById('reloadButton'); const errorBox=document.getElementById('errorBox'); const status=document.getElementById('refreshStatus'); button.disabled=true; errorBox.style.display='none'; status.textContent='正在刷新数据...';
   try {
     const payload=await fetchSnapshot(); const data=payload.data;
     renderHeadline(data); renderWeekdays(data.weekdays || []); renderHolidays(data.holidays || []); renderWeather(data.weatherImpact || []); renderStations(data.stations || []); renderUsers(data.users || [],data.userSummary || {}); renderDevices(data.devices || []); renderOperations(data.deviceOperations || []);
@@ -433,12 +440,37 @@ async function refresh() {
     renderFilteredDevices(data.deviceOperations || [], data.devices || [], document.getElementById('stationFilterSelect').value);
     const generated=payload.generatedAt ? new Date(payload.generatedAt) : null;
     document.getElementById('updatedAt').textContent=`Spark 数据快照生成时间：${generated && !Number.isNaN(generated.getTime()) ? generated.toLocaleString('zh-CN') : (payload.generatedAt || '未知')} · 页面读取时间：${new Date().toLocaleString('zh-CN')}`;
-  } catch (error) { errorBox.textContent=`数据读取失败：${error.message}。请通过 ChargingServer 或 HTTP 静态服务器打开本页面。`; errorBox.style.display='block'; document.getElementById('updatedAt').textContent='尚未加载数据'; }
-  finally { button.disabled=false; }
+    status.textContent='数据快照已连接';
+  } catch (error) { errorBox.textContent=`数据读取失败：${error.message}。请通过 ChargingServer 或 HTTP 静态服务器打开本页面。`; errorBox.style.display='block'; document.getElementById('updatedAt').textContent='尚未加载数据'; status.textContent='数据刷新失败'; }
+  finally { button.disabled=false; refreshInFlight=false; nextAutoRefreshAt=Date.now()+AUTO_REFRESH_MS; updateRefreshCountdown(); }
+}
+
+function updateRefreshCountdown() {
+  const countdown = document.getElementById('refreshCountdown');
+  const remaining = Math.max(0, Math.ceil((nextAutoRefreshAt - Date.now()) / 1000));
+  countdown.textContent = `自动刷新：${remaining}s`;
+}
+
+function startAutoRefresh() {
+  updateRefreshCountdown();
+  autoRefreshTimer = window.setInterval(() => {
+    if (document.hidden) {
+      nextAutoRefreshAt = Date.now() + AUTO_REFRESH_MS;
+      updateRefreshCountdown();
+      return;
+    }
+    if (Date.now() >= nextAutoRefreshAt) {
+      refresh();
+    } else {
+      updateRefreshCountdown();
+    }
+  }, 1000);
+  window.addEventListener('beforeunload', () => window.clearInterval(autoRefreshTimer));
 }
 
 try {
   initCharts(); refresh();
+  startAutoRefresh();
   document.getElementById('reloadButton').addEventListener('click',refresh);
   window.addEventListener('resize',() => Object.values(charts).forEach(chart => chart.resize()));
   document.getElementById('rankMetricSelect').addEventListener('change', event => renderStationRanking(currentData.stationRanking || [], event.target.value));
