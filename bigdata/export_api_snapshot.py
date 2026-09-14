@@ -76,6 +76,9 @@ def build_snapshot(spark: SparkSession, warehouse_root: str) -> dict[str, Any]:
             "stationRanking": _rows(
                 spark.read.parquet(f"{root}/dws/station_ranking")
             ),
+            "stationDistribution": _rows(
+                spark.read.parquet(f"{root}/dws/station_distribution")
+            ),
             "quality": _rows(spark.read.parquet(f"{root}/ads/data_quality")),
         },
     }

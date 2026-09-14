@@ -260,3 +260,40 @@ def rank_stations(
         )
     kpis = station_kpis(charging_df, station_df)
     return kpis.orderBy(F.col(by).desc()).limit(top_n)
+
+
+def station_distribution(station_df: DataFrame) -> DataFrame:
+    """Task #76: charging station distribution by name, address, and type.
+
+    Owner: 洪维斌
+
+    Reads from the DWD station dimension (Task #62, clean_station_dimension)
+    stored in HDFS, and returns one row per station for map/table display,
+    ordered by device_count so the largest stations surface first.
+    """
+    required = {
+        "station_id",
+        "station_name",
+        "address",
+        "location_id",
+        "facility_type",
+        "device_count",
+    }
+    missing = sorted(required - set(station_df.columns))
+    if missing:
+        raise ValueError("Missing required station columns: " + ", ".join(missing))
+
+    station_df.createOrReplaceTempView("_dwd_station_distribution")
+    return SparkSession.builder.getOrCreate().sql(
+        """
+        SELECT
+            station_id,
+            station_name,
+            address,
+            location_id,
+            facility_type,
+            device_count
+        FROM _dwd_station_distribution
+        ORDER BY device_count DESC, station_id
+        """
+    )

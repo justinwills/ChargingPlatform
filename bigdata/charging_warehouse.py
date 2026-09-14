@@ -14,6 +14,7 @@ from bigdata.analytics.charging_stats import (
     overall_charging_kpis,
     rank_stations,
     session_count_trend,
+    station_distribution,
     station_kpis,
     user_kpis,
     user_summary_kpis,
@@ -119,6 +120,7 @@ def build_warehouse(
     heatmap_metrics = weekday_hour_heatmap(dwd_charging)
     trend_metrics = session_count_trend(dwd_charging)
     ranking_metrics = rank_stations(dwd_charging, dwd_stations)
+    distribution_metrics = station_distribution(dwd_stations)
 
     _write(station_metrics, f"{root}/dws/station_kpis", mode)
     _write(user_metrics, f"{root}/dws/user_kpis", mode)
@@ -129,6 +131,7 @@ def build_warehouse(
     _write(heatmap_metrics, f"{root}/dws/weekday_heatmap", mode)
     _write(trend_metrics, f"{root}/dws/session_count_trend", mode)
     _write(ranking_metrics, f"{root}/dws/station_ranking", mode)
+    _write(distribution_metrics, f"{root}/dws/station_distribution", mode)
 
 
 def _parse_args():
