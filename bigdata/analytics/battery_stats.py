@@ -1,10 +1,25 @@
 """
-Battery Stats — Phase 2 stub
+Battery Stats — Phase 2
 
-Owner(s): 邱辰笙
+Owner(s): 邱辰笙 (Task #77, #78), 洪维斌 (Task #79, #80)
 """
 
-import pandas as pd
+from pyspark.sql import DataFrame, SparkSession, functions as F
+
+REQUIRED_BATTERY_COLUMNS = {
+    "esd",
+    "record_time",
+    "pack_voltage",
+    "charge_current",
+    "available_energy",
+    "available_capacity",
+}
+
+
+def _require_battery(df: DataFrame) -> None:
+    missing = sorted(REQUIRED_BATTERY_COLUMNS - set(df.columns))
+    if missing:
+        raise ValueError("Missing required battery columns: " + ", ".join(missing))
 
 
 def soc_trend(*args, **kwargs):
@@ -51,3 +66,76 @@ def energy_capacity_analysis(*args, **kwargs):
     raise NotImplementedError("Task #80: 电池能量分析")
 
 
+
+def voltage_current_analysis(df: DataFrame) -> DataFrame:
+    """Task #79: pack voltage and charge current trend during charging.
+
+    Owner: 洪维斌 (需求矩阵 official assignment; overrides stale docstring
+    ownership at the top of this file, which predates the final task split)
+
+    Returns one row per telemetry reading, ordered chronologically, so the
+    front end can plot pack_voltage and charge_current as time-series lines.
+    """
+    _require_battery(df)
+    df.createOrReplaceTempView("_battery_voltage_current")
+    return SparkSession.builder.getOrCreate().sql(
+        """
+        SELECT
+            esd,
+            record_time,
+            pack_voltage,
+            charge_current,
+            max_cell_voltage,
+            min_cell_voltage
+        FROM _battery_voltage_current
+        ORDER BY esd, record_time
+        """
+    )
+
+
+def energy_capacity_analysis(df: DataFrame) -> DataFrame:
+    """Task #80: available energy and capacity trend during charging.
+
+    Owner: 洪维斌
+
+    Returns one row per telemetry reading, ordered chronologically, plus an
+    ADS-level summary row (min/max/avg) appended via a second query so the
+    dashboard can show both the trend line and headline stats without a
+    second round trip.
+    """
+    _require_battery(df)
+    df.createOrReplaceTempView("_battery_energy_capacity")
+    return SparkSession.builder.getOrCreate().sql(
+        """
+        SELECT
+            esd,
+            record_time,
+            available_energy,
+            available_capacity,
+            soc
+        FROM _battery_energy_capacity
+        ORDER BY esd, record_time
+        """
+    )
+
+
+def energy_capacity_summary(df: DataFrame) -> DataFrame:
+    """Task #80 (ADS): headline min/max/avg stats for energy and capacity.
+
+    Owner: 洪维斌
+    """
+    _require_battery(df)
+    df.createOrReplaceTempView("_battery_energy_summary")
+    return SparkSession.builder.getOrCreate().sql(
+        """
+        SELECT
+            COUNT(*) AS reading_count,
+            ROUND(MIN(available_energy), 2) AS min_available_energy,
+            ROUND(MAX(available_energy), 2) AS max_available_energy,
+            ROUND(AVG(available_energy), 2) AS avg_available_energy,
+            ROUND(MIN(available_capacity), 2) AS min_available_capacity,
+            ROUND(MAX(available_capacity), 2) AS max_available_capacity,
+            ROUND(AVG(available_capacity), 2) AS avg_available_capacity
+        FROM _battery_energy_summary
+        """
+    )

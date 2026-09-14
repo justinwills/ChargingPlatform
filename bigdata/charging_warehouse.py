@@ -11,10 +11,15 @@ from pyspark.sql import DataFrame, SparkSession, functions as F
 
 from bigdata.analytics.charging_stats import (
     holiday_patterns,
+    hourly_distribution,
     overall_charging_kpis,
+    rank_stations,
+    session_count_trend,
+    station_distribution,
     station_kpis,
     user_kpis,
     user_summary_kpis,
+    weekday_hour_heatmap,
     weekday_patterns,
 )
 from bigdata.analytics.device_stats import device_kpis, device_operation_kpis
@@ -143,6 +148,7 @@ def build_warehouse(
     dwd_devices = spark.read.parquet(f"{root}/dwd/devices")
     dwd_weather = spark.read.parquet(f"{root}/dwd/weather_hourly")
     dwd_status = spark.read.parquet(f"{root}/dwd/device_status_log")
+
     outputs = {
         "dws/station_kpis": station_kpis(dwd_orders, dwd_stations),
         "dws/user_kpis": user_kpis(dwd_orders),
@@ -157,6 +163,11 @@ def build_warehouse(
         ),
         "ads/overall_charging_kpis": overall_charging_kpis(dwd_orders),
         "ads/user_summary_kpis": user_summary_kpis(dwd_orders),
+        "dws/hourly_distribution": hourly_distribution(dwd_orders),
+        "dws/weekday_heatmap": weekday_hour_heatmap(dwd_orders),
+        "dws/session_count_trend": session_count_trend(dwd_orders),
+        "dws/station_ranking": rank_stations(dwd_orders, dwd_stations),
+        "dws/station_distribution": station_distribution(dwd_stations),
     }
     for relative_path, frame in outputs.items():
         _write(frame, f"{root}/{relative_path}", mode)

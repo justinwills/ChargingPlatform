@@ -1,6 +1,7 @@
+from pyspark.sql import SparkSession
 """SparkSQL charging-operation metrics for DWS and ADS layers."""
 
-from pyspark.sql import DataFrame, functions as F
+from pyspark.sql import DataFrame, SparkSession, functions as F
 
 
 REQUIRED_DWD_COLUMNS = {
@@ -26,7 +27,7 @@ def overall_charging_kpis(df: DataFrame) -> DataFrame:
     """Task #66: return one ADS row containing overall charging KPIs."""
     _require_dwd(df)
     df.createOrReplaceTempView("_dwd_charging_overall")
-    return df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         SELECT
             COUNT(DISTINCT session_id) AS total_charging_sessions,
@@ -50,7 +51,7 @@ def station_kpis(charging_df: DataFrame, station_df: DataFrame) -> DataFrame:
 
     charging_df.createOrReplaceTempView("_dwd_charging_station")
     station_df.createOrReplaceTempView("_dwd_station_dimension")
-    return charging_df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         WITH station_usage AS (
             SELECT
@@ -104,7 +105,7 @@ def user_kpis(df: DataFrame) -> DataFrame:
     """Task #68: return one DWS row per user; row count is total users."""
     _require_dwd(df)
     df.createOrReplaceTempView("_dwd_charging_user")
-    return df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         SELECT
             user_id,
@@ -127,7 +128,7 @@ def user_summary_kpis(df: DataFrame) -> DataFrame:
     """Task #68 ADS summary containing user count and behavior averages."""
     _require_dwd(df)
     df.createOrReplaceTempView("_dwd_charging_user_summary")
-    return df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         WITH user_usage AS (
             SELECT
@@ -154,7 +155,7 @@ def weekday_patterns(df: DataFrame) -> DataFrame:
     """Task #69: return all seven weekdays, filling missing days with zero."""
     _require_dwd(df)
     df.createOrReplaceTempView("_dwd_charging_weekday")
-    return df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         WITH weekday_dimension AS (
             SELECT * FROM VALUES
@@ -238,7 +239,7 @@ def hourly_distribution(df: DataFrame) -> DataFrame:
     """Task #74: return 24 hourly counts without collecting on the driver."""
     _require_dwd(df)
     df.createOrReplaceTempView("_dwd_charging_hour")
-    return df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         WITH hours AS (SELECT explode(sequence(0, 23)) AS hour),
         usage AS (
@@ -257,7 +258,7 @@ def weekday_hour_heatmap(df: DataFrame) -> DataFrame:
     """Task #75: return 168 rows for an ECharts weekday/hour heatmap."""
     _require_dwd(df)
     df.createOrReplaceTempView("_dwd_charging_heatmap")
-    result = df.sparkSession.sql(
+    result = SparkSession.builder.getOrCreate().sql(
         """
         WITH grid AS (
             SELECT hour, weekday
@@ -283,4 +284,132 @@ def weekday_hour_heatmap(df: DataFrame) -> DataFrame:
     )
     return result.withColumn(
         "echarts_value", F.array("hour", "weekday", "charging_sessions")
+    )
+
+
+def session_count_trend(df: DataFrame) -> DataFrame:
+    """Task #72: daily charging session counts ordered chronologically.
+
+    Owner: 洪维斌
+    """
+    _require_dwd(df)
+    if "start_date" not in df.columns:
+        raise ValueError("Missing required DWD column: start_date")
+    df.createOrReplaceTempView("_dwd_charging_trend")
+    return SparkSession.builder.getOrCreate().sql(
+        """
+        SELECT
+            start_date,
+            COUNT(DISTINCT session_id) AS charging_sessions
+        FROM _dwd_charging_trend
+        GROUP BY start_date
+        ORDER BY start_date
+        """
+    )
+
+
+def rank_stations(
+    charging_df: DataFrame,
+    station_df: DataFrame,
+    by: str = "charging_sessions",
+    top_n: int = 10,
+) -> DataFrame:
+    """Task #73: rank charging stations by session count, kWh, or fees.
+
+    Owner: 洪维斌
+
+    by: "charging_sessions" | "total_kwh" | "total_charging_fees"
+    Reuses station_kpis() (Task #67) as the underlying aggregation so the
+    two tasks stay consistent instead of duplicating the join/groupBy logic.
+    """
+    valid_metrics = {"charging_sessions", "total_kwh", "total_charging_fees"}
+    if by not in valid_metrics:
+        raise ValueError(
+            f"Unsupported ranking metric: {by}. Choose from {sorted(valid_metrics)}"
+        )
+    kpis = station_kpis(charging_df, station_df)
+    return kpis.orderBy(F.col(by).desc()).limit(top_n)
+
+
+def station_distribution(station_df: DataFrame) -> DataFrame:
+    """Task #76: charging station distribution by name, address, and type.
+
+    Owner: 洪维斌
+
+    Reads from the DWD station dimension (Task #62, clean_station_dimension)
+    stored in HDFS, and returns one row per station for map/table display,
+    ordered by device_count so the largest stations surface first.
+    """
+    required = {
+        "station_id",
+        "station_name",
+        "address",
+        "location_id",
+        "facility_type",
+        "device_count",
+    }
+    missing = sorted(required - set(station_df.columns))
+    if missing:
+        raise ValueError("Missing required station columns: " + ", ".join(missing))
+
+    station_df.createOrReplaceTempView("_dwd_station_distribution")
+    return SparkSession.builder.getOrCreate().sql(
+        """
+        SELECT
+            station_id,
+            station_name,
+            address,
+            location_id,
+            facility_type,
+            device_count
+        FROM _dwd_station_distribution
+        ORDER BY device_count DESC, station_id
+        """
+    )
+
+
+def filtered_stats(
+    df: DataFrame,
+    date: str = None,
+    weekday: int = None,
+    station_id: str = None,
+) -> DataFrame:
+    """Task #81: hourly distribution filtered by date/weekday/station.
+
+    Owner: 洪维斌
+
+    Applies optional filters (any combination, or none) on top of the DWD
+    charging table, then returns the same 0-23 hourly count shape as
+    hourly_distribution() so the front end can swap this result straight
+    into the existing hourly bar chart when a filter is applied.
+
+    Note: this is a batch/query function, not a live HTTP endpoint — this
+    branch's export_api_snapshot.py produces a static JSON snapshot rather
+    than a dynamic API route. Wiring this into an interactive "select a
+    filter, chart updates immediately" UI requires a live endpoint on the
+    C++ backend (httpdashboard.cpp) that calls this function per request;
+    that wiring is outside the Python/Spark scope of this task.
+    """
+    _require_dwd(df)
+    filtered = df
+    if date is not None:
+        filtered = filtered.filter(F.col("start_date") == date)
+    if weekday is not None:
+        filtered = filtered.filter(F.col("start_weekday") == weekday)
+    if station_id is not None:
+        filtered = filtered.filter(F.col("station_id") == station_id)
+
+    filtered.createOrReplaceTempView("_dwd_charging_filtered")
+    return SparkSession.builder.getOrCreate().sql(
+        """
+        WITH hours AS (SELECT explode(sequence(0, 23)) AS hour),
+        usage AS (
+            SELECT start_hour AS hour, COUNT(DISTINCT session_id) AS charging_sessions
+            FROM _dwd_charging_filtered
+            GROUP BY start_hour
+        )
+        SELECT hours.hour, COALESCE(usage.charging_sessions, 0) AS charging_sessions
+        FROM hours LEFT JOIN usage ON hours.hour = usage.hour
+        ORDER BY hours.hour
+        """
     )

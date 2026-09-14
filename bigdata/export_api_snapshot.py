@@ -70,6 +70,25 @@ def build_snapshot(spark: SparkSession, warehouse_root: str) -> dict[str, Any]:
             "deviceOperations": _rows(
                 spark.read.parquet(f"{root}/dws/device_operation_kpis")
             ),
+            "hourlyDistribution": _rows(
+                spark.read.parquet(f"{root}/dws/hourly_distribution").orderBy("hour")
+            ),
+            "weekdayHeatmap": _rows(
+                spark.read.parquet(f"{root}/dws/weekday_heatmap").orderBy(
+                    "hour", "weekday"
+                )
+            ),
+            "sessionCountTrend": _rows(
+                spark.read.parquet(f"{root}/dws/session_count_trend").orderBy(
+                    "start_date"
+                )
+            ),
+            "stationRanking": _rows(
+                spark.read.parquet(f"{root}/dws/station_ranking")
+            ),
+            "stationDistribution": _rows(
+                spark.read.parquet(f"{root}/dws/station_distribution")
+            ),
             "quality": _rows(spark.read.parquet(f"{root}/ads/data_quality")),
         },
     }
