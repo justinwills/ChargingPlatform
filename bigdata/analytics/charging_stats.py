@@ -346,6 +346,8 @@ def station_distribution(station_df: DataFrame) -> DataFrame:
         "location_id",
         "facility_type",
         "device_count",
+        "latitude",
+        "longitude",
     }
     missing = sorted(required - set(station_df.columns))
     if missing:
@@ -360,7 +362,9 @@ def station_distribution(station_df: DataFrame) -> DataFrame:
             address,
             location_id,
             facility_type,
-            device_count
+            device_count,
+            latitude,
+            longitude
         FROM _dwd_station_distribution
         ORDER BY device_count DESC, station_id
         """
