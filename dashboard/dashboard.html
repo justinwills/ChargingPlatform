@@ -124,6 +124,11 @@
   .mini-card span { display: block; color: var(--muted); font-size: 10px; }
   .mini-card strong { display: block; margin-top: 7px; color: #ddecff; font-size: 19px; }
   .error { display: none; margin: 20px 0; padding: 14px; border: 1px solid rgba(255,107,122,.45); border-radius: 10px; color: #ffc0c6; background: rgba(255,107,122,.08); }
+  .pager { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .pager-info { margin-right: 4px; color: var(--muted); font-size: 11px; }
+  .pager button { padding: 3px 10px; border-radius: 6px; font-size: 11px; }
+  .pager button.active { border-color: var(--cyan); color: #07111f; background: var(--cyan); font-weight: 600; }
+  .pager button:disabled { opacity: .45; cursor: default; border-color: #2a4568; color: #62779a; }
   footer { padding: 22px 0 4px; text-align: center; color: #5f7392; font-size: 11px; }
   @media (max-width: 1050px) { .kpi-grid { grid-template-columns: repeat(3,1fr); } .grid-2, .grid-wide { grid-template-columns: 1fr; } }
   @media (max-width: 680px) {
@@ -225,6 +230,7 @@
     <div class="panel"><div class="panel-title">全部充电站清单</div>
       <div class="panel-note"><input id="stationSearchInput" type="text" placeholder="搜索站点名称或地址…" style="width:100%;margin-top:4px;padding:6px 8px;background:#12243c;color:#cfe0fa;border:1px solid #2a4568;border-radius:6px;"></div>
       <div class="table-wrap"><table><thead><tr><th>站点</th><th>地址</th><th>设备数量</th></tr></thead><tbody id="stationDistTableBody"></tbody></table></div>
+      <div class="pager" id="stationDistPager"></div>
     </div>
   </section>
 
@@ -237,6 +243,7 @@
         </select>
       </label></div>
       <div class="table-wrap"><table><thead><tr><th>设备</th><th>状态</th><th>可用率</th><th>故障次数</th><th>平均功率</th><th>健康评分</th></tr></thead><tbody id="filteredDeviceTableBody"></tbody></table></div>
+      <div class="pager" id="filteredDevicePager"></div>
     </div>
   </section>
 
@@ -245,6 +252,7 @@
 
 <script>
 const COLORS = ['#35d7ff','#4f7cff','#34d399','#f6c453','#ff6b7a','#a78bfa','#fb923c'];
+const PAGE_SIZE = 10;
 let currentData = {};
 const charts = {};
 const chartIds = ['weekdayChart','holidayChart','weatherChart','stationChart','userChart','deviceChart','statusChart','operationChart','sessionTrendChart','hourlyChart','weekdayHeatmapChart','stationRankingChart','stationDistChart'];
@@ -391,7 +399,10 @@ function renderStationRanking(rows, metric) {
 
 function renderStationDistTable(rows, keyword) {
   const filtered = keyword ? rows.filter(row => (row.station_name||'').toLowerCase().includes(keyword) || (row.address||'').toLowerCase().includes(keyword)) : rows;
-  document.getElementById('stationDistTableBody').innerHTML = filtered.map(row => `<tr><td>${esc(row.station_name)}</td><td>${esc(row.address)}</td><td>${fmt(row.device_count)}</td></tr>`).join('');
+  pagerState.stationDist.total = filtered.length;
+  pagerState.stationDist.page = 1;
+  stationDistRows = filtered;
+  drawStationDistPage();
 }
 
 function renderStationDistribution(rows) {
@@ -414,7 +425,49 @@ function renderFilteredDevices(deviceOperations, devices, stationId) {
   const stationIdByDevice = Object.fromEntries(devices.map(row => [row.device_id, row.station_id]));
   const filtered = stationId ? deviceOperations.filter(row => stationIdByDevice[row.device_id] === stationId) : deviceOperations;
   const sorted = [...filtered].sort((a,b) => number(a.avg_health_score)-number(b.avg_health_score));
-  document.getElementById('filteredDeviceTableBody').innerHTML = sorted.map(row => `<tr><td title="${esc(row.device_id)}">${esc(row.device_code)}</td><td><span class="tag ${row.current_status==='fault'?'tag-fault':'tag-online'}">${row.current_status==='fault'?'故障':'在线'}</span></td><td>${percent(row.availability_rate,3)}</td><td>${fmt(row.fault_count)}</td><td>${fmt(row.avg_output_power_kw,1)} kW</td><td>${fmt(row.avg_health_score,2)}</td></tr>`).join('');
+  pagerState.filteredDevices.total = sorted.length;
+  pagerState.filteredDevices.page = 1;
+  filteredDeviceRows = sorted;
+  drawFilteredDevicePage();
+}
+
+let stationDistRows = [];
+let filteredDeviceRows = [];
+const pagerState = { stationDist: { page: 1, total: 0 }, filteredDevices: { page: 1, total: 0 } };
+
+function _slicePage(rows, page) {
+  const start = (page - 1) * PAGE_SIZE;
+  return rows.slice(start, start + PAGE_SIZE);
+}
+
+function _pagerButtons(state, drawFn) {
+  const pages = Math.max(1, Math.ceil(state.total / PAGE_SIZE));
+  let html = `<span class="pager-info">共 ${fmt(state.total)} 条 · ${state.page}/${pages} 页</span>`;
+  const nav = (label, page) => `<button type="button" ${page<1||page>pages?'disabled':''} onclick="${drawFn}(${page})">${label}</button>`;
+  html += nav('上一页', state.page-1);
+  const start = Math.floor((state.page - 1) / 5) * 5 + 1;
+  const end = Math.min(pages, start + 4);
+  for (let p = start; p <= end; p++) html += `<button type="button" ${p===state.page?'class="active"':''} onclick="${drawFn}(${p})">${p}</button>`;
+  html += nav('下一页', state.page+1);
+  return html;
+}
+
+function drawStationDistPage(page = pagerState.stationDist.page) {
+  const total = pagerState.stationDist.total;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  page = Math.min(Math.max(1, page), pages);
+  pagerState.stationDist.page = page;
+  document.getElementById('stationDistTableBody').innerHTML = _slicePage(stationDistRows, page).map(row => `<tr><td>${esc(row.station_name)}</td><td>${esc(row.address)}</td><td>${fmt(row.device_count)}</td></tr>`).join('');
+  document.getElementById('stationDistPager').innerHTML = _pagerButtons(pagerState.stationDist, 'drawStationDistPage');
+}
+
+function drawFilteredDevicePage(page = pagerState.filteredDevices.page) {
+  const total = pagerState.filteredDevices.total;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  page = Math.min(Math.max(1, page), pages);
+  pagerState.filteredDevices.page = page;
+  document.getElementById('filteredDeviceTableBody').innerHTML = _slicePage(filteredDeviceRows, page).map(row => `<tr><td title="${esc(row.device_id)}">${esc(row.device_code)}</td><td><span class="tag ${row.current_status==='fault'?'tag-fault':'tag-online'}">${row.current_status==='fault'?'故障':'在线'}</span></td><td>${percent(row.availability_rate,3)}</td><td>${fmt(row.fault_count)}</td><td>${fmt(row.avg_output_power_kw,1)} kW</td><td>${fmt(row.avg_health_score,2)}</td></tr>`).join('');
+  document.getElementById('filteredDevicePager').innerHTML = _pagerButtons(pagerState.filteredDevices, 'drawFilteredDevicePage');
 }
 
 async function fetchSnapshot() {
