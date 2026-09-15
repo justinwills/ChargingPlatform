@@ -24,5 +24,5 @@ add_custom_target(bigdata_sources SOURCES
     tests/__init__.py
     tests/test_charging_pipeline.py
 
-    ${CMAKE_SOURCE_DIR}/requirements-bigdata.txt
+    ${CMAKE_SOURCE_DIR}/requirements.txt
 )
