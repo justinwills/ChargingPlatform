@@ -24,14 +24,18 @@ def _split_pandas(frame: pd.DataFrame, time_column: str, train_ratio: float, val
     ordered["__split_time"] = pd.to_datetime(ordered[time_column], errors="coerce")
     if ordered["__split_time"].isna().any():
         raise ValueError(f"Column {time_column!r} contains invalid timestamps")
-    ordered = ordered.sort_values("__split_time", kind="mergesort").drop(columns="__split_time")
-    total = len(ordered)
-    train_end = int(total * train_ratio)
-    validation_end = train_end + int(total * validation_ratio)
+    ordered = ordered.sort_values("__split_time", kind="mergesort")
+    # Split on complete time buckets so records sharing an hour can never be
+    # distributed across train and validation/test partitions.
+    unique_times = ordered["__split_time"].drop_duplicates().sort_values().reset_index(drop=True)
+    train_end = int(len(unique_times) * train_ratio)
+    validation_end = train_end + int(len(unique_times) * validation_ratio)
+    train_cut = unique_times.iloc[train_end] if train_end < len(unique_times) else pd.Timestamp.max
+    validation_cut = unique_times.iloc[validation_end] if validation_end < len(unique_times) else pd.Timestamp.max
     return (
-        ordered.iloc[:train_end].reset_index(drop=True),
-        ordered.iloc[train_end:validation_end].reset_index(drop=True),
-        ordered.iloc[validation_end:].reset_index(drop=True),
+        ordered[ordered["__split_time"] < train_cut].drop(columns="__split_time").reset_index(drop=True),
+        ordered[(ordered["__split_time"] >= train_cut) & (ordered["__split_time"] < validation_cut)].drop(columns="__split_time").reset_index(drop=True),
+        ordered[ordered["__split_time"] >= validation_cut].drop(columns="__split_time").reset_index(drop=True),
     )
 
 
@@ -72,23 +76,27 @@ def time_based_split(
         ordered = df.withColumn("__split_time", F.to_timestamp(F.col(time_column)))
         if ordered.where(F.col("__split_time").isNull()).limit(1).count():
             raise ValueError(f"Column {time_column!r} contains invalid timestamps")
-        total = ordered.count()
-        train_end = int(total * train_ratio)
-        validation_end = train_end + int(total * validation_ratio)
-        numbered = ordered.withColumn(
+        unique_times = ordered.select("__split_time").distinct().withColumn(
             "__split_index",
             F.row_number().over(Window.orderBy(F.col("__split_time"))) - 1,
         )
-        train = numbered.where(F.col("__split_index") < train_end)
-        validation = numbered.where(
-            (F.col("__split_index") >= train_end)
-            & (F.col("__split_index") < validation_end)
+        time_count = unique_times.count()
+        train_end = int(time_count * train_ratio)
+        validation_end = train_end + int(time_count * validation_ratio)
+        cuts = unique_times.where(F.col("__split_index").isin(train_end, validation_end)).collect()
+        cut_map = {int(row["__split_index"]): row["__split_time"] for row in cuts}
+        train_cut = cut_map.get(train_end)
+        validation_cut = cut_map.get(validation_end)
+        train = ordered.where(F.lit(True) if train_cut is None else F.col("__split_time") < F.lit(train_cut))
+        validation = ordered.where(
+            (F.lit(True) if train_cut is None else F.col("__split_time") >= F.lit(train_cut))
+            & (F.lit(False) if validation_cut is None else F.col("__split_time") < F.lit(validation_cut))
         )
-        test = numbered.where(F.col("__split_index") >= validation_end)
-        return tuple(
-            part.orderBy(F.col("__split_time"))
-            .drop("__split_time", "__split_index")
-            for part in (train, validation, test)
-        )
+        test = ordered.where(F.lit(False) if validation_cut is None else F.col("__split_time") >= F.lit(validation_cut))
+        # Do not order each returned DataFrame again.  ``orderBy`` here would
+        # trigger a separate full shuffle for every split when the caller
+        # fits a model.  The split boundaries are already chronological; Spark
+        # does not require physical row ordering for ML training.
+        return tuple(part.drop("__split_time") for part in (train, validation, test))
 
     raise TypeError("df must be a pandas or PySpark DataFrame")
