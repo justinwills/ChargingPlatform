@@ -48,11 +48,6 @@ from bigdata.etl.ingest import (
 )
 
 
-def clean_station_dimension(df: DataFrame) -> DataFrame:
-    """Compatibility wrapper for the station cleaner used by older callers."""
-    return clean_stations(df)
-
-
 def _write(df: DataFrame, path: str, mode: str) -> None:
     df.write.mode(mode).parquet(path)
 

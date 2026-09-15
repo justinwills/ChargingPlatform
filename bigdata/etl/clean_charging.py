@@ -84,7 +84,7 @@ def process_charging_time(df: DataFrame) -> DataFrame:
 
 
 def detect_charging_quality_issues(df: DataFrame) -> DataFrame:
-    """Keep every ODS row and attach a ``quality_issues`` string array."""
+    """保持每个ODS行并附加一个``quality_issues``字符串数组。"""
     typed = process_charging_time(df)
     duplicate_window = Window.partitionBy(F.trim(F.col("session_id"))).orderBy(
         F.col("_created_at").asc_nulls_last(),
@@ -169,7 +169,7 @@ def detect_charging_quality_issues(df: DataFrame) -> DataFrame:
         .drop("_raw_quality_issues")
     )
 
-
+# 添加质量问题的辅助函数
 def _append_issue(df: DataFrame, condition, issue_name: str) -> DataFrame:
     return (
         df.withColumn("_reference_issue", F.when(condition, F.lit(issue_name)))
@@ -189,7 +189,7 @@ def detect_charging_reference_issues(
     devices: Optional[DataFrame] = None,
     weather: Optional[DataFrame] = None,
 ) -> DataFrame:
-    """Append FK and cross-table consistency issues without collecting keys."""
+    """增加外键和跨表一致性问题，而不收集键。"""
     result = checked if "quality_issues" in checked.columns else detect_charging_quality_issues(checked)
 
     if users is not None:
