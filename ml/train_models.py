@@ -131,6 +131,8 @@ def train_rf_xgboost(data, feature_columns: Optional[Sequence[str]] = None, labe
 
 def save_best_model(result: Mapping[str, Any], path: str):
     """Persist the selected Spark or sklearn model to ``path``."""
+    if not isinstance(result, Mapping):
+        raise TypeError("result must be the mapping returned by train_rf_xgboost")
     model = result.get("best_model") or result.get("model")
     if model is None:
         raise ValueError("result does not contain a trained model")
@@ -138,6 +140,7 @@ def save_best_model(result: Mapping[str, Any], path: str):
         model.write().overwrite().save(path)
     else:
         import pickle
+        Path(path).expanduser().parent.mkdir(parents=True, exist_ok=True)
         with open(path, "wb") as handle:
             pickle.dump(model, handle)
     return path
@@ -173,6 +176,7 @@ def main(argv: Optional[Iterable[str]] = None):
             frame,
             models=model_names,
             random_forest={"numTrees": args.num_trees, "maxDepth": args.max_depth},
+            xgboost={"n_estimators": args.num_trees, "max_depth": args.max_depth},
         )
         if args.model_output:
             save_best_model(result, args.model_output)
