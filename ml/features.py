@@ -120,6 +120,13 @@ FEATURE_COLUMNS = (
     "silver_share",
     "gold_share",
     "platinum_share",
+    # Historical station load used by the time-series models.  The first
+    # rows of each station naturally have null values (there is no earlier
+    # observation); callers may drop those rows when fitting a model.
+    "load_lag_1h",
+    "load_lag_2h",
+    "load_lag_3h",
+    "load_lag_24h",
 )
 
 
@@ -626,7 +633,11 @@ def _build_station_hour_dataset(data: Mapping[str, Any]):
         "gold_share": 0.0,
         "platinum_share": 0.0,
     }
-    return result.fillna(numeric_defaults)
+    # Keep lag columns null when there is not enough history.  Filling those
+    # values with zero would turn "unknown history" into a real zero-demand
+    # observation and can bias a forecasting model.
+    result = result.fillna(numeric_defaults)
+    return build_lag_features(result)
 
 
 def select_features(df, include_targets: bool = True):
@@ -708,14 +719,190 @@ def build_ml_dataset(
     return build_training_dataset(spark, input_root, output_path, mode)
 
 
-def build_historical_load(data: Mapping[str, Any]):
-    """Task #99 helper: expose the station-hour target table without writing files."""
-    return select_features(_build_station_hour_dataset(data), include_targets=True)
+def _is_spark_dataframe(value: Any) -> bool:
+    """Return whether *value* looks like a PySpark DataFrame.
+
+    Importing pyspark just to perform this check makes the non-Spark helpers
+    unusable on a developer laptop, so use the DataFrame's module name.
+    """
+    return value.__class__.__module__.startswith("pyspark.sql")
 
 
-def build_lag_features(df):
-    """Task #100 placeholder kept explicit because this belongs to another owner."""
-    raise NotImplementedError("Task #100: lag features are owned by Xue Xuegang")
+def _pandas_historical_load(
+    orders,
+    timestamp_column: str = "datetime",
+    value_column: str = "energy_kwh",
+    granularity: str = "station_hour",
+):
+    import pandas as pd
+
+    frame = orders.copy()
+    if value_column not in frame.columns:
+        raise ValueError(f"Missing load column: {value_column}")
+    if timestamp_column not in frame.columns:
+        # ``created_at`` is the source-table name; accepting it makes this
+        # helper useful before the Spark feature pipeline has run.
+        if timestamp_column == "datetime" and "created_at" in frame.columns:
+            timestamp_column = "created_at"
+        else:
+            raise ValueError(f"Missing timestamp column: {timestamp_column}")
+    frame["datetime"] = pd.to_datetime(frame[timestamp_column], errors="coerce").dt.floor("h")
+    frame[value_column] = pd.to_numeric(frame[value_column], errors="coerce").fillna(0.0)
+    frame = frame.dropna(subset=["datetime"])
+    key = granularity.lower().replace("-", "_")
+    if key in {"station_hour", "hour_station", "stationhour"}:
+        groups = ["station_id", "datetime"]
+    elif key in {"hour", "hourly", "global_hour"}:
+        groups = ["datetime"]
+    elif key in {"station", "station_total", "station_level"}:
+        groups = ["station_id"]
+    else:
+        raise ValueError("granularity must be station_hour, hour, or station")
+    if "station_id" in groups and "station_id" not in frame.columns:
+        raise ValueError("Missing station column: station_id")
+    result = frame.groupby(groups, as_index=False, sort=True)[value_column].sum()
+    return result.sort_values(groups, kind="mergesort").reset_index(drop=True)
+
+
+def build_historical_load(
+    data: Mapping[str, Any] | Any,
+    granularity: str = "station_hour",
+    timestamp_column: str = "datetime",
+    value_column: str = "energy_kwh",
+):
+    """Construct historical charging load from ``energy_kwh``.
+
+    A mapping containing the six cleaned source tables uses the full Spark
+    station-hour grid (including zero-demand hours) and returns the normal ML
+    feature contract.  A pandas or Spark order DataFrame can be passed
+    directly for a lightweight aggregate using ``station_hour`` (default),
+    ``hour`` or ``station`` granularity.
+    """
+    if isinstance(data, Mapping):
+        # A small mapping containing only orders is convenient for ad-hoc
+        # aggregation and should not be mistaken for the six-table ETL input.
+        if "charging_orders" in data and not set(EXPECTED_COLUMNS).issubset(data):
+            return build_historical_load(
+                data["charging_orders"], granularity, timestamp_column, value_column
+            )
+        dataset = _build_station_hour_dataset(data)
+        key = granularity.lower().replace("-", "_")
+        if key not in {"station_hour", "hour_station", "stationhour"}:
+            _, F, _ = _spark_modules()
+            if key in {"hour", "hourly", "global_hour"}:
+                return dataset.groupBy("datetime").agg(F.sum("energy_kwh").alias("energy_kwh")).orderBy("datetime")
+            if key in {"station", "station_total", "station_level"}:
+                return dataset.groupBy("station_id").agg(F.sum("energy_kwh").alias("energy_kwh")).orderBy("station_id")
+            raise ValueError("granularity must be station_hour, hour, or station")
+        return select_features(dataset, include_targets=True)
+    if _is_spark_dataframe(data):
+        _, F, _ = _spark_modules()
+        if value_column not in data.columns:
+            raise ValueError(f"Missing load column: {value_column}")
+        source_timestamp = timestamp_column
+        if source_timestamp not in data.columns and source_timestamp == "datetime" and "created_at" in data.columns:
+            source_timestamp = "created_at"
+        if source_timestamp not in data.columns:
+            raise ValueError(f"Missing timestamp column: {timestamp_column}")
+        frame = data.withColumn("datetime", F.date_trunc("hour", _parse_timestamp(F.col(source_timestamp), F)))
+        frame = frame.where(F.col("datetime").isNotNull())
+        frame = frame.withColumn(value_column, F.coalesce(F.col(value_column).cast("double"), F.lit(0.0)))
+        key = granularity.lower().replace("-", "_")
+        if key in {"station_hour", "hour_station", "stationhour"}:
+            groups = ["station_id", "datetime"]
+        elif key in {"hour", "hourly", "global_hour"}:
+            groups = ["datetime"]
+        elif key in {"station", "station_total", "station_level"}:
+            groups = ["station_id"]
+        else:
+            raise ValueError("granularity must be station_hour, hour, or station")
+        if "station_id" in groups and "station_id" not in frame.columns:
+            raise ValueError("Missing station column: station_id")
+        return frame.groupBy(*groups).agg(F.sum(value_column).alias(value_column)).orderBy(*groups)
+    # pandas is intentionally imported only for this local path.
+    return _pandas_historical_load(data, timestamp_column, value_column, granularity)
+
+
+def build_lag_features(
+    df,
+    value_column: str = "energy_kwh",
+    lags: Iterable[int] = (1, 2, 3, 24),
+    timestamp_column: str = "datetime",
+    partition_columns: Iterable[str] = ("station_id",),
+    **kwargs,
+):
+    """Add historical load lag columns without looking into the future.
+
+    For Spark, window functions preserve distributed execution.  For pandas,
+    ``groupby.shift`` provides the equivalent semantics.  Lag columns are
+    named ``load_lag_<N>h`` and are ordered by ``timestamp_column`` within
+    each station (or the supplied partition columns).
+    """
+    # Accept the names commonly used by pandas notebooks and earlier task
+    # drafts while keeping one documented API.
+    if "lag_hours" in kwargs:
+        lags = kwargs.pop("lag_hours")
+    if "lag_columns" in kwargs:
+        lags = kwargs.pop("lag_columns")
+    if "time_col" in kwargs:
+        timestamp_column = kwargs.pop("time_col")
+    if "load_column" in kwargs:
+        value_column = kwargs.pop("load_column")
+    if "group_columns" in kwargs:
+        partition_columns = kwargs.pop("group_columns")
+    if "group_by" in kwargs:
+        partition_columns = kwargs.pop("group_by")
+    if kwargs:
+        raise TypeError("Unexpected keyword argument(s): " + ", ".join(sorted(kwargs)))
+    lag_values = tuple(dict.fromkeys(int(lag) for lag in lags))
+    if any(lag <= 0 for lag in lag_values):
+        raise ValueError("lags must contain positive hour offsets")
+    if not lag_values:
+        return df
+    partitions = tuple(partition_columns)
+    if _is_spark_dataframe(df):
+        from pyspark.sql import Window
+        _, F, _ = _spark_modules()
+        if value_column not in df.columns:
+            raise ValueError(f"Missing load column: {value_column}")
+        if timestamp_column not in df.columns:
+            raise ValueError(f"Missing timestamp column: {timestamp_column}")
+        # Global hourly aggregates do not carry station_id; in that case the
+        # default partition naturally becomes one global time series.
+        if partitions == ("station_id",) and "station_id" not in df.columns:
+            partitions = ()
+        missing = [column for column in partitions if column not in df.columns]
+        if missing:
+            raise ValueError("Missing partition columns: " + ", ".join(missing))
+        window = Window.partitionBy(*(F.col(column) for column in partitions)).orderBy(F.col(timestamp_column))
+        result = df
+        for lag in lag_values:
+            lagged = F.lag(F.col(value_column).cast("double"), lag).over(window)
+            result = result.withColumn(f"load_lag_{lag}h", lagged)
+            # ``lag_1h`` is retained as a concise compatibility alias for
+            # notebooks and older task specifications.
+            result = result.withColumn(f"lag_{lag}h", F.col(f"load_lag_{lag}h"))
+            result = result.withColumn(f"lag_{lag}", F.col(f"load_lag_{lag}h"))
+        return result
+
+    import pandas as pd
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("df must be a pandas or PySpark DataFrame")
+    if partitions == ("station_id",) and "station_id" not in df.columns:
+        partitions = ()
+    missing = [column for column in (value_column, timestamp_column, *partitions) if column not in df.columns]
+    if missing:
+        raise ValueError("Missing columns: " + ", ".join(dict.fromkeys(missing)))
+    result = df.copy()
+    result[timestamp_column] = pd.to_datetime(result[timestamp_column], errors="coerce")
+    result[value_column] = pd.to_numeric(result[value_column], errors="coerce")
+    result = result.sort_values([*partitions, timestamp_column], kind="mergesort").reset_index(drop=True)
+    grouped = result.groupby(list(partitions), sort=False, dropna=False)[value_column] if partitions else None
+    for lag in lag_values:
+        result[f"load_lag_{lag}h"] = grouped.shift(lag) if grouped is not None else result[value_column].shift(lag)
+        result[f"lag_{lag}h"] = result[f"load_lag_{lag}h"]
+        result[f"lag_{lag}"] = result[f"load_lag_{lag}h"]
+    return result
 
 
 def _parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
