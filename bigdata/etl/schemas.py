@@ -7,13 +7,11 @@ converted to null by Spark's CSV reader.
 
 from pyspark.sql.types import StringType, StructField, StructType
 
-
-ORDER_TIMESTAMP_FORMAT = "d/M/yyyy H:mm"
 STANDARD_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss"
 STANDARD_DATE_FORMAT = "yyyy-MM-dd"
 
 # Compatibility for code that imported the former constant.
-SOURCE_TIMESTAMP_FORMAT = ORDER_TIMESTAMP_FORMAT
+
 
 
 def _raw_string_schema(field_names):
@@ -69,6 +67,4 @@ DEVICE_ODS_SCHEMA = _raw_string_schema(DEVICE_ODS_COLUMNS)
 WEATHER_ODS_SCHEMA = _raw_string_schema(WEATHER_ODS_COLUMNS)
 DEVICE_STATUS_ODS_SCHEMA = _raw_string_schema(DEVICE_STATUS_ODS_COLUMNS)
 
-# The old public names now refer to the current charging_orders.csv schema.
-CHARGING_ODS_COLUMNS = CHARGING_ORDER_ODS_COLUMNS
-CHARGING_ODS_SCHEMA = CHARGING_ORDER_ODS_SCHEMA
+
