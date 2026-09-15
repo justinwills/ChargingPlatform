@@ -29,6 +29,37 @@ Git忽略。
 
 ## 大数据可视化大屏
 
+### Spark/HDFS 数据导入（任务 #61、#62）
+
+教师要求的分布式导入流程由 `run_spark_etl.py` 提供。先把原始文件上传到
+HDFS：
+
+```bash
+hdfs dfs -mkdir -p /charging/raw
+hdfs dfs -put data/raw/nvv2t.csv /charging/raw/
+hdfs dfs -put data/raw/nvv2t_md_end.csv /charging/raw/
+hdfs dfs -ls /charging/raw
+```
+
+然后使用 Spark DataFrame 读取并输出分布式 CSV 目录：
+
+```bash
+spark-submit run_spark_etl.py --master local[*]
+```
+
+默认输入为 `hdfs:///charging/raw/`，输出为
+`hdfs:///charging/processed/`。在没有 HDFS 的本机上，可传入本地路径：
+
+```bash
+spark-submit run_spark_etl.py --master local[*] \
+  --orders-input data/raw/nvv2t.csv \
+  --stations-input data/raw/nvv2t_md_end.csv \
+  --output-root data/processed/spark
+```
+
+该流程使用 Spark SQL DataFrame 的 CSV 读取、表头规范化和空行过滤；原有
+`load_data.py` 中的 pandas 函数仍作为无 Hadoop/Spark 环境的本地回退。
+
 `ChargingServer` 启动时还会额外起一个小型HTTP服务器，监听 **8080** 端口，
 跟主协议用的8888端口TCP服务器是完全独立的两回事。它提供两类内容：
 

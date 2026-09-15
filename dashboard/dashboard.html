@@ -76,6 +76,7 @@
   .brand small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
   .header-actions { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
   .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
+  .refresh-meta { color: #b6c7de; font-variant-numeric: tabular-nums; }
   button { border: 1px solid #2a4568; border-radius: 8px; padding: 7px 12px; color: #cfe0fa; background: #12243c; cursor: pointer; }
   button:hover { border-color: var(--cyan); color: white; }
   main { width: min(1500px, calc(100% - 40px)); margin: 0 auto; padding: 26px 0 38px; }
@@ -137,7 +138,7 @@
 <body>
 <header>
   <div class="brand"><div class="brand-mark">⚡</div><div><h1>充电平台大数据中心</h1><small>CHARGING OPERATIONS INTELLIGENCE</small></div></div>
-  <div class="header-actions"><span class="status-dot"></span><span>数据快照已连接</span><button id="reloadButton" type="button">刷新数据</button></div>
+  <div class="header-actions"><span class="status-dot"></span><span id="refreshStatus">数据快照已连接</span><span class="refresh-meta" id="refreshCountdown">自动刷新：--s</span><button id="reloadButton" type="button">刷新数据</button></div>
 </header>
 <main>
   <div class="hero">
@@ -198,13 +199,59 @@
     </div><div id="operationChart" class="chart chart-tall"></div></div>
     <div class="panel"><div class="panel-title">需关注设备（按健康评分升序）</div><div class="table-wrap"><table><thead><tr><th>设备</th><th>状态</th><th>可用率</th><th>故障次数</th><th>平均功率</th><th>健康评分</th></tr></thead><tbody id="operationTableBody"></tbody></table></div></div>
   </section>
+  <div class="section-head"><div><span class="section-number">07</span><h3>充电次数趋势 &amp; 24小时充电时段</h3><p>按日期观察充电次数变化，并识别一天中的高频充电时段</p></div></div>
+  <section class="grid-2">
+    <div class="panel"><div class="panel-title">每日充电次数趋势</div><div id="sessionTrendChart" class="chart"></div></div>
+    <div class="panel"><div class="panel-title">24小时充电时段分布</div><div id="hourlyChart" class="chart"></div></div>
+  </section>
+
+  <div class="section-head"><div><span class="section-number">08</span><h3>星期 &times; 小时活跃热力图 &amp; 充电站排名</h3><p>组合星期与小时两个维度观察活跃时段，并按指标对充电站排名</p></div></div>
+  <section class="grid-wide">
+    <div class="panel"><div class="panel-title">星期 &times; 小时充电次数热力图</div><div id="weekdayHeatmapChart" class="chart chart-tall"></div></div>
+    <div class="panel"><div class="panel-title">充电站排名 Top 10</div><div class="panel-note">
+      <label style="color:var(--muted);font-size:11px;">排名指标：
+        <select id="rankMetricSelect" style="background:#12243c;color:#cfe0fa;border:1px solid #2a4568;border-radius:6px;padding:3px 6px;">
+          <option value="charging_sessions">充电次数</option>
+          <option value="total_kwh">充电量</option>
+          <option value="total_charging_fees">充电费用</option>
+        </select>
+      </label>
+    </div><div id="stationRankingChart" class="chart"></div></div>
+  </section>
+
+  <div class="section-head"><div><span class="section-number">09</span><h3>充电站分布</h3><p>按设备数量排序的全部充电站清单，可搜索站点名称或地址</p></div></div>
+  <section class="grid-wide">
+    <div class="panel"><div class="panel-title">充电站分布（按设备数量 Top 15）</div><div id="stationDistChart" class="chart chart-tall"></div></div>
+    <div class="panel"><div class="panel-title">全部充电站清单</div>
+      <div class="panel-note"><input id="stationSearchInput" type="text" placeholder="搜索站点名称或地址…" style="width:100%;margin-top:4px;padding:6px 8px;background:#12243c;color:#cfe0fa;border:1px solid #2a4568;border-radius:6px;"></div>
+      <div class="table-wrap"><table><thead><tr><th>站点</th><th>地址</th><th>设备数量</th></tr></thead><tbody id="stationDistTableBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <div class="section-head"><div><span class="section-number">10</span><h3>图表筛选</h3><p>按充电站筛选设备运行明细</p></div></div>
+  <section class="grid-wide">
+    <div class="panel"><div class="panel-title">按充电站筛选设备</div>
+      <div class="panel-note"><label style="color:var(--muted);font-size:11px;">选择充电站：
+        <select id="stationFilterSelect" style="background:#12243c;color:#cfe0fa;border:1px solid #2a4568;border-radius:6px;padding:3px 6px;min-width:220px;">
+          <option value="">全部充电站</option>
+        </select>
+      </label></div>
+      <div class="table-wrap"><table><thead><tr><th>设备</th><th>状态</th><th>可用率</th><th>故障次数</th><th>平均功率</th><th>健康评分</th></tr></thead><tbody id="filteredDeviceTableBody"></tbody></table></div>
+    </div>
+  </section>
+
   <footer id="updatedAt">数据加载中…</footer>
 </main>
 
 <script>
 const COLORS = ['#35d7ff','#4f7cff','#34d399','#f6c453','#ff6b7a','#a78bfa','#fb923c'];
+let currentData = {};
 const charts = {};
-const chartIds = ['weekdayChart','holidayChart','weatherChart','stationChart','userChart','deviceChart','statusChart','operationChart'];
+const chartIds = ['weekdayChart','holidayChart','weatherChart','stationChart','userChart','deviceChart','statusChart','operationChart','sessionTrendChart','hourlyChart','weekdayHeatmapChart','stationRankingChart','stationDistChart'];
+const AUTO_REFRESH_MS = 60 * 1000;
+let refreshInFlight = false;
+let nextAutoRefreshAt = Date.now() + AUTO_REFRESH_MS;
+let autoRefreshTimer = null;
 const axisStyle = { axisLine: { lineStyle: { color: '#2a4262' } }, axisLabel: { color: '#8499b7' }, splitLine: { lineStyle: { color: '#182b45' } } };
 const tooltipStyle = { backgroundColor: 'rgba(7,17,31,.96)', borderColor: '#294564', textStyle: { color: '#eaf2ff' } };
 const number = value => Number(value || 0);
@@ -301,6 +348,75 @@ function renderOperations(rows) {
   document.getElementById('operationTableBody').innerHTML=attention.map(row => `<tr><td title="${esc(row.device_id)}">${esc(row.device_code)}</td><td><span class="tag ${row.current_status==='fault'?'tag-fault':'tag-online'}">${row.current_status==='fault'?'故障':'在线'}</span></td><td>${percent(row.availability_rate,3)}</td><td>${fmt(row.fault_count)}</td><td>${fmt(row.avg_output_power_kw,1)} kW</td><td>${fmt(row.avg_health_score,2)}</td></tr>`).join('');
 }
 
+function renderSessionTrend(rows) {
+  const sorted = [...rows].sort((a,b) => String(a.start_date).localeCompare(String(b.start_date)));
+  charts.sessionTrendChart.setOption({ color:[COLORS[0]], tooltip:{...tooltipStyle,trigger:'axis'}, grid:{left:56,right:24,top:20,bottom:60},
+    xAxis:{type:'category',data:sorted.map(row => row.start_date),axisLabel:{color:'#8499b7',rotate:45},axisLine:axisStyle.axisLine},
+    yAxis:{type:'value',name:'次',nameTextStyle:{color:'#8499b7'},...axisStyle},
+    series:[{name:'充电次数',type:'line',smooth:true,symbolSize:5,areaStyle:{opacity:.12},data:sorted.map(row => number(row.charging_sessions))}] });
+}
+
+function renderHourly(rows) {
+  const sorted = [...rows].sort((a,b) => number(a.hour)-number(b.hour));
+  charts.hourlyChart.setOption({ color:[COLORS[3]], tooltip:{...tooltipStyle,trigger:'axis'}, grid:{left:56,right:24,top:20,bottom:35},
+    xAxis:{type:'category',data:sorted.map(row => `${row.hour}时`),...axisStyle},
+    yAxis:{type:'value',name:'次',nameTextStyle:{color:'#8499b7'},...axisStyle},
+    series:[{name:'充电次数',type:'bar',barMaxWidth:22,data:sorted.map(row => number(row.charging_sessions)),itemStyle:{borderRadius:[5,5,0,0]}}] });
+}
+
+function renderWeekdayHeatmap(rows) {
+  const dayNames = {Mon:'周一',Tue:'周二',Wed:'周三',Thu:'周四',Fri:'周五',Sat:'周六',Sun:'周日'};
+  const dayOrder = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const data = rows.map(row => [number(row.hour), number(row.weekday), number(row.charging_sessions)]);
+  const maxValue = Math.max(1, ...data.map(point => point[2]));
+  charts.weekdayHeatmapChart.setOption({
+    tooltip:{...tooltipStyle,position:'top',formatter: params => `${dayNames[dayOrder[params.value[1]]] || ''} ${params.value[0]}时<br>充电次数：${fmt(params.value[2])}`},
+    grid:{left:60,right:20,top:20,bottom:40},
+    xAxis:{type:'category',data:Array.from({length:24},(_,hour) => `${hour}时`),splitArea:{show:true},...axisStyle},
+    yAxis:{type:'category',data:dayOrder.map(day => dayNames[day]),splitArea:{show:true},...axisStyle},
+    visualMap:{min:0,max:maxValue,calculable:true,orient:'horizontal',left:'center',bottom:0,textStyle:{color:'#8499b7'},inRange:{color:['#0d1a2d','#4f7cff','#35d7ff']}},
+    series:[{type:'heatmap',data,label:{show:false},emphasis:{itemStyle:{shadowBlur:8,shadowColor:'rgba(53,215,255,.5)'}}}]
+  });
+}
+
+function renderStationRanking(rows, metric) {
+  metric = metric || 'charging_sessions';
+  const top = [...rows].sort((a,b) => number(b[metric])-number(a[metric])).slice(0,10).reverse();
+  const metricNames = {charging_sessions:'充电次数',total_kwh:'充电量(kWh)',total_charging_fees:'充电费用(元)'};
+  charts.stationRankingChart.setOption({ color:[COLORS[5]], tooltip:{...tooltipStyle,trigger:'axis',axisPointer:{type:'shadow'}}, grid:{left:160,right:34,top:18,bottom:28},
+    xAxis:{type:'value',name:metricNames[metric],nameTextStyle:{color:'#8499b7'},...axisStyle},
+    yAxis:{type:'category',data:top.map(row => row.station_name),axisLabel:{color:'#8499b7',width:140,overflow:'truncate'},axisLine:axisStyle.axisLine},
+    series:[{type:'bar',name:metricNames[metric],barMaxWidth:18,data:top.map(row => number(row[metric])),itemStyle:{borderRadius:[0,5,5,0]}}] });
+}
+
+function renderStationDistTable(rows, keyword) {
+  const filtered = keyword ? rows.filter(row => (row.station_name||'').toLowerCase().includes(keyword) || (row.address||'').toLowerCase().includes(keyword)) : rows;
+  document.getElementById('stationDistTableBody').innerHTML = filtered.map(row => `<tr><td>${esc(row.station_name)}</td><td>${esc(row.address)}</td><td>${fmt(row.device_count)}</td></tr>`).join('');
+}
+
+function renderStationDistribution(rows) {
+  const sorted = [...rows].sort((a,b) => number(b.device_count)-number(a.device_count));
+  charts.stationDistChart.setOption({ color:[COLORS[2]], tooltip:{...tooltipStyle,trigger:'axis',axisPointer:{type:'shadow'}}, grid:{left:160,right:34,top:18,bottom:28},
+    xAxis:{type:'value',name:'设备数量',nameTextStyle:{color:'#8499b7'},...axisStyle},
+    yAxis:{type:'category',data:sorted.slice(0,15).map(row => row.station_name),axisLabel:{color:'#8499b7',width:140,overflow:'truncate'},axisLine:axisStyle.axisLine},
+    series:[{type:'bar',name:'设备数量',barMaxWidth:16,data:sorted.slice(0,15).map(row => number(row.device_count)),itemStyle:{borderRadius:[0,5,5,0]}}] });
+  renderStationDistTable(sorted);
+}
+
+function populateStationFilterOptions(stations) {
+  const select = document.getElementById('stationFilterSelect');
+  const current = select.value;
+  select.innerHTML = '<option value="">全部充电站</option>' + [...stations].sort((a,b) => (a.station_name||'').localeCompare(b.station_name||'')).map(row => `<option value="${esc(row.station_id)}">${esc(row.station_name)}</option>`).join('');
+  select.value = current;
+}
+
+function renderFilteredDevices(deviceOperations, devices, stationId) {
+  const stationIdByDevice = Object.fromEntries(devices.map(row => [row.device_id, row.station_id]));
+  const filtered = stationId ? deviceOperations.filter(row => stationIdByDevice[row.device_id] === stationId) : deviceOperations;
+  const sorted = [...filtered].sort((a,b) => number(a.avg_health_score)-number(b.avg_health_score));
+  document.getElementById('filteredDeviceTableBody').innerHTML = sorted.map(row => `<tr><td title="${esc(row.device_id)}">${esc(row.device_code)}</td><td><span class="tag ${row.current_status==='fault'?'tag-fault':'tag-online'}">${row.current_status==='fault'?'故障':'在线'}</span></td><td>${percent(row.availability_rate,3)}</td><td>${fmt(row.fault_count)}</td><td>${fmt(row.avg_output_power_kw,1)} kW</td><td>${fmt(row.avg_health_score,2)}</td></tr>`).join('');
+}
+
 async function fetchSnapshot() {
   const candidates=['/api/bigdata','data/bigdata.json']; let lastError;
   for (const url of candidates) { try { const response=await fetch(`${url}?t=${Date.now()}`,{cache:'no-store'}); if (!response.ok) throw new Error(`HTTP ${response.status}`); const payload=await response.json(); if (payload.code!==0 || !payload.data) throw new Error(payload.msg || 'JSON 数据结构不正确'); return payload; } catch (error) { lastError=error; } }
@@ -308,17 +424,59 @@ async function fetchSnapshot() {
 }
 
 async function refresh() {
-  const button=document.getElementById('reloadButton'); const errorBox=document.getElementById('errorBox'); button.disabled=true; errorBox.style.display='none';
+  if (refreshInFlight) return;
+  refreshInFlight = true;
+  const button=document.getElementById('reloadButton'); const errorBox=document.getElementById('errorBox'); const status=document.getElementById('refreshStatus'); button.disabled=true; errorBox.style.display='none'; status.textContent='正在刷新数据...';
   try {
     const payload=await fetchSnapshot(); const data=payload.data;
     renderHeadline(data); renderWeekdays(data.weekdays || []); renderHolidays(data.holidays || []); renderWeather(data.weatherImpact || []); renderStations(data.stations || []); renderUsers(data.users || [],data.userSummary || {}); renderDevices(data.devices || []); renderOperations(data.deviceOperations || []);
+    currentData = data;
+    renderSessionTrend(data.sessionCountTrend || []);
+    renderHourly(data.hourlyDistribution || []);
+    renderWeekdayHeatmap(data.weekdayHeatmap || []);
+    renderStationRanking(data.stationRanking || [], document.getElementById('rankMetricSelect').value);
+    renderStationDistribution(data.stationDistribution || []);
+    populateStationFilterOptions(data.stations || []);
+    renderFilteredDevices(data.deviceOperations || [], data.devices || [], document.getElementById('stationFilterSelect').value);
     const generated=payload.generatedAt ? new Date(payload.generatedAt) : null;
     document.getElementById('updatedAt').textContent=`Spark 数据快照生成时间：${generated && !Number.isNaN(generated.getTime()) ? generated.toLocaleString('zh-CN') : (payload.generatedAt || '未知')} · 页面读取时间：${new Date().toLocaleString('zh-CN')}`;
-  } catch (error) { errorBox.textContent=`数据读取失败：${error.message}。请通过 ChargingServer 或 HTTP 静态服务器打开本页面。`; errorBox.style.display='block'; document.getElementById('updatedAt').textContent='尚未加载数据'; }
-  finally { button.disabled=false; }
+    status.textContent='数据快照已连接';
+  } catch (error) { errorBox.textContent=`数据读取失败：${error.message}。请通过 ChargingServer 或 HTTP 静态服务器打开本页面。`; errorBox.style.display='block'; document.getElementById('updatedAt').textContent='尚未加载数据'; status.textContent='数据刷新失败'; }
+  finally { button.disabled=false; refreshInFlight=false; nextAutoRefreshAt=Date.now()+AUTO_REFRESH_MS; updateRefreshCountdown(); }
 }
 
-try { initCharts(); refresh(); document.getElementById('reloadButton').addEventListener('click',refresh); window.addEventListener('resize',() => Object.values(charts).forEach(chart => chart.resize())); }
+function updateRefreshCountdown() {
+  const countdown = document.getElementById('refreshCountdown');
+  const remaining = Math.max(0, Math.ceil((nextAutoRefreshAt - Date.now()) / 1000));
+  countdown.textContent = `自动刷新：${remaining}s`;
+}
+
+function startAutoRefresh() {
+  updateRefreshCountdown();
+  autoRefreshTimer = window.setInterval(() => {
+    if (document.hidden) {
+      nextAutoRefreshAt = Date.now() + AUTO_REFRESH_MS;
+      updateRefreshCountdown();
+      return;
+    }
+    if (Date.now() >= nextAutoRefreshAt) {
+      refresh();
+    } else {
+      updateRefreshCountdown();
+    }
+  }, 1000);
+  window.addEventListener('beforeunload', () => window.clearInterval(autoRefreshTimer));
+}
+
+try {
+  initCharts(); refresh();
+  startAutoRefresh();
+  document.getElementById('reloadButton').addEventListener('click',refresh);
+  window.addEventListener('resize',() => Object.values(charts).forEach(chart => chart.resize()));
+  document.getElementById('rankMetricSelect').addEventListener('change', event => renderStationRanking(currentData.stationRanking || [], event.target.value));
+  document.getElementById('stationSearchInput').addEventListener('input', event => renderStationDistTable([...(currentData.stationDistribution||[])].sort((a,b)=>number(b.device_count)-number(a.device_count)), event.target.value.trim().toLowerCase()));
+  document.getElementById('stationFilterSelect').addEventListener('change', event => renderFilteredDevices(currentData.deviceOperations || [], currentData.devices || [], event.target.value));
+}
 catch (error) { const errorBox=document.getElementById('errorBox'); errorBox.textContent=error.message; errorBox.style.display='block'; }
 </script>
 </body>

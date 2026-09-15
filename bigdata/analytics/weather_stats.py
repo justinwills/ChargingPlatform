@@ -1,6 +1,6 @@
 """Weather exposure and charging-demand metrics."""
 
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
 
 def _require(df: DataFrame, required: set[str], source_name: str) -> None:
@@ -33,7 +33,7 @@ def weather_impact_kpis(
     charging_df.createOrReplaceTempView("_dwd_charging_weather")
     weather_df.createOrReplaceTempView("_dwd_weather_hourly")
     station_df.createOrReplaceTempView("_dwd_weather_station")
-    return charging_df.sparkSession.sql(
+    return SparkSession.builder.getOrCreate().sql(
         """
         WITH weather_exposure AS (
             SELECT
