@@ -158,6 +158,11 @@ def main(argv: Optional[Iterable[str]] = None):
     args = _parse_args(argv)
     from pyspark.sql import SparkSession
     builder = SparkSession.builder.appName("ChargingPlatform-LoadModels").config("spark.ui.enabled", "false")
+    # The teacher VM occasionally resolves its hostname to a stale VMware
+    # adapter address.  Local mode only needs loopback, so make Driver
+    # binding deterministic while still allowing --master to be overridden.
+    if not args.master or args.master.startswith("local"):
+        builder = builder.config("spark.driver.bindAddress", "127.0.0.1").config("spark.driver.host", "127.0.0.1")
     if args.master:
         builder = builder.master(args.master)
     spark = builder.getOrCreate()
