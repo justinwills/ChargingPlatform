@@ -140,7 +140,7 @@
             <div class="model-stat"><span>预测站点</span><strong>{{ predictStats.stationCount }}</strong></div>
             <div class="model-stat"><span>总预测负荷</span><strong>{{ num(predictStats.totalLoad, 1) }} kWh</strong></div>
           </div>
-          <div class="panel-note status-note" :class="{ warn: forecastMeta.isFallback || forecastLoading }">{{ forecastLoading ? '正在加载预测…' : modelInfo2 }}</div>
+           <div class="panel-note status-note" :class="{ warn: forecastMeta.isFallback || forecastLoading }">{{ forecastLoading ? '预测中…' : modelInfo2 }}</div>
           <div v-if="forecastMeta.warning" class="panel-note warn-text">{{ forecastMeta.warning }}</div>
           <div class="operation-cards">
             <div class="mini-card"><span>峰值时段</span><strong>{{ peakText }}</strong></div>
@@ -172,7 +172,7 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, onErrorCaptured, ref } from 'vue'
 import EChart from './components/EChart.vue'
-import { api } from './api'
+import { api } from './api_client'
 
 const num = (v, d = 2) => {
   const n = Number(v)
@@ -588,9 +588,7 @@ async function loadForecast() {
   modelInfo.value = resp.model ? `模型：${resp.model}` : '未加载模型'
   modelInfo2.value = resp.isFallback
     ? '当前为持久化回退预测（未加载已训练模型）'
-    : resp.source === 'cached-trained-model'
-      ? '已加载训练模型生成的本地预测快照（无需 PySpark）'
-      : '机器学习模型预测'
+    : '机器学习模型预测'
   modelQuality.value = resp.isFallback ? '预测模型：持久化回退' : `预测模型：${resp.model}`
   forecastLoading.value = false
 }

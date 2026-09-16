@@ -33,7 +33,7 @@ if __package__ in (None, ""):
 
 from ml.forecast import forecast_1h, forecast_6h, forecast_24h
 
-DEFAULT_MODEL_PATH = str(PROJECT_ROOT / "ml" / "model_registry" / "random_forest_10trees_depth6")
+DEFAULT_MODEL_PATH = str(PROJECT_ROOT / "ml" / "model_registry" / "xgboost_10trees_depth6")
 DEFAULT_HISTORY_PATH = str(PROJECT_ROOT / "data" / "processed" / "ml_training_dataset.csv")
 DEFAULT_INFERENCE_DIR = PROJECT_ROOT / "data" / "processed"
 
@@ -217,6 +217,21 @@ class PredictionService:
         model_path = self.model_path
         history_path = self.history_path
 
+        # Prefer the precomputed trained-model snapshots before starting Spark
+        # or loading a PipelineModel. Spark startup can take several seconds on
+        # the VM, while the dashboard only needs the already materialized CSV.
+        default_model = Path(DEFAULT_MODEL_PATH).expanduser().resolve()
+        requested_model = Path(model_path).expanduser().resolve() if model_path else None
+        can_use_default_cache = requested_model == default_model
+        if model is None and can_use_default_cache and self._cached_inference_path(24) is not None:
+            self._source = "cached-trained-model"
+            self._load_error = None
+            self._model = None
+            self._model_name = Path(model_path).name
+            self._fallback = False
+            self._loaded = True
+            return
+
         need_spark_model = model_path is not None and Path(model_path).is_dir()
         need_spark_history = history_path is not None and Path(history_path).is_dir()
         if (need_spark_model or need_spark_history) and spark is None:
@@ -237,18 +252,6 @@ class PredictionService:
         # Windows development environments often do not have PySpark, while
         # the teacher VM has already generated trained-model inference CSVs.
         # Use those artifacts instead of silently switching to persistence.
-        default_model = Path(DEFAULT_MODEL_PATH).expanduser().resolve()
-        requested_model = Path(model_path).expanduser().resolve() if model_path else None
-        can_use_default_cache = requested_model == default_model
-        if model is None and can_use_default_cache and self._cached_inference_path(24) is not None:
-            self._source = "cached-trained-model"
-            self._load_error = None
-            self._model = None
-            self._model_name = Path(model_path).name
-            self._fallback = False
-            self._loaded = True
-            return
-
         if self._history is None and history_path is not None:
             if need_spark_history and spark is not None:
                 self._history = spark.read.option("header", True).option("inferSchema", True).csv(history_path)

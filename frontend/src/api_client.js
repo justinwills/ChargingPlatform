@@ -11,13 +11,21 @@ const runtimeHost = typeof window !== 'undefined' && window.location.hostname
   ? window.location.hostname
   : 'localhost'
 const FALLBACK_API_BASE = configuredBase || `http://${runtimeHost}:8090`
+const REQUEST_TIMEOUT_MS = 8000
 
 async function request(url, path) {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   let res
   try {
-    res = await fetch(url, { cache: 'no-store' })
+    res = await fetch(url, { cache: 'no-store', signal: controller.signal })
   } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`${path} 请求超时：${url}`)
+    }
     throw new Error(`${path} 连接失败：${url}`)
+  } finally {
+    window.clearTimeout(timeoutId)
   }
   const text = await res.text()
   if (!res.ok) {
@@ -37,7 +45,7 @@ async function get(path, fullResponse = false) {
   try {
     json = await request(`${API_BASE}${path}`, path)
   } catch (firstError) {
-    // A static page commonly gets a 404 (or a connection error) for its
+    // A static page commonly gets a 404, HTML, or a connection error for its
     // relative API URL. Retry once against the Flask service in that case.
     if (!FALLBACK_API_BASE || FALLBACK_API_BASE === API_BASE) throw firstError
     json = await request(`${FALLBACK_API_BASE}${path}`, path)

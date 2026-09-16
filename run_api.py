@@ -21,6 +21,7 @@ Run with:
 """
 
 from flask import Flask
+import os
 
 from bigdata.api_routes import register_stats_routes
 from ml.api_routes import register_predict_routes, register_recommend_routes
@@ -47,4 +48,8 @@ def add_cors_headers(response):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8090, debug=True)
+    app.run(
+        host=os.environ.get("CHARGING_API_HOST", "0.0.0.0"),
+        port=int(os.environ.get("CHARGING_API_PORT", "8090")),
+        debug=os.environ.get("CHARGING_API_DEBUG", "0") == "1",
+    )
