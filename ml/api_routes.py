@@ -6,10 +6,80 @@ run_api.py for how this gets mounted.
 Owner(s): 邱辰笙
 """
 
+import logging
+import os
+from pathlib import Path
+from typing import Any, Optional
+
+import pandas as pd
+
 from ml.forecast import forecast_1h, forecast_6h, forecast_24h, forecast_per_station
 from ml.recommend.scoring import station_recommend_score, recommend_low_load_stations
 from ml.recommend.peak_alert import flag_upcoming_peak_stations, load_threshold_alert
 from ml.recommend.ops_advice import generate_ops_advice
+
+
+LOGGER = logging.getLogger(__name__)
+PREDICTION_ENV = "CHARGING_PREDICTION_PATH"
+
+
+def _prediction_records(station_id: Optional[str] = None) -> list[dict[str, Any]]:
+    """Load saved model output as JSON-safe records without invoking the model."""
+    configured_path = os.getenv(PREDICTION_ENV)
+    if not configured_path:
+        LOGGER.warning("%s is not configured", PREDICTION_ENV)
+        return []
+
+    path = Path(configured_path).expanduser()
+    if not path.exists():
+        LOGGER.warning("Configured prediction file does not exist: %s", path)
+        return []
+
+    frame = pd.read_csv(path, dtype={"station_id": "string"})
+    if "station_id" not in frame.columns:
+        raise ValueError("prediction data must include station_id")
+    load_column = next(
+        (column for column in ("predicted_load", "predicted_load_kwh", "prediction", "load") if column in frame.columns),
+        None,
+    )
+    if load_column is None:
+        raise ValueError("prediction data must include predicted_load or predicted_load_kwh")
+
+    if station_id is not None:
+        frame = frame[frame["station_id"].astype(str) == str(station_id)]
+    frame = frame.copy()
+    frame["predicted_load"] = pd.to_numeric(frame[load_column], errors="coerce").fillna(0.0)
+    if "datetime" in frame.columns:
+        frame = frame.sort_values(["station_id", "datetime"], kind="mergesort")
+    if "horizon_hour" in frame.columns:
+        frame["horizon_hour"] = pd.to_numeric(frame["horizon_hour"], errors="coerce")
+    else:
+        frame["horizon_hour"] = frame.groupby("station_id", sort=False).cumcount() + 1
+
+    records = []
+    for row in frame.itertuples(index=False):
+        time_value = getattr(row, "datetime", None)
+        horizon_value = getattr(row, "horizon_hour", 0)
+        records.append(
+            {
+                "station_id": str(row.station_id),
+                "time": None if pd.isna(time_value) else str(time_value),
+                "predicted_load": float(row.predicted_load),
+                "horizon_hour": int(horizon_value),
+            }
+        )
+    return records
+
+
+def _prediction_payload(station_id: Optional[str] = None) -> dict[str, dict[str, list[dict[str, Any]]]]:
+    records = _prediction_records(station_id=station_id)
+    return {
+        "predictions": {
+            "1h": [record for record in records if record["horizon_hour"] <= 1],
+            "6h": [record for record in records if record["horizon_hour"] <= 6],
+            "24h": [record for record in records if record["horizon_hour"] <= 24],
+        }
+    }
 
 
 def register_predict_routes(app):

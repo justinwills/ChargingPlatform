@@ -18,8 +18,6 @@ add_custom_target(bigdata_sources SOURCES
     analytics/charging_stats.py
     analytics/device_stats.py
     analytics/weather_stats.py
-    analytics/battery_stats.py
-    analytics/station_ranking.py
 
     tests/__init__.py
     tests/test_charging_pipeline.py
