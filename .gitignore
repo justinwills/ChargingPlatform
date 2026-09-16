@@ -1,4 +1,4 @@
-.qtcreator
+﻿.qtcreator
 build
 ui
 __pycache__/
@@ -21,3 +21,6 @@ ml/model_registry/*
 
 # Generated output files
 outputs/
+# Web dashboard (frontend) build dependencies
+frontend/node_modules/
+node_modules/
