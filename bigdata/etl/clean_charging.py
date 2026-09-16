@@ -45,23 +45,30 @@ def _weekday_number(column_name: str = "weekday_name"):
     return F.create_map(*entries).getItem(F.trim(F.col(column_name)))
 
 
+def _parse_timestamp(column_name: str):
+    value = F.trim(F.col(column_name))
+    if hasattr(F, "try_to_timestamp"):
+        return F.coalesce(
+            F.try_to_timestamp(value, F.lit(STANDARD_TIMESTAMP_FORMAT)),
+            F.try_to_timestamp(value, F.lit(ORDER_TIMESTAMP_FORMAT)),
+        )
+    return F.coalesce(
+        F.to_timestamp(value, STANDARD_TIMESTAMP_FORMAT),
+        F.to_timestamp(value, ORDER_TIMESTAMP_FORMAT),
+    )
+
+
 def process_charging_time(df: DataFrame) -> DataFrame:
     """Parse and normalize raw order values without dropping source rows."""
     _require_columns(df, RAW_REQUIRED_COLUMNS)
     return (
         df.withColumn(
             "_created_at",
-            F.coalesce(
-                F.to_timestamp(F.trim(F.col("created_at")), STANDARD_TIMESTAMP_FORMAT),
-                F.to_timestamp(F.trim(F.col("created_at")), ORDER_TIMESTAMP_FORMAT),
-            ),
+            _parse_timestamp("created_at"),
         )
         .withColumn(
             "_ended_at",
-            F.coalesce(
-                F.to_timestamp(F.trim(F.col("ended_at")), STANDARD_TIMESTAMP_FORMAT),
-                F.to_timestamp(F.trim(F.col("ended_at")), ORDER_TIMESTAMP_FORMAT),
-            ),
+            _parse_timestamp("ended_at"),
         )
         .withColumn("_energy_kwh", F.trim("energy_kwh").cast(DecimalType(14, 3)))
         .withColumn("_fee_amount_cny", F.trim("fee_amount_cny").cast(DecimalType(14, 2)))

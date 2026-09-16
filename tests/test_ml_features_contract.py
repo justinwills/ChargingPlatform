@@ -1,4 +1,4 @@
-"""Focused tests for the Wang Qingxiang ML feature-preparation contract."""
+"""Focused tests for the ML feature-preparation contract."""
 
 import importlib.util
 import unittest

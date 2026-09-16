@@ -192,6 +192,12 @@ def register_stats_routes(app):
         days = _int_arg("days", 7)
         return _ok(device_status_chart(days=days))
 
+    @app.get("/api/stats/device-status-chart")
+    def _device_status_chart():
+        """Compatibility alias used by the Phase 2 dashboard."""
+        days = _int_arg("days", 7)
+        return _ok(device_status_chart(days=days))
+
     @app.get("/api/stats/filtered")
     def _filtered_stats():
         return _ok(

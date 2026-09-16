@@ -2,7 +2,54 @@
 #include "database.h"
 #include "dispatchernavhelpers.h"
 
+#include <QEventLoop>
+#include <QJsonDocument>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QTimer>
 #include <QJsonArray>
+
+namespace {
+
+QHash<int, double> recommendationScores()
+{
+    const QUrl url(qEnvironmentVariable(
+        "CHARGING_PHASE2_API_URL", "http://127.0.0.1:8090") + "/api/recommend/stations");
+    QNetworkAccessManager manager;
+    QNetworkReply *reply = manager.get(QNetworkRequest(url));
+    QEventLoop loop;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    timeout.start(1500);
+    loop.exec();
+    if (!reply->isFinished() || reply->error() != QNetworkReply::NoError) {
+        reply->abort();
+        reply->deleteLater();
+        return {};
+    }
+    const QJsonDocument document = QJsonDocument::fromJson(reply->readAll());
+    reply->deleteLater();
+    const QJsonArray records = document.isArray()
+        ? document.array()
+        : document.object().value(QStringLiteral("data")).toArray();
+    QHash<int, double> scores;
+    for (const QJsonValue &value : records) {
+        const QJsonObject record = value.toObject();
+        bool ok = false;
+        const QJsonValue stationValue = record.value(QStringLiteral("station_id"));
+        const int stationId = stationValue.isString()
+            ? stationValue.toString().toInt(&ok)
+            : stationValue.toInt(&ok);
+        if (!ok) continue;
+        scores.insert(stationId, record.value(QStringLiteral("score")).toDouble());
+    }
+    return scores;
+}
+
+}
 
 // ---------- 充电站/电桩查询：站点列表、电桩详情、站点详情 ----------
 
@@ -52,6 +99,20 @@ QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
                   });
     }
 
+            const QHash<int, double> scores = recommendationScores();
+            if (!scores.isEmpty()) {
+                std::stable_sort(results.begin(), results.end(), [&scores](const StationResult &left,
+                                                                            const StationResult &right) {
+                    const double leftScore = scores.value(left.station.id, -1.0);
+                    const double rightScore = scores.value(right.station.id, -1.0);
+                    if (!qFuzzyCompare(leftScore + 1.0, rightScore + 1.0)) {
+                        return leftScore > rightScore;
+                    }
+                    if (left.distance >= 0 && right.distance >= 0) return left.distance < right.distance;
+                    return left.station.id < right.station.id;
+                });
+            }
+
     QJsonArray arr;
     const int resultCount = qMin(results.size(), 5);
     for (int index = 0; index < resultCount; ++index) {
@@ -68,11 +129,13 @@ QJsonObject RequestDispatcher::handleQueryStations(const QJsonObject &params)
         o["freePileCount"] = Database::getFreePileCount(s.id);
         o["onlineRate"] = Database::getStationOnlineRate(s.id);
         if (result.distance >= 0) o["distanceKm"] = result.distance;
+        if (scores.contains(s.id)) o["recommendScore"] = scores.value(s.id);
         arr.append(o);
     }
     QJsonObject data;
     data["stations"] = arr;
-    data["sortedByDistance"] = hasLocation;
+    data["sortedByDistance"] = hasLocation && scores.isEmpty();
+    data["sortedByRecommendation"] = !scores.isEmpty();
     data["count"] = arr.size();
     return ok(data);
 }

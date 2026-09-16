@@ -2,8 +2,8 @@
 
 Phase 2 is a separate Python service next to the C++ client/server project.
 The Python service contains the big-data dashboard pipeline, machine-learning
-forecasting, recommendations, and API integration. Wang Qingxiang's data
-preparation tasks (#92-#98) are implemented in `ml/features.py`.
+forecasting, recommendations, and API integration. The data preparation
+tasks (#92-#98) are implemented in `ml/features.py`.
 
 ## Updated Raw Data
 

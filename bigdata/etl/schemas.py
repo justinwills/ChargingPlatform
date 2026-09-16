@@ -11,7 +11,8 @@ ORDER_TIMESTAMP_FORMAT = "d/M/yyyy H:mm"
 STANDARD_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss"
 STANDARD_DATE_FORMAT = "yyyy-MM-dd"
 
-
+# Compatibility for code that imported the former constant.
+SOURCE_TIMESTAMP_FORMAT = ORDER_TIMESTAMP_FORMAT
 
 def _raw_string_schema(field_names):
     fields = [StructField(name, StringType(), True) for name in field_names]

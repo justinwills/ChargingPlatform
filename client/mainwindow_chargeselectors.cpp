@@ -204,6 +204,10 @@ void MainWindow::showChargeStationSelector()
                        .arg(station.value(QStringLiteral("distanceKm")).toDouble(), 0, 'f', 1)
                        .arg(meta);
         }
+        if (station.contains(QStringLiteral("recommendScore"))) {
+            meta += tr(" · 推荐 %1").arg(
+                station.value(QStringLiteral("recommendScore")).toDouble(), 0, 'f', 0);
+        }
         auto *details = new QLabel(meta, row);
         details->setStyleSheet(QStringLiteral(
             "color:#777c8c;font-size:10px;background:transparent;"));

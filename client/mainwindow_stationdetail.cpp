@@ -140,6 +140,10 @@ void MainWindow::rebuildNearbyCards(const QJsonArray &stations)
             placeParts << tr("%1 km")
                               .arg(station.value("distanceKm").toDouble(), 0, 'f', 1);
         }
+        if (station.contains("recommendScore")) {
+            placeParts << tr("推荐 %1")
+                              .arg(station.value("recommendScore").toDouble(), 0, 'f', 0);
+        }
         placeParts << station.value("address").toString();
         auto *place = new QLabel(placeParts.join(QStringLiteral(" · ")), card);
         place->setStyleSheet(

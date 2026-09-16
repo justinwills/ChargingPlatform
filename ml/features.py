@@ -188,6 +188,11 @@ def _join_path(root: str, filename: str) -> str:
 
 def _parse_timestamp(column, F):
     value = F.trim(column.cast("string"))
+    if hasattr(F, "try_to_timestamp"):
+        return F.coalesce(
+            F.try_to_timestamp(value, F.lit("yyyy-MM-dd HH:mm:ss")),
+            F.try_to_timestamp(value, F.lit("d/M/yyyy H:mm")),
+        )
     return F.coalesce(
         F.to_timestamp(value, "yyyy-MM-dd HH:mm:ss"),
         F.to_timestamp(value, "d/M/yyyy H:mm"),
