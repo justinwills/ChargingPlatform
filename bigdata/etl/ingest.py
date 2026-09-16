@@ -52,6 +52,3 @@ def read_device_status_ods(spark: SparkSession, path: str) -> DataFrame:
     return _read_csv(spark, path, DEVICE_STATUS_ODS_SCHEMA)
 
 
-# Compatibility aliases for callers using the previous singular names.
-read_charging_ods = read_charging_orders_ods
-read_station_ods = read_stations_ods

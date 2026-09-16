@@ -28,6 +28,11 @@ def _not_corrupt(df: DataFrame):
 
 def _timestamp(name: str):
     value = _text(name)
+    if hasattr(F, "try_to_timestamp"):
+        return F.coalesce(
+            F.try_to_timestamp(value, F.lit(STANDARD_TIMESTAMP_FORMAT)),
+            F.try_to_timestamp(value, F.lit(ORDER_TIMESTAMP_FORMAT)),
+        )
     return F.coalesce(
         F.to_timestamp(value, STANDARD_TIMESTAMP_FORMAT),
         F.to_timestamp(value, ORDER_TIMESTAMP_FORMAT),
