@@ -14,7 +14,7 @@ class BigDataApiRouteTests(unittest.TestCase):
             "/api/stats/session-count-trend?days=7",
             "/api/stats/station-distribution",
             "/api/stats/device-status-chart",
-            "/api/stats/filtered?date=2014-11-18&weekday=2&station_id=00582",
+            "/api/stats/filtered?date=2024-11-18&weekday=1&station_id=371335",
         ]
 
         for endpoint in endpoints:
@@ -26,7 +26,7 @@ class BigDataApiRouteTests(unittest.TestCase):
                 self.assertIn("data", payload)
 
     def test_filtered_stats_contains_expected_schema(self):
-        response = self.client.get("/api/stats/filtered?date=2014-11-18&weekday=2&station_id=00582")
+        response = self.client.get("/api/stats/filtered?date=2024-11-18&weekday=1&station_id=371335")
         self.assertEqual(200, response.status_code)
         payload = response.get_json()
         self.assertEqual(0, payload["code"])

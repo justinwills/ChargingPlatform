@@ -100,9 +100,27 @@ def filtered_stats(date=None, weekday=None, station_id=None, device_id=None, is_
         df = df[df["station_id"].astype(str) == str(station_id)]
     if date:
         df = df[df["created_at"].dt.strftime("%Y-%m-%d") == str(date)]
-    if weekday:
-        wd_map = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
-        df = df[df["created_at"].dt.weekday == wd_map.get(str(weekday), -1)]
+    if weekday is not None and str(weekday) != "":
+        wd_map = {"mon": 0, "monday": 0, "tue": 1, "tuesday": 1,
+                  "wed": 2, "wednesday": 2, "thu": 3, "thursday": 3,
+                  "fri": 4, "friday": 4, "sat": 5, "saturday": 5,
+                  "sun": 6, "sunday": 6}
+        raw_weekday = str(weekday).strip().lower()
+        try:
+            target_weekday = int(raw_weekday)
+        except ValueError:
+            target_weekday = wd_map.get(raw_weekday, -1)
+        if "weekday" in df.columns and raw_weekday.isdigit():
+            df = df[df["weekday"].astype(str) == raw_weekday]
+        else:
+            df = df[df["created_at"].dt.weekday == target_weekday]
+    if df.empty:
+        return {
+            "total_energy_kwh": 0.0,
+            "total_sessions": 0,
+            "total_revenue": 0.0,
+            "points": [],
+        }
     points = (
         df.resample("D", on="created_at")
         .agg(energy_kwh=("energy_kwh", "sum"), sessions=("session_id", "count"), revenue=("fee_amount_cny", "sum"))
