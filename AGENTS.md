@@ -206,3 +206,39 @@ Inspect the output header with:
 ```bash
 head -n 1 data/processed/ml_training_dataset.csv/part-*.csv
 ```
+
+## Retraining the Load Model (VM)
+
+The station-hour target is zero-inflated: ~97% of rows carry no demand, so an
+unweighted MSE model collapses to a near-constant ~0 output.  Retrain with the
+demand-weighting flag so the model learns realistic kWh magnitudes:
+
+```bash
+cd /mnt/hgfs/VMShare
+export PYSPARK_PYTHON=/bin/python3
+export PYSPARK_DRIVER_PYTHON=/bin/python3
+spark-submit --master 'local[2]' ml/train_models.py \
+  --input data/processed/ml_training_dataset.csv \
+  --model-output ml/model_registry/latest \
+  --num-trees 100 --max-depth 12 --demand-weight 40
+```
+
+Then set the active model and regenerate the cached inference CSVs used by the
+dashboard and recommendation APIs:
+
+```bash
+echo latest > ml/model_registry/active.txt
+spark-submit --master 'local[2]' ml/infer.py --input data/processed/ml_training_dataset.csv \
+  --model ml/model_registry/latest --horizon 1  --output data/processed/inference_1h.csv
+spark-submit --master 'local[2]' ml/infer.py --input data/processed/ml_training_dataset.csv \
+  --model ml/model_registry/latest --horizon 6  --output data/processed/inference_6h.csv
+spark-submit --master 'local[2]' ml/infer.py --input data/processed/ml_training_dataset.csv \
+  --model ml/model_registry/latest --horizon 24 --output data/processed/inference_24h.csv
+```
+
+`ml/forecast.py` applies a persistence floor: when a model output drops below
+`FORECAST_FLOOR_KWH` (0.05 kWh) for a station that recently charged, the
+station's last observed load is kept so degenerate models cannot erase real
+demand.  The training dataset ends at an idle hour (2025-10-04 22:00), so the
+"next 24 hours" after it are inherently quiet; regenerate inference after
+retraining to get model-driven magnitudes.

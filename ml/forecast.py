@@ -54,6 +54,24 @@ def _to_pandas(data: Any) -> pd.DataFrame:
         # timezone-aware TimestampType ("unit-less dtype datetime64").  Cast
         # only the transfer column to text; _to_pandas parses it immediately
         # afterwards and preserves the original instant.
+        # Keep a compact station/hour demand profile alongside the latest
+        # rows.  The profile lets the demo produce a useful scenario forecast
+        # when the final recorded hour is idle (which otherwise causes a
+        # recursive model to stay at zero for every future hour).
+        profile = None
+        if "station_id" in data.columns and "hour" in data.columns:
+            profile = (
+                data.groupBy("station_id", "hour")
+                .agg(F.avg(F.col("energy_kwh").cast("double")).alias("__profile_mean"))
+                .toPandas()
+            )
+        station_profile = None
+        if "station_id" in data.columns:
+            station_profile = (
+                data.groupBy("station_id")
+                .agg(F.avg(F.col("energy_kwh").cast("double")).alias("__station_mean"))
+                .toPandas()
+            )
         data = (
             data.withColumn("__forecast_rank", F.row_number().over(window))
             .where(F.col("__forecast_rank") <= 24)
@@ -61,6 +79,10 @@ def _to_pandas(data: Any) -> pd.DataFrame:
             .withColumn("datetime", F.col("datetime").cast("string"))
             .toPandas()
         )
+        if profile is not None:
+            data.attrs["historical_profile"] = profile.to_dict("records")
+        if station_profile is not None:
+            data.attrs["historical_station_mean"] = station_profile.to_dict("records")
     if not isinstance(data, pd.DataFrame):
         raise TypeError("history must be a pandas/Spark DataFrame or CSV path")
     required = {"datetime", "energy_kwh"}
@@ -124,6 +146,24 @@ def _update_calendar(row: dict[str, Any], timestamp: pd.Timestamp) -> None:
     row["is_workday"] = int(timestamp.weekday() < 5)
 
 
+# Demand floor epsilon expressed in kWh.  Any per-hour station forecast below
+# this level is operationally "no demand".  When a trained model collapses to
+# near-zero for a station that recently charged -- which is exactly what a
+# weak model does on a zero-inflated station-hour target, where roughly 97% of
+# rows carry no demand -- the forecast is held at the station's most recent
+# observed load (the same persistence baseline used when no model is
+# available) instead of silently erasing real demand.
+FORECAST_FLOOR_KWH = 0.05
+
+
+def _floor_prediction(prediction: float, fallback: float) -> float:
+    """Guard against model output collapse below the recent demand level."""
+    fallback = max(0.0, float(fallback))
+    if prediction < FORECAST_FLOOR_KWH and fallback > 0:
+        return fallback
+    return max(0.0, prediction)
+
+
 def _predict(model: Any, row: dict[str, Any], features: list[str], fallback: float, spark: Any = None) -> float:
     model = _unwrap_model(model)
     if model is None:
@@ -131,7 +171,7 @@ def _predict(model: Any, row: dict[str, Any], features: list[str], fallback: flo
     values = pd.DataFrame([{column: pd.to_numeric(pd.Series([row.get(column)]), errors="coerce").iloc[0] for column in features}]).fillna(0.0)
     if hasattr(model, "predict"):
         prediction = model.predict(values)
-        return max(0.0, float(prediction[0]))
+        return _floor_prediction(float(prediction[0]), fallback)
     if hasattr(model, "transform") and model.__class__.__module__.startswith("pyspark"):
         # Spark ML/XGBoost models expose ``transform`` rather than sklearn's
         # ``predict``.  Only one row per station/hour is sent to Spark, so the
@@ -147,7 +187,7 @@ def _predict(model: Any, row: dict[str, Any], features: list[str], fallback: flo
         # mismatched Catalyst expression IDs and an AnalysisException.
         transformed = model.transform(spark_row)
         prediction = transformed.select("prediction").first()[0]
-        return max(0.0, float(prediction))
+        return _floor_prediction(float(prediction), fallback)
     raise TypeError("model must provide a predict() method; Spark Pipeline models require pandas-compatible inference")
 
 
@@ -161,7 +201,7 @@ def _predict_batch(model: Any, rows: list[dict[str, Any]], features: list[str], 
         for row in rows
     ]).fillna(0.0)
     if hasattr(model, "predict"):
-        return [max(0.0, float(value)) for value in model.predict(values)]
+        return [_floor_prediction(float(value), fallback) for value, fallback in zip(model.predict(values), fallbacks)]
     if hasattr(model, "transform") and model.__class__.__module__.startswith("pyspark"):
         from pyspark.sql import SparkSession, functions as F
 
@@ -170,7 +210,7 @@ def _predict_batch(model: Any, rows: list[dict[str, Any]], features: list[str], 
         for column in features:
             spark_rows = spark_rows.withColumn(column, F.col(column).cast("double"))
         predictions = model.transform(spark_rows).select("prediction").collect()
-        return [max(0.0, float(row[0])) for row in predictions]
+        return [_floor_prediction(float(row[0]), fallback) for row, fallback in zip(predictions, fallbacks)]
     raise TypeError("model must provide predict() or Spark transform()")
 
 
@@ -195,11 +235,39 @@ def forecast_load(
     features = _feature_columns(model, frame, feature_columns)
     if not features and _unwrap_model(model) is not None:
         raise ValueError("No model feature columns were found in history")
+    # Build a compact historical fallback from the complete pandas history.
+    # Spark inputs carry the same aggregates in DataFrame attrs (computed in
+    # _to_pandas before it trims to the latest 24 rows per station).
+    profile = {}
+    station_means = {}
+    for item in frame.attrs.get("historical_profile", []):
+        profile[(str(item.get("station_id")), int(item.get("hour", 0)))] = float(item.get("__profile_mean") or 0.0)
+    for item in frame.attrs.get("historical_station_mean", []):
+        station_means[str(item.get("station_id"))] = float(item.get("__station_mean") or 0.0)
+    if not profile and "hour" in frame.columns:
+        profile_frame = frame[["station_id", "hour", "energy_kwh"]].copy()
+        profile_frame["hour"] = pd.to_numeric(profile_frame["hour"], errors="coerce")
+        profile_frame = profile_frame.dropna(subset=["hour"])
+        profile_frame["hour"] = profile_frame["hour"].astype(int)
+        profile_frame["energy_kwh"] = pd.to_numeric(profile_frame["energy_kwh"], errors="coerce").fillna(0.0)
+        grouped = profile_frame.groupby(["station_id", "hour"], dropna=False)["energy_kwh"].mean()
+        profile = {(str(station), int(hour)): float(value) for (station, hour), value in grouped.items()}
+        means = profile_frame.groupby("station_id", dropna=False)["energy_kwh"].mean()
+        station_means = {str(station): float(value) for station, value in means.items()}
     outputs = []
     states = []
     for key, group in frame.groupby("station_id", sort=True, dropna=False):
         group = group.sort_values("datetime", kind="mergesort")
-        states.append({"key": key, "latest": group.iloc[-1].to_dict(), "observed": group["energy_kwh"].astype(float).tolist()})
+        states.append({
+            "key": key,
+            "latest": group.iloc[-1].to_dict(),
+            "observed": group["energy_kwh"].astype(float).tolist(),
+            # If a station ends on an idle row, use its historical profile as
+            # the fallback for each future hour instead of carrying zero
+            # forward indefinitely.  Stations with a positive latest load
+            # retain the existing persistence behavior.
+            "profile_mode": float(group["energy_kwh"].iloc[-1]) <= 0.0,
+        })
     for step in range(1, horizon + 1):
         candidates = []
         for state in states:
@@ -214,7 +282,15 @@ def forecast_load(
                 row[f"lag_{lag}h"] = value
                 row[f"lag_{lag}"] = value
             candidates.append((state, row, timestamp))
-        predictions = _predict_batch(model, [item[1] for item in candidates], features, [item[0]["observed"][-1] for item in candidates], spark=spark)
+        fallbacks = []
+        for state, row, timestamp in candidates:
+            if state["profile_mode"]:
+                key = (str(state["key"]), int(timestamp.hour))
+                fallback = profile.get(key, station_means.get(str(state["key"]), 0.0))
+            else:
+                fallback = state["observed"][-1]
+            fallbacks.append(fallback)
+        predictions = _predict_batch(model, [item[1] for item in candidates], features, fallbacks, spark=spark)
         for (state, row, timestamp), prediction in zip(candidates, predictions):
             outputs.append({"station_id": state["key"], "datetime": timestamp, "horizon_hour": step, "predicted_load_kwh": prediction})
             observed = state["observed"]

@@ -26,8 +26,31 @@ from ml.train_baseline import (
 )
 
 
-def _train_pandas_model(data, model_name, feature_columns, label_column, train_ratio, validation_ratio, test_ratio, **kwargs):
+def _add_demand_weight(frame, label_column: str, weight: float):
+    """Weight demand rows above baseline sparsity for the target column.
+
+    The station-hour target is zero-inflated: roughly 97% of rows store no
+    demand, so an unweighted MSE model collapses toward zero and learns nothing
+    about the magnitude of real charging load.  Each row with ``label > 0``
+    receives ``1 + weight`` and idle rows stay at 1; values like 40 move the
+    regression's focus onto the demand rows that carry the kWh magnitude.
+    """
+    if not weight or weight <= 0:
+        return frame
+    if frame.__class__.__module__.startswith("pyspark.sql"):
+        from pyspark.sql import functions as F
+
+        return frame.withColumn(
+            "sample_weight", 1.0 + float(weight) * (F.col(label_column) > 0).cast("double")
+        )
+    frame = frame.copy()
+    frame["sample_weight"] = 1.0 + float(weight) * (frame[label_column] > 0).astype(float)
+    return frame
+
+
+def _train_pandas_model(data, model_name, feature_columns, label_column, train_ratio, validation_ratio, test_ratio, demand_weight=0.0, **kwargs):
     frame = _prepare_pandas(data, feature_columns, label_column)
+    frame = _add_demand_weight(frame, label_column, demand_weight)
     train, validation, test = time_based_split(frame, train_ratio, validation_ratio, test_ratio)
     if train.empty:
         raise ValueError("Training split is empty; adjust split ratios or provide more rows")
@@ -46,7 +69,8 @@ def _train_pandas_model(data, model_name, feature_columns, label_column, train_r
         model = XGBRegressor(**defaults)
     else:
         raise ValueError(f"Unsupported model: {model_name}")
-    model.fit(train[feature_columns], train[label_column])
+    fit_kwargs = {"sample_weight": train["sample_weight"].to_numpy()} if "sample_weight" in train.columns else {}
+    model.fit(train[feature_columns], train[label_column], **fit_kwargs)
     val_prediction = model.predict(validation[feature_columns]) if len(validation) else []
     test_prediction = model.predict(test[feature_columns]) if len(test) else []
     return {
@@ -57,12 +81,12 @@ def _train_pandas_model(data, model_name, feature_columns, label_column, train_r
     }
 
 
-def _train_spark_model(data, model_name, feature_columns, label_column, train_ratio, validation_ratio, test_ratio, **kwargs):
+def _train_spark_model(data, model_name, feature_columns, label_column, train_ratio, validation_ratio, test_ratio, demand_weight=0.0, **kwargs):
     from pyspark.ml import Pipeline
     from pyspark.ml.feature import VectorAssembler
     from pyspark import StorageLevel
 
-    frame = _prepare_spark(data, feature_columns, label_column).persist(StorageLevel.MEMORY_AND_DISK)
+    frame = _add_demand_weight(_prepare_spark(data, feature_columns, label_column), label_column, demand_weight).persist(StorageLevel.MEMORY_AND_DISK)
     train, validation, test = time_based_split(frame, train_ratio, validation_ratio, test_ratio)
     if train.limit(1).count() == 0:
         raise ValueError("Training split is empty; adjust split ratios or provide more rows")
@@ -73,7 +97,8 @@ def _train_spark_model(data, model_name, feature_columns, label_column, train_ra
         # forests can be requested from the CLI after a successful smoke run.
         defaults = {"numTrees": 30, "maxDepth": 10, "seed": 42, "subsamplingRate": 0.8}
         defaults.update(kwargs)
-        estimator = RandomForestRegressor(featuresCol="features", labelCol=label_column, **defaults)
+        weight_col = {"weightCol": "sample_weight"} if "sample_weight" in frame.columns else {}
+        estimator = RandomForestRegressor(featuresCol="features", labelCol=label_column, **weight_col, **defaults)
     elif model_name == "xgboost":
         try:
             from xgboost.spark import SparkXGBRegressor
@@ -81,7 +106,8 @@ def _train_spark_model(data, model_name, feature_columns, label_column, train_ra
             raise RuntimeError("XGBoost Spark support is unavailable; install xgboost>=2.0") from error
         defaults = {"n_estimators": 200, "max_depth": 8, "learning_rate": 0.05, "subsample": 0.8, "colsample_bytree": 0.8, "num_workers": 2, "objective": "reg:squarederror"}
         defaults.update(kwargs)
-        estimator = SparkXGBRegressor(features_col="features", label_col=label_column, **defaults)
+        weight_col = {"weight_col": "sample_weight"} if "sample_weight" in frame.columns else {}
+        estimator = SparkXGBRegressor(features_col="features", label_col=label_column, **weight_col, **defaults)
     else:
         raise ValueError(f"Unsupported model: {model_name}")
     model = Pipeline(stages=[assembler, estimator]).fit(train)
@@ -97,12 +123,16 @@ def _train_spark_model(data, model_name, feature_columns, label_column, train_ra
     return result
 
 
-def train_rf_xgboost(data, feature_columns: Optional[Sequence[str]] = None, label_column: str = "energy_kwh", models: Sequence[str] = ("random_forest", "xgboost"), train_ratio: float = 0.7, validation_ratio: float = 0.15, test_ratio: float = 0.15, **model_kwargs):
+def train_rf_xgboost(data, feature_columns: Optional[Sequence[str]] = None, label_column: str = "energy_kwh", models: Sequence[str] = ("random_forest", "xgboost"), train_ratio: float = 0.7, validation_ratio: float = 0.15, test_ratio: float = 0.15, demand_weight: float = 0.0, **model_kwargs):
     """Train Random Forest and XGBoost models using chronological splits.
 
     XGBoost is optional: if its Spark integration is unavailable, the result
     records the error and still returns the Random Forest model.  The model
     with the lowest validation RMSE is exposed as ``best_model``.
+
+    ``demand_weight`` up-weights rows with real demand (``energy_kwh > 0``) by
+    ``1 + demand_weight``, countering the zero-inflated target so the model
+    learns realistic kWh magnitudes instead of collapsing toward zero.
     """
     columns = _resolve_features(data, feature_columns, label_column)
     results, failures = {}, {}
@@ -115,9 +145,9 @@ def train_rf_xgboost(data, feature_columns: Optional[Sequence[str]] = None, labe
             if not options:
                 options = {key: value for key, value in model_kwargs.items() if key not in {"random_forest", "xgboost"}}
             if _is_spark_dataframe(data):
-                result = _train_spark_model(data, name, columns, label_column, train_ratio, validation_ratio, test_ratio, **options)
+                result = _train_spark_model(data, name, columns, label_column, train_ratio, validation_ratio, test_ratio, demand_weight=demand_weight, **options)
             elif isinstance(data, pd.DataFrame):
-                result = _train_pandas_model(data, name, columns, label_column, train_ratio, validation_ratio, test_ratio, **options)
+                result = _train_pandas_model(data, name, columns, label_column, train_ratio, validation_ratio, test_ratio, demand_weight=demand_weight, **options)
             else:
                 raise TypeError("data must be a pandas or PySpark DataFrame")
             results[name] = result
@@ -154,6 +184,7 @@ def _parse_args(argv: Optional[Iterable[str]] = None):
     parser.add_argument("--master", default=None)
     parser.add_argument("--num-trees", type=int, default=30)
     parser.add_argument("--max-depth", type=int, default=10)
+    parser.add_argument("--demand-weight", type=float, default=40.0, help="Up-weight demand rows (energy_kwh>0) by 1+value to counter the zero-inflated target; 0 disables weighting")
     return parser.parse_args(argv)
 
 
@@ -175,6 +206,7 @@ def main(argv: Optional[Iterable[str]] = None):
         result = train_rf_xgboost(
             frame,
             models=model_names,
+            demand_weight=args.demand_weight,
             random_forest={"numTrees": args.num_trees, "maxDepth": args.max_depth},
             xgboost={"n_estimators": args.num_trees, "max_depth": args.max_depth},
         )

@@ -27,6 +27,15 @@ class FakeModel:
         return values["hour"].to_numpy().astype(float) * 0.0 + 1.0
 
 
+class ZeroModel:
+    """Model stub that reproduces the collapsed-near-zero prediction case."""
+
+    feature_columns = ["hour"]
+
+    def predict(self, values):
+        return values["hour"].to_numpy().astype(float) * 0.0
+
+
 def _history_frame() -> pd.DataFrame:
     rows = []
     for station in (129465, 131897):
@@ -104,6 +113,25 @@ class PredictionServiceTests(unittest.TestCase):
         self.assertIsNotNone(service.load_error)
         self.assertIn("missing_model.pkl", service.model_name)
         self.assertEqual([0.5, 0.5], [row["predicted_load_kwh"] for row in records])
+
+    def test_idle_latest_row_uses_historical_profile_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            history = path / "history.csv"
+            pd.DataFrame(
+                [
+                    {"station_id": "S1", "datetime": "2025-10-04 22:00:00", "energy_kwh": 4.0, "hour": 22},
+                    {"station_id": "S1", "datetime": "2025-10-05 22:00:00", "energy_kwh": 0.0, "hour": 22},
+                ]
+            ).to_csv(history, index=False)
+            model_path = path / "model.pkl"
+            with model_path.open("wb") as handle:
+                pickle.dump(ZeroModel(), handle)
+            from ml.prediction_service import PredictionService
+
+            service = PredictionService(model_path=str(model_path), history_path=str(history))
+            records = service.forecast(1)
+        self.assertEqual(2.0, records[0]["predicted_load_kwh"])
 
     def test_build_payload_success_and_not_found(self):
         from ml.prediction_service import build_forecast_payload
