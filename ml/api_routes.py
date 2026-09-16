@@ -1,11 +1,12 @@
 """
-ml/api_routes.py — Phase 2 stub
+ml/api_routes.py — Phase 2
 FastAPI route handlers for forecasting and station recommendation. See
 run_api.py for how this gets mounted.
 
 Owner(s): 邱辰笙
 """
 
+from ml.prediction_service import PredictionService, build_forecast_payload
 from ml.forecast import forecast_1h, forecast_6h, forecast_24h, forecast_per_station
 from ml.recommend.scoring import station_recommend_score, recommend_low_load_stations
 from ml.recommend.peak_alert import flag_upcoming_peak_stations, load_threshold_alert
@@ -19,37 +20,30 @@ def register_predict_routes(app):
 
     建立机器学习预测API，为Web大屏提供未来1小时、6小时和24小时预测结果。
 
-    Wires up GET endpoints backed by ml/forecast.py. Each handler returns 501
-    until the corresponding forecast function is implemented.
+    Each GET endpoint loads the saved Spark PipelineModel (or pickle) plus the
+    latest station-hour history through ``PredictionService`` and returns the
+    recursive forecast produced by ``ml/forecast.py``.  The response follows
+    the dashboard snapshot contract: ``{code, msg, generatedAt, horizonHours,
+    model, data}``, where ``data`` contains one record per station/hour.
     """
+
+    service = PredictionService()
 
     @app.get("/api/predict/1h")
     def _predict_1h(station_id: str = None):
-        try:
-            return forecast_1h(station_id=station_id)
-        except NotImplementedError as e:
-            return {"error": str(e)}, 501
+        return build_forecast_payload(service, 1, station_id=station_id)
 
     @app.get("/api/predict/6h")
     def _predict_6h(station_id: str = None):
-        try:
-            return forecast_6h(station_id=station_id)
-        except NotImplementedError as e:
-            return {"error": str(e)}, 501
+        return build_forecast_payload(service, 6, station_id=station_id)
 
     @app.get("/api/predict/24h")
     def _predict_24h(station_id: str = None):
-        try:
-            return forecast_24h(station_id=station_id)
-        except NotImplementedError as e:
-            return {"error": str(e)}, 501
+        return build_forecast_payload(service, 24, station_id=station_id)
 
     @app.get("/api/predict/station/{station_id}")
     def _predict_station(station_id: str):
-        try:
-            return forecast_per_station(station_id=station_id)
-        except NotImplementedError as e:
-            return {"error": str(e)}, 501
+        return build_forecast_payload(service, 24, station_id=station_id)
 
 
 def register_recommend_routes(app):

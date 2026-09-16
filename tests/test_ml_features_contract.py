@@ -18,6 +18,8 @@ class MLFeatureContractTests(unittest.TestCase):
             .appName("ChargingPlatformMLFeatureTests")
             .config("spark.ui.enabled", "false")
             .config("spark.sql.session.timeZone", "Asia/Shanghai")
+            .config("spark.driver.bindAddress", "127.0.0.1")
+            .config("spark.driver.host", "127.0.0.1")
             .getOrCreate()
         )
 

@@ -1,5 +1,6 @@
 """Run on the Linux VM with: python3 -m unittest bigdata.tests.test_charging_pipeline"""
 
+import importlib.util
 import os
 import sys
 import unittest
@@ -7,24 +8,31 @@ import unittest
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from pyspark.sql import SparkSession, functions as F
+PYSPARK_AVAILABLE = importlib.util.find_spec("pyspark") is not None
 
-from bigdata.analytics.charging_stats import (
-    holiday_patterns, overall_charging_kpis, station_kpis, user_kpis,
-    user_summary_kpis, weekday_patterns,
-)
-from bigdata.analytics.device_stats import device_kpis, device_operation_kpis
-from bigdata.analytics.weather_stats import weather_impact_kpis
-from bigdata.charging_warehouse import _parse_args as parse_warehouse_args
-from bigdata.etl.clean_charging import (
-    clean_charging_data, clean_charging_orders, detect_charging_quality_issues,
-    detect_charging_reference_issues,
-)
-from bigdata.etl.clean_tables import (
-    clean_device_status, clean_devices, clean_stations, clean_users, clean_weather,
-)
-from bigdata.etl.load_data import _parse_args as parse_load_args, _valid_charging_measurements
-from bigdata.etl.schemas import CHARGING_ORDER_ODS_SCHEMA
+if PYSPARK_AVAILABLE:
+    from pyspark.sql import SparkSession, functions as F
+
+    from bigdata.analytics.charging_stats import (
+        holiday_patterns, overall_charging_kpis, station_kpis, user_kpis,
+        user_summary_kpis, weekday_patterns,
+    )
+    from bigdata.analytics.device_stats import device_kpis, device_operation_kpis
+    from bigdata.analytics.weather_stats import weather_impact_kpis
+    from bigdata.charging_warehouse import _parse_args as parse_warehouse_args
+    from bigdata.etl.clean_charging import (
+        clean_charging_data, clean_charging_orders, detect_charging_quality_issues,
+        detect_charging_reference_issues,
+    )
+    from bigdata.etl.clean_tables import (
+        clean_device_status, clean_devices, clean_stations, clean_users, clean_weather,
+    )
+    from bigdata.etl.load_data import _parse_args as parse_load_args, _valid_charging_measurements
+    from bigdata.etl.schemas import CHARGING_ORDER_ODS_SCHEMA
+else:
+    SparkSession = None
+    F = None
+    CHARGING_ORDER_ODS_SCHEMA = None
 
 
 def _raw_order(session_id="S1", energy="7.500", device_id="D1"):
@@ -55,6 +63,7 @@ def _raw_order(session_id="S1", energy="7.500", device_id="D1"):
     return tuple(values[field.name] for field in CHARGING_ORDER_ODS_SCHEMA.fields)
 
 
+@unittest.skipUnless(PYSPARK_AVAILABLE, "PySpark is required for charging pipeline tests")
 class ChargingPipelineTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -63,6 +72,8 @@ class ChargingPipelineTests(unittest.TestCase):
             .appName("ChargingPipelineTests")
             .config("spark.ui.enabled", "false")
             .config("spark.sql.session.timeZone", "Asia/Shanghai")
+            .config("spark.driver.bindAddress", "127.0.0.1")
+            .config("spark.driver.host", "127.0.0.1")
             .getOrCreate()
         )
 
