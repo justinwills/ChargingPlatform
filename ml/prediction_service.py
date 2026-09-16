@@ -35,6 +35,7 @@ from ml.forecast import forecast_1h, forecast_6h, forecast_24h
 
 DEFAULT_MODEL_PATH = str(PROJECT_ROOT / "ml" / "model_registry" / "random_forest_10trees_depth6")
 DEFAULT_HISTORY_PATH = str(PROJECT_ROOT / "data" / "processed" / "ml_training_dataset.csv")
+DEFAULT_INFERENCE_DIR = PROJECT_ROOT / "data" / "processed"
 
 MODEL_PATH_ENV = "CHARGING_MODEL_PATH"
 HISTORY_PATH_ENV = "CHARGING_HISTORY_PATH"
@@ -153,6 +154,7 @@ class PredictionService:
         self._model_name = None
         self._fallback = False
         self._load_error: Optional[str] = None
+        self._source = "model"
         self._loaded = False
 
     @property
@@ -166,6 +168,30 @@ class PredictionService:
     @property
     def load_error(self) -> Optional[str]:
         return self._load_error
+
+    @property
+    def source(self) -> str:
+        """How the latest response was produced (live model or cached model output)."""
+        return self._source
+
+    def _cached_inference_path(self, horizon: int) -> Optional[Path]:
+        configured = os.environ.get("CHARGING_INFERENCE_DIR")
+        directory = Path(configured).expanduser() if configured else DEFAULT_INFERENCE_DIR
+        candidate = directory / f"inference_{horizon}h.csv"
+        return candidate if candidate.is_file() else None
+
+    def _read_cached_forecast(self, horizon: int, station_id: Optional[str] = None) -> list[dict[str, Any]]:
+        path = self._cached_inference_path(horizon)
+        if path is None:
+            return []
+        frame = pd.read_csv(path)
+        if station_id is not None:
+            frame = frame[frame["station_id"].astype(str) == str(station_id)]
+        if frame.empty:
+            raise ValueError("No history rows available for the requested station")
+        frame["datetime"] = pd.to_datetime(frame["datetime"], errors="coerce")
+        frame = frame.dropna(subset=["datetime"])
+        return _json_records(frame)
 
     def _ensure_spark(self) -> Any:
         if self._spark is None:
@@ -208,6 +234,21 @@ class PredictionService:
                 self._load_error = str(error)
                 model = None
 
+        # Windows development environments often do not have PySpark, while
+        # the teacher VM has already generated trained-model inference CSVs.
+        # Use those artifacts instead of silently switching to persistence.
+        default_model = Path(DEFAULT_MODEL_PATH).expanduser().resolve()
+        requested_model = Path(model_path).expanduser().resolve() if model_path else None
+        can_use_default_cache = requested_model == default_model
+        if model is None and can_use_default_cache and self._cached_inference_path(24) is not None:
+            self._source = "cached-trained-model"
+            self._load_error = None
+            self._model = None
+            self._model_name = Path(model_path).name
+            self._fallback = False
+            self._loaded = True
+            return
+
         if self._history is None and history_path is not None:
             if need_spark_history and spark is not None:
                 self._history = spark.read.option("header", True).option("inferSchema", True).csv(history_path)
@@ -221,6 +262,7 @@ class PredictionService:
             else getattr(model, "name", "persistence-fallback")
         )
         self._fallback = model is None
+        self._source = "model" if model is not None else "persistence-fallback"
         self._loaded = True
 
     def forecast(self, horizon: int, station_id: Optional[str] = None, as_records: bool = True) -> Any:
@@ -228,6 +270,9 @@ class PredictionService:
         if horizon not in VALID_HORIZONS:
             raise ValueError(f"horizon must be one of {VALID_HORIZONS}")
         self._load()
+        if self._source == "cached-trained-model":
+            records = self._read_cached_forecast(horizon, station_id=station_id)
+            return records if as_records else pd.DataFrame(records)
         function = {1: forecast_1h, 6: forecast_6h, 24: forecast_24h}[horizon]
         result = function(self._model, self._history, station_id=station_id, as_records=as_records, spark=self._spark)
         return _json_records(result) if as_records else result
@@ -250,6 +295,7 @@ def build_forecast_payload(service: PredictionService, horizon: int, station_id:
         "horizonHours": int(horizon),
         "model": service.model_name or "persistence-fallback",
         "isFallback": bool(service.is_fallback),
+        "source": service.source,
         "data": records,
     }
     if service.load_error:

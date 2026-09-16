@@ -125,14 +125,41 @@
       <!-- ===== 05 模型与预测（机器学习，ml/ 由邱辰笙维护） ===== -->
       <div class="section-head">
         <span class="section-number">05</span><h3>模型与预测</h3>
-        <span class="section-desc">机器学习负荷预测（ml/prediction_service.py，接口 /api/predict/24h）</span>
+        <span class="section-desc">机器学习负荷预测（ml/prediction_service.py，接口 /api/predict/1h、/6h、/24h）</span>
+        <div class="range-switch" role="group" aria-label="预测范围">
+          <button v-for="h in forecastHorizons" :key="h" type="button" :class="{ active: forecastHours === h }" @click="setForecastHours(h)">未来{{ h }}小时</button>
+        </div>
       </div>
-      <section class="grid-2">
-        <div class="panel"><div class="panel-title">未来24小时负荷预测（机器学习模型）</div><div class="chart chart-tall"><EChart :option="predictOpt" height="100%" /></div></div>
+      <section class="grid-2 model-grid">
+        <div class="panel"><div class="panel-title">未来{{ forecastHours }}小时负荷预测（机器学习模型）</div><div class="chart chart-tall"><EChart :option="predictOpt" height="100%" /></div></div>
         <div class="panel">
           <div class="panel-title">预测模型信息</div>
-          <div class="panel-note">{{ modelInfo }}</div>
-          <div class="panel-note">{{ modelInfo2 }}</div>
+          <div class="model-summary">
+            <div class="model-stat"><span>预测模型</span><strong>{{ forecastMeta.model }}</strong></div>
+            <div class="model-stat"><span>预测范围</span><strong>{{ forecastMeta.horizonHours }} h</strong></div>
+            <div class="model-stat"><span>预测站点</span><strong>{{ predictStats.stationCount }}</strong></div>
+            <div class="model-stat"><span>总预测负荷</span><strong>{{ num(predictStats.totalLoad, 1) }} kWh</strong></div>
+          </div>
+          <div class="panel-note status-note" :class="{ warn: forecastMeta.isFallback || forecastLoading }">{{ forecastLoading ? '正在加载预测…' : modelInfo2 }}</div>
+          <div v-if="forecastMeta.warning" class="panel-note warn-text">{{ forecastMeta.warning }}</div>
+          <div class="operation-cards">
+            <div class="mini-card"><span>峰值时段</span><strong>{{ peakText }}</strong></div>
+            <div class="mini-card"><span>峰值负荷</span><strong>{{ num(predictStats.peakLoad, 1) }}</strong></div>
+            <div class="mini-card"><span>平均负荷</span><strong>{{ num(predictStats.avgLoad, 1) }}</strong></div>
+          </div>
+          <div class="table-wrap forecast-table">
+            <table>
+              <thead><tr><th>排名</th><th>站点</th><th>预测负荷(kWh)</th><th>峰值时段</th></tr></thead>
+              <tbody>
+                <tr v-for="(r, i) in stationForecastRows.slice(0, 6)" :key="r.station_id">
+                  <td><span class="rank">{{ i + 1 }}</span></td>
+                  <td>{{ r.station_id }}</td>
+                  <td>{{ num(r.total_load, 1) }}</td>
+                  <td>{{ r.peak_time }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
@@ -167,6 +194,8 @@ const qualityText = ref('数据快照已连接')
 const modelInfo = ref('')
 const modelInfo2 = ref('')
 const modelQuality = ref('正在核对数据质量…')
+const forecastMeta = ref({ model: '--', horizonHours: 24, isFallback: false, warning: '' })
+const forecastLoading = ref(false)
 
 const ov = ref({})
 const compat = ref(null)
@@ -182,9 +211,13 @@ const revenuePts = ref([])
 const volumePts = ref([])
 const sessionPts = ref([])
 const predictPts = ref([])
+const predictRaw = ref([])
 
 const ranges = [1, 7, 30, 60, 90, 150, 365]
 const rangeDays = ref(7)
+const forecastHorizons = [1, 6, 24]
+const forecastHours = ref(24)
+let forecastRequestId = 0
 
 const fmt = (v, p) => Number(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: p, maximumFractionDigits: p })
 
@@ -461,6 +494,35 @@ const predictOpt = computed(() => {
   }
 })
 
+const stationForecastRows = computed(() => {
+  const rows = new Map()
+  for (const row of predictRaw.value) {
+    const id = String(row.station_id ?? '--')
+    const load = Number(row.predicted_load_kwh || 0)
+    const time = String(row.datetime || '').slice(11, 16) || '--'
+    const item = rows.get(id) || { station_id: id, total_load: 0, peak_load: -1, peak_time: '--' }
+    item.total_load += load
+    if (load > item.peak_load) {
+      item.peak_load = load
+      item.peak_time = time
+    }
+    rows.set(id, item)
+  }
+  return [...rows.values()].sort((a, b) => b.total_load - a.total_load)
+})
+
+const predictStats = computed(() => {
+  const points = predictPts.value
+  const totalLoad = points.reduce((sum, row) => sum + row.load, 0)
+  const peak = points.reduce((best, row) => (!best || row.load > best.load ? row : best), null)
+  return {
+    totalLoad,
+    peakLoad: peak?.load || 0,
+    avgLoad: points.length ? totalLoad / points.length : 0,
+    stationCount: stationForecastRows.value.length
+  }
+})
+
 async function loadRangeData() {
   const d = rangeDays.value
   const [rev, vol, ses, h, wd, hm, rank, um, dop, wea] = await Promise.all([
@@ -489,6 +551,76 @@ async function setRange(d) {
   }
 }
 
+async function loadForecast() {
+  const requestId = ++forecastRequestId
+  const requestedHours = forecastHours.value
+  forecastLoading.value = true
+  let resp
+  try {
+    resp = await api.forecast(requestedHours)
+  } catch (error) {
+    if (requestId === forecastRequestId) forecastLoading.value = false
+    throw error
+  }
+  // A slower request from the previous selection must never overwrite the
+  // result for the button the user selected most recently.
+  if (requestId !== forecastRequestId) return
+  if (!resp || !Array.isArray(resp.data)) {
+    forecastLoading.value = false
+    throw new Error('预测接口返回了无效的数据格式')
+  }
+  forecastMeta.value = {
+    model: resp.model || '未加载模型',
+    horizonHours: resp.horizonHours || requestedHours,
+    isFallback: !!resp.isFallback,
+    warning: resp.warning || ''
+  }
+  predictRaw.value = resp.data
+  const byHour = new Map()
+  for (const row of predictRaw.value) {
+    const t = String(row.datetime).slice(0, 13) + ':00:00'
+    byHour.set(t, (byHour.get(t) || 0) + Number(row.predicted_load_kwh || 0))
+  }
+  predictPts.value = [...byHour.entries()].sort().map(([time, load]) => ({ time, load }))
+  let peak = null
+  for (const p of predictPts.value) if (!peak || p.load > peak.load) peak = p
+  peakText.value = peak ? peak.time.slice(11, 16) + ' 时' : '--'
+  modelInfo.value = resp.model ? `模型：${resp.model}` : '未加载模型'
+  modelInfo2.value = resp.isFallback
+    ? '当前为持久化回退预测（未加载已训练模型）'
+    : resp.source === 'cached-trained-model'
+      ? '已加载训练模型生成的本地预测快照（无需 PySpark）'
+      : '机器学习模型预测'
+  modelQuality.value = resp.isFallback ? '预测模型：持久化回退' : `预测模型：${resp.model}`
+  forecastLoading.value = false
+}
+
+function setForecastError(error) {
+  const message = error instanceof Error ? error.message : String(error)
+  predictPts.value = []
+  predictRaw.value = []
+  forecastMeta.value = {
+    model: '接口不可用',
+    horizonHours: forecastHours.value,
+    isFallback: true,
+    warning: message
+  }
+  modelInfo.value = '预测接口不可用：' + message
+  modelInfo2.value = '预测接口不可用'
+  modelQuality.value = '预测接口不可用'
+  forecastLoading.value = false
+}
+
+async function setForecastHours(hours) {
+  forecastHours.value = hours
+  forecastMeta.value = { ...forecastMeta.value, horizonHours: hours, warning: '' }
+  try {
+    await loadForecast()
+  } catch (e) {
+    setForecastError(e)
+  }
+}
+
 async function refresh() {
   try {
     updatedAt.value = '加载中...'
@@ -505,23 +637,9 @@ async function refresh() {
     qualityText.value = '数据连接异常'
   }
   try {
-    const resp = await api.forecast24h()
-    const byHour = new Map()
-    for (const row of resp.data || []) {
-      const t = String(row.datetime).slice(0, 13) + ':00:00'
-      byHour.set(t, (byHour.get(t) || 0) + Number(row.predicted_load_kwh || 0))
-    }
-    predictPts.value = [...byHour.entries()].sort().map(([time, load]) => ({ time, load }))
-    let peak = null
-    for (const p of predictPts.value) if (!peak || p.load > peak.load) peak = p
-    peakText.value = peak ? peak.time.slice(11, 16) + ' 时' : '--'
-    modelInfo.value = resp.model ? `模型：${resp.model}` : '未加载模型'
-    modelInfo2.value = resp.isFallback ? '当前为持久化回退预测（未加载已训练模型）' : '机器学习模型预测'
-    modelQuality.value = resp.isFallback ? '预测模型：持久化回退' : `预测模型：${resp.model}`
+    await loadForecast()
   } catch (e) {
-    predictPts.value = []
-    modelInfo.value = '预测接口不可用：' + e.message
-    modelQuality.value = '预测接口不可用'
+    setForecastError(e)
   }
 }
 
@@ -591,9 +709,12 @@ h2 { margin: 0; font-size: clamp(23px, 3vw, 34px); }
 
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.model-grid { align-items: stretch; }
 .panel { min-width: 0; padding: 14px 16px 16px; border-radius: 13px; }
 .panel-title { margin: 1px 4px 2px; color: #c9d9ef; font-size: 13px; font-weight: 600; }
 .panel-note { margin: 8px 4px 0; color: #8da0bd; font-size: 11px; }
+.status-note { color: #9df3ce; }
+.status-note.warn, .warn-text { color: #f6c453; }
 .chart { width: 100%; height: 278px; margin-top: 6px; }
 .chart-tall { height: 330px; }
 
@@ -616,6 +737,11 @@ tbody tr:hover { background: rgba(53, 215, 255, .04); }
 .mini-card span { display: block; color: #8da0bd; font-size: 10px; }
 .mini-card strong { display: block; margin-top: 7px; color: #ddecff; font-size: 18px; white-space: nowrap; }
 .train-btn { margin: 10px 4px 0; width: calc(100% - 8px); padding: 9px; border-radius: 8px; }
+.model-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 4px 2px; }
+.model-stat { min-width: 0; padding: 11px 12px; border: 1px solid rgba(32, 51, 79, .72); border-radius: 10px; background: rgba(7, 17, 31, .45); }
+.model-stat span { display: block; color: #8da0bd; font-size: 10px; }
+.model-stat strong { display: block; margin-top: 6px; color: #ddecff; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.forecast-table { margin-top: 12px; max-height: 205px; }
 
 footer { padding: 16px 0 28px; text-align: center; color: #5f7392; font-size: 11px; }
 
@@ -625,5 +751,6 @@ footer { padding: 16px 0 28px; text-align: center; color: #5f7392; font-size: 11
   main { width: min(100% - 24px, 1500px); padding-top: 18px; } .hero { align-items: start; flex-direction: column; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); } .kpi-card { min-height: 100px; padding: 14px; }
   .summary-strip { grid-template-columns: repeat(2, 1fr); }
+  .operation-cards, .model-summary { grid-template-columns: 1fr; }
 }
 </style>
