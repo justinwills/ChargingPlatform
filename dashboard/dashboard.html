@@ -578,6 +578,8 @@
             <span>预测负荷</span><strong id="predictedLoad">--</strong>
           </div>
         </div>
+        <div class="panel-title" style="margin-top:16px">推荐充电站评分（智能推荐）</div>
+        <div id="recommendChart" class="chart" style="height:280px"></div>
       </section>
 
       <div class="section-head">
@@ -1019,6 +1021,7 @@
       ];
       const PAGE_SIZE = 10;
       let currentData = {};
+      let lastRecommendations = [];
       const charts = {};
       const chartIds = [
         "weekdayChart",
@@ -1034,6 +1037,7 @@
         "weekdayHeatmapChart",
         "stationRankingChart",
         "stationDistChart",
+        "recommendChart",
       ];
       const AUTO_REFRESH_MS = 60 * 1000;
       const PHASE2_API_BASE = (
@@ -1734,6 +1738,79 @@
         });
       }
 
+      const REASON_CN = {
+        "Low predicted congestion": "预测拥堵较低",
+        "Available chargers remain despite forecast load": "预测负荷下仍有余桩",
+        "Ranked by prediction and station capacity": "按预测与站点容量排序",
+        "Station is not in normal operating status": "站点状态异常",
+      };
+      const reasonCn = (value) => REASON_CN[String(value || "")] || value || "—";
+
+      function renderRecommendation(rows) {
+        const top = [...rows]
+          .sort((a, b) => number(b.score) - number(a.score))
+          .slice(0, 10)
+          .reverse();
+        const option = top.length
+          ? {
+              tooltip: {
+                ...tooltipStyle,
+                trigger: "axis",
+                axisPointer: { type: "shadow" },
+                formatter: (items) => {
+                  const row = top[items[0].dataIndex];
+                  const load = number(row.predicted_load);
+                  const loadStr = !load ? fmt(0, 4) : (Math.abs(load) < 0.001 ? fmt(load, 6) : (Math.abs(load) < 1 ? fmt(load, 4) : fmt(load, 2)));
+                  return `${row.station_name || row.station_id}<br/>推荐分 ${fmt(number(row.score), 1)}<br/>预测负荷 ${loadStr} kWh<br/>${reasonCn(row.reason)}`;
+                },
+              },
+              grid: { left: 150, right: 52, top: 18, bottom: 28 },
+              xAxis: {
+                type: "value",
+                min: 0,
+                max: 100,
+                name: "推荐分",
+                nameTextStyle: { color: "#8499b7" },
+                ...axisStyle,
+              },
+              yAxis: {
+                type: "category",
+                data: top.map((row) => row.station_name || String(row.station_id)),
+                axisLabel: { color: "#8499b7", width: 140, overflow: "truncate" },
+                axisLine: axisStyle.axisLine,
+              },
+              series: [
+                {
+                  type: "bar",
+                  name: "推荐分",
+                  barMaxWidth: 16,
+                  data: top.map((row) => ({
+                    value: number(row.score),
+                    itemStyle: {
+                      borderRadius: [0, 5, 5, 0],
+                      color: number(row.predicted_load) > 0 ? COLORS[1] : COLORS[2],
+                    },
+                  })),
+                  label: {
+                    show: true,
+                    position: "right",
+                    color: "#8499b7",
+                    formatter: (params) => params.value.toFixed(1),
+                  },
+                },
+              ],
+            }
+          : {
+              title: {
+                text: "暂无推荐数据（推荐接口未返回站点）",
+                left: "center",
+                top: "middle",
+                textStyle: { color: "#8499b7", fontSize: 13 },
+              },
+            };
+        charts.recommendChart.setOption(option, true);
+      }
+
       function renderStationDistTable(rows, keyword) {
         const filtered = keyword
           ? rows.filter(
@@ -2038,14 +2115,16 @@
               recommendationResult.value.data ||
               []
             : [];
+        lastRecommendations = Array.isArray(recommendations) ? recommendations : [];
         document.getElementById("predictStatus").textContent =
           predictionResult.status === "fulfilled" ? "已连接" : "不可用";
         document.getElementById("recommendStatus").textContent =
           recommendationResult.status === "fulfilled" ? "已连接" : "不可用";
         document.getElementById("recommendCount").textContent =
-          `${fmt(Array.isArray(recommendations) ? recommendations.length : 0)} 个`;
+          `${fmt(lastRecommendations.length)} 个`;
         document.getElementById("predictedLoad").textContent =
           `${fmt(mean(predictions.map((row) => row.predicted_load)), 2)} kWh`;
+        renderRecommendation(lastRecommendations);
       }
 
       async function refresh() {

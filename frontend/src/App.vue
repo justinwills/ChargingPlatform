@@ -162,6 +162,33 @@
           </div>
         </div>
       </section>
+
+      <!-- ===== 06 智能推荐 ===== -->
+      <div class="section-head">
+        <span class="section-number">06</span><h3>智能推荐</h3>
+        <span class="section-desc">根据预测负荷与站点信息推荐低负载充电站（接口 /api/recommend/stations）</span>
+      </div>
+      <section class="grid-2 model-grid">
+        <div class="panel"><div class="panel-title">推荐充电站评分 TOP</div><div class="chart chart-tall"><EChart :option="recommendOpt" height="100%" /></div></div>
+        <div class="panel">
+          <div class="panel-title">推荐站点明细</div>
+          <div class="panel-note status-note" :class="{ warn: recommendStatus !== '已连接' }">{{ recommendStatus }}</div>
+          <div class="table-wrap forecast-table">
+            <table>
+              <thead><tr><th>排名</th><th>站点</th><th>推荐分</th><th>预测负荷(kWh)</th><th>推荐原因</th></tr></thead>
+              <tbody>
+                <tr v-for="(r, i) in recommend.slice(0, 8)" :key="r.station_id">
+                  <td><span class="rank">{{ i + 1 }}</span></td>
+                  <td>{{ r.station_name || r.station_id }}</td>
+                  <td>{{ num(r.score, 1) }}</td>
+                  <td>{{ loadText(r.predicted_load) }}</td>
+                  <td class="reason-cell">{{ reasonCn(r.reason) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </main>
 
     <dv-decoration-5 style="width: 100%; height: 18px; margin-top: 14px" />
@@ -212,6 +239,8 @@ const volumePts = ref([])
 const sessionPts = ref([])
 const predictPts = ref([])
 const predictRaw = ref([])
+const recommend = ref([])
+const recommendStatus = ref('加载中…')
 
 const ranges = [1, 7, 30, 60, 90, 150, 365]
 const rangeDays = ref(7)
@@ -220,6 +249,19 @@ const forecastHours = ref(24)
 let forecastRequestId = 0
 
 const fmt = (v, p) => Number(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: p, maximumFractionDigits: p })
+
+const REASON_CN = {
+  'Low predicted congestion': '预测拥堵较低',
+  'Available chargers remain despite forecast load': '预测负荷下仍有余桩',
+  'Ranked by prediction and station capacity': '按预测与站点容量排序',
+  'Station is not in normal operating status': '站点状态异常'
+}
+const reasonCn = (v) => REASON_CN[String(v || '')] || (v || '—')
+const loadText = (v) => {
+  const n = Number(v || 0)
+  if (!n || !isFinite(n)) return num(0, 4)
+  return Math.abs(n) < 0.001 ? num(n, 6) : Math.abs(n) < 1 ? num(n, 4) : num(n, 2)
+}
 
 const kpis = computed(() => [
   { label: '总营收（元）', prefix: '¥', num: fmt(ov.value.revenue_total, 2), unit: '', color: '#35d7ff' },
@@ -523,6 +565,35 @@ const predictStats = computed(() => {
   }
 })
 
+const recommendOpt = computed(() => {
+  const rows = [...recommend.value]
+    .sort((a, b) => Number(b.score) - Number(a.score))
+    .slice(0, 10)
+    .reverse()
+  if (!rows.length) return {}
+  return {
+    backgroundColor: 'transparent', textStyle: baseText,
+    tooltip: {
+      trigger: 'axis', axisPointer: { type: 'shadow' },
+      formatter: (items) => {
+        const r = rows[items[0].dataIndex]
+        return `${r.station_name || r.station_id}<br/>推荐分 ${num(r.score, 1)}<br/>预测负荷 ${loadText(r.predicted_load)} kWh<br/>${reasonCn(r.reason)}`
+      }
+    },
+    grid: { left: 150, right: 44, top: 16, bottom: 30 },
+    xAxis: { type: 'value', min: 0, max: 100, name: '推荐分', nameTextStyle: { color: '#7890b0' }, ...axis() },
+    yAxis: { type: 'category', data: rows.map(r => r.station_name || String(r.station_id)), axisLabel: { color: '#7890b0', width: 130, overflow: 'truncate' }, ...axis() },
+    series: [{
+      name: '推荐分', type: 'bar', barMaxWidth: 16,
+      data: rows.map(r => ({
+        value: r.score,
+        itemStyle: { borderRadius: [0, 5, 5, 0], color: Number(r.predicted_load) > 0 ? '#35d7ff' : '#34d399' }
+      })),
+      label: { show: true, position: 'right', color: '#b6c7de', formatter: p => p.value.toFixed(1) }
+    }]
+  }
+})
+
 async function loadRangeData() {
   const d = rangeDays.value
   const [rev, vol, ses, h, wd, hm, rank, um, dop, wea] = await Promise.all([
@@ -609,6 +680,19 @@ function setForecastError(error) {
   forecastLoading.value = false
 }
 
+async function loadRecommend() {
+  try {
+    const resp = await api.recommend()
+    recommend.value = Array.isArray(resp.data) ? resp.data : []
+    recommendStatus.value = recommend.value.length
+      ? `已连接 · 推荐 ${recommend.value.length} 个站点`
+      : '接口已连接，暂无推荐站点'
+  } catch (error) {
+    recommend.value = []
+    recommendStatus.value = `推荐接口不可用：${error.message}`
+  }
+}
+
 async function setForecastHours(hours) {
   forecastHours.value = hours
   forecastMeta.value = { ...forecastMeta.value, horizonHours: hours, warning: '' }
@@ -639,6 +723,7 @@ async function refresh() {
   } catch (e) {
     setForecastError(e)
   }
+  await loadRecommend()
 }
 
 let timer = null
@@ -740,6 +825,7 @@ tbody tr:hover { background: rgba(53, 215, 255, .04); }
 .model-stat span { display: block; color: #8da0bd; font-size: 10px; }
 .model-stat strong { display: block; margin-top: 6px; color: #ddecff; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .forecast-table { margin-top: 12px; max-height: 205px; }
+.reason-cell { text-align: left; color: #9db3d0; }
 
 footer { padding: 16px 0 28px; text-align: center; color: #5f7392; font-size: 11px; }
 

@@ -69,7 +69,11 @@ class RecommendationContractTests(unittest.TestCase):
             top_n=2,
         )
 
-        self.assertEqual([{"station_id": "S1", "score": recommendations[0]["score"], "reason": "Low predicted congestion"}], recommendations[:1])
+        self.assertEqual("S1", recommendations[0]["station_id"])
+        self.assertEqual("Low predicted congestion", recommendations[0]["reason"])
+        self.assertIn("score", recommendations[0])
+        self.assertIn("predicted_load", recommendations[0])
+        self.assertIn("peak_time", recommendations[0])
         self.assertNotIn("S3", [item["station_id"] for item in recommendations])
 
     def test_detect_peak_station_returns_threshold_alerts(self):

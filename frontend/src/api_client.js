@@ -69,5 +69,6 @@ export const api = {
   deviceOps: (days) => get(days ? `/api/stats/battery/device-operations?days=${days}` : '/api/stats/battery/device-operations'),
   weatherImpact: (days) => get(days ? `/api/stats/weather-impact?days=${days}` : '/api/stats/weather-impact'),
   forecast: (hours = 24) => get(`/api/predict/${hours}h`, true),
-  forecast24h: () => get('/api/predict/24h', true)
+  forecast24h: () => get('/api/predict/24h', true),
+  recommend: () => get('/api/recommend/stations', true)
 }

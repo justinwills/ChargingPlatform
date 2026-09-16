@@ -246,9 +246,31 @@ def recommend_low_load_station(
             "station_id": str(row.station_id),
             "score": float(row.score),
             "reason": str(row.reason),
+            "predicted_load": _clean_load(getattr(row, "predicted_load", 0.0)),
+            "peak_time": _clean_peak_time(getattr(row, "peak_time", None)),
         }
         for row in scored.itertuples(index=False)
     ]
+
+
+def _clean_load(value):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if value != value:  # NaN
+        return 0.0
+    return round(value, 6)
+
+
+def _clean_peak_time(value):
+    import math
+
+    if value is None:
+        return None
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        return None
+    return value
 
 
 def recommend_low_load_stations(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
