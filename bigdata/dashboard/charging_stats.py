@@ -11,7 +11,7 @@ import pandas as pd
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA_DIR = os.path.join(_ROOT, "data", "raw")
-ORDERS_CSV = os.path.join(_ROOT, "data", "processed", "charging_orders.csv")
+ORDERS_CSV = os.path.join(DATA_DIR, "charging_orders.csv")
 
 
 @lru_cache(maxsize=4)

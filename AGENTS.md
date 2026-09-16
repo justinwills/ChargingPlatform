@@ -11,7 +11,7 @@ The project uses:
 - PySpark for data processing
 - Spark SQL for ODS/DWD/DWS/ADS analysis
 - Spark MLlib for machine learning
-- FastAPI for backend APIs
+- Flask for backend APIs
 - Static HTML/JavaScript + ECharts for dashboard visualization
 
 The project is developed on Windows using PyCharm/Codex, but the actual

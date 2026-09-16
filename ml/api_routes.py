@@ -1,10 +1,12 @@
 """
 ml/api_routes.py — Phase 2
-FastAPI route handlers for forecasting and station recommendation. See
+Flask route handlers for forecasting and station recommendation. See
 run_api.py for how this gets mounted.
 
 Owner(s): 邱辰笙
 """
+
+from flask import request
 
 from ml.prediction_service import PredictionService, build_forecast_payload
 from ml.forecast import forecast_1h, forecast_6h, forecast_24h, forecast_per_station
@@ -30,18 +32,18 @@ def register_predict_routes(app):
     service = PredictionService()
 
     @app.get("/api/predict/1h")
-    def _predict_1h(station_id: str = None):
-        return build_forecast_payload(service, 1, station_id=station_id)
+    def _predict_1h():
+        return build_forecast_payload(service, 1, station_id=request.args.get("station_id"))
 
     @app.get("/api/predict/6h")
-    def _predict_6h(station_id: str = None):
-        return build_forecast_payload(service, 6, station_id=station_id)
+    def _predict_6h():
+        return build_forecast_payload(service, 6, station_id=request.args.get("station_id"))
 
     @app.get("/api/predict/24h")
-    def _predict_24h(station_id: str = None):
-        return build_forecast_payload(service, 24, station_id=station_id)
+    def _predict_24h():
+        return build_forecast_payload(service, 24, station_id=request.args.get("station_id"))
 
-    @app.get("/api/predict/station/{station_id}")
+    @app.get("/api/predict/station/<station_id>")
     def _predict_station(station_id: str):
         return build_forecast_payload(service, 24, station_id=station_id)
 
@@ -59,9 +61,12 @@ def register_recommend_routes(app):
     """
 
     @app.get("/api/recommend/stations")
-    def _recommend_stations(user_lat: float = None, user_lng: float = None):
+    def _recommend_stations():
         try:
-            return recommend_low_load_stations(user_lat=user_lat, user_lng=user_lng)
+            return recommend_low_load_stations(
+                user_lat=request.args.get("user_lat", type=float),
+                user_lng=request.args.get("user_lng", type=float),
+            )
         except NotImplementedError as e:
             return {"error": str(e)}, 501
 
@@ -72,7 +77,7 @@ def register_recommend_routes(app):
         except NotImplementedError as e:
             return {"error": str(e)}, 501
 
-    @app.get("/api/recommend/ops-advice/{station_id}")
+    @app.get("/api/recommend/ops-advice/<station_id>")
     def _ops_advice(station_id: str):
         try:
             return generate_ops_advice(station_id=station_id)

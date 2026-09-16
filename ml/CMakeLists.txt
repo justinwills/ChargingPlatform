@@ -1,7 +1,7 @@
 # ml/CMakeLists.txt
 #
 # Plain Python (feature engineering, model training/forecasting/evaluation,
-# recommendation logic, FastAPI routes) — CMake does not compile any of it.
+# recommendation logic, Flask routes) — CMake does not compile any of it.
 # This file exists only so these files show up in the project tree of
 # CMake-aware IDEs (Qt Creator, CLion, VS Code CMake Tools).
 # `add_custom_target(... SOURCES ...)` with no COMMAND creates no build step.

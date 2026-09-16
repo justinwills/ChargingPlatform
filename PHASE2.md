@@ -56,7 +56,7 @@ spark-submit --master 'local[2]' ml/features.py \
   --output data/processed/ml_training_dataset.csv
 
 # The remaining task stubs belong to other task owners.
-uvicorn run_api:app --reload --port 8090
+python run_api.py
 ```
 
 The feature pipeline reads `charging_orders.csv`, `stations.csv`,

@@ -1,6 +1,6 @@
 """
 bigdata/api_routes.py — Phase 2 实现
-FastAPI: Web 大屏 /api/stats/* 数据接口（数据可视化 + 页面交互）。
+Flask: Web 大屏 /api/stats/* 数据接口（数据可视化 + 页面交互）。
 
 在 main 已声明的 /api/stats/* 路由契约（名称与参数）基础上实现真实数据：
 统计逻辑来自 bigdata/dashboard（pandas 分析），机器学习由 /api/predict/*
@@ -13,6 +13,7 @@ import os
 from functools import lru_cache
 
 import pandas as pd
+from flask import request
 
 from .dashboard import charging_stats as cs
 from .dashboard import station_ranking as sr
@@ -26,6 +27,12 @@ def _ok(data):
 
 def _err(msg, status=501):
     return {"code": 1, "msg": str(msg), "data": None}, status
+
+
+def _int_arg(name, default):
+    """Read an integer query parameter while keeping a safe default."""
+    value = request.args.get(name, default=default, type=int)
+    return default if value is None else value
 
 
 def _comfort(_status):
@@ -98,7 +105,7 @@ def filtered_stats(date=None, weekday=None, station_id=None, device_id=None, is_
         df = df[df["created_at"].dt.weekday == wd_map.get(str(weekday), -1)]
     points = (
         df.resample("D", on="created_at")
-        .agg(energy_kwh=("energy_kwh", "sum"), sessions=("order_id", "count"), revenue=("fee_amount_cny", "sum"))
+        .agg(energy_kwh=("energy_kwh", "sum"), sessions=("session_id", "count"), revenue=("fee_amount_cny", "sum"))
         .dropna(how="all")
         .reset_index()
     )
@@ -126,39 +133,49 @@ def register_stats_routes(app):
         return _ok(cs.overview())
 
     @app.get("/api/stats/charging-volume-trend")
-    def _charging_volume_trend(days: int = 7):
+    def _charging_volume_trend():
+        days = _int_arg("days", 7)
         return _ok(charging_volume_trend(days=days))
 
     @app.get("/api/stats/revenue-trend")
-    def _revenue_trend(days: int = 7):
+    def _revenue_trend():
+        days = _int_arg("days", 7)
         return _ok(revenue_trend(days=days))
 
     @app.get("/api/stats/session-count-trend")
-    def _session_count_trend(days: int = 7):
+    def _session_count_trend():
+        days = _int_arg("days", 7)
         return _ok(session_count_trend(days=days))
 
     @app.get("/api/stats/hourly-distribution")
-    def _hourly_distribution(days: int = 7):
+    def _hourly_distribution():
+        days = _int_arg("days", 7)
         return _ok(cs.hourly_distribution(days=days))
 
     @app.get("/api/stats/weekday-pattern")
-    def _weekday_pattern(days: int = 7):
+    def _weekday_pattern():
+        days = _int_arg("days", 7)
         return _ok(list(cs.weekday_pattern(days=days)))
 
     @app.get("/api/stats/weekday-heatmap")
-    def _weekday_heatmap(days: int = 7):
+    def _weekday_heatmap():
+        days = _int_arg("days", 7)
         return _ok(cs.weekday_heatmap(days=days))
 
     @app.get("/api/stats/user-metrics")
-    def _user_metrics(days: int = 7):
+    def _user_metrics():
+        days = _int_arg("days", 7)
         return _ok(cs.user_metrics(days=days))
 
     @app.get("/api/stats/weather-impact")
-    def _weather_impact(days: int = 7):
+    def _weather_impact():
+        days = _int_arg("days", 7)
         return _ok(list(cs.weather_impact(days=days)))
 
     @app.get("/api/stats/station-ranking")
-    def _station_ranking(days: int = 30, limit: int = 10):
+    def _station_ranking():
+        days = _int_arg("days", 30)
+        limit = _int_arg("limit", 10)
         return _ok(sr.station_ranking(days=days, limit=limit))
 
     @app.get("/api/stats/station-distribution")
@@ -166,37 +183,32 @@ def register_stats_routes(app):
         return _ok(sr.station_distribution())
 
     @app.get("/api/stats/battery/device-operations")
-    def _device_operations(days: int = 7):
+    def _device_operations():
+        days = _int_arg("days", 7)
         return _ok(device_status_chart(days=days))
 
     @app.get("/api/stats/device-status")
-    def _device_status(days: int = 7):
+    def _device_status():
+        days = _int_arg("days", 7)
         return _ok(device_status_chart(days=days))
 
     @app.get("/api/stats/filtered")
-    def _filtered_stats(
-        date: str = None,
-        weekday: str = None,
-        station_id: str = None,
-        device_id: str = None,
-        is_holiday: int = None,
-        weather_type: str = None,
-        days: int = 7,
-    ):
+    def _filtered_stats():
         return _ok(
             filtered_stats(
-                date=date,
-                weekday=weekday,
-                station_id=station_id,
-                device_id=device_id,
-                is_holiday=is_holiday,
-                weather_type=weather_type,
+                date=request.args.get("date"),
+                weekday=request.args.get("weekday"),
+                station_id=request.args.get("station_id"),
+                device_id=request.args.get("device_id"),
+                is_holiday=request.args.get("is_holiday", type=int),
+                weather_type=request.args.get("weather_type"),
             )
         )
 
     @app.get("/api/stats")
-    def _compat_stats(days: int = 7):
+    def _compat_stats():
         """Phase 1 C++ ChargingServer 大屏兼容格式（电桩状态饼图 + 在线率）。"""
+        days = _int_arg("days", 7)
         rev = cs.revenue_today_this_month_total()
         names = ["在用", "闲置", "故障"]
         counts = _devices()["current_status"].map(_comfort).value_counts()

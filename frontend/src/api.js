@@ -1,11 +1,11 @@
 const API_BASE = ''
 
-async function get(path) {
+async function get(path, fullResponse = false) {
   const res = await fetch(`${API_BASE}${path}`, { cache: 'no-store' })
   if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`)
   const json = await res.json()
   if (json.code !== 0) throw new Error(json.msg || `${path} 返回错误`)
-  return json.data
+  return fullResponse ? json : json.data
 }
 
 export const api = {
@@ -22,5 +22,5 @@ export const api = {
   userMetrics: (days) => get(days ? `/api/stats/user-metrics?days=${days}` : '/api/stats/user-metrics'),
   deviceOps: (days) => get(days ? `/api/stats/battery/device-operations?days=${days}` : '/api/stats/battery/device-operations'),
   weatherImpact: (days) => get(days ? `/api/stats/weather-impact?days=${days}` : '/api/stats/weather-impact'),
-  forecast24h: () => get('/api/predict/24h')
+  forecast24h: () => get('/api/predict/24h', true)
 }

@@ -17,23 +17,15 @@ once the team decides on final deployment.
 
 Run with:
     pip install -r requirements.txt
-    uvicorn run_api:app --reload --port 8090
+    python run_api.py
 """
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask
 
 from bigdata.api_routes import register_stats_routes
 from ml.api_routes import register_predict_routes, register_recommend_routes
 
-app = FastAPI(title="ChargingPlatform Phase 2 API")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # TODO: tighten before demo/deployment
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = Flask(__name__)
 
 register_stats_routes(app)
 register_predict_routes(app)
@@ -43,3 +35,16 @@ register_recommend_routes(app)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.after_request
+def add_cors_headers(response):
+    """Allow the separately hosted Vite dashboard to call the API."""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8090, debug=True)

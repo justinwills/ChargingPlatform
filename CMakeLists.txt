@@ -34,10 +34,10 @@ if(Python3_FOUND)
     )
 
     add_custom_target(phase2_api
-        COMMAND ${PHASE2_VENV_BIN}/uvicorn run_api:app --reload --port 8090
+        COMMAND ${PHASE2_VENV_BIN}/python ${CMAKE_SOURCE_DIR}/run_api.py
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Running the Phase 2 FastAPI service on port 8090 (run phase2_venv first)"
+        COMMENT "Running the Phase 2 Flask service on port 8090 (run phase2_venv first)"
     )
 else()
-    message(WARNING "Python3 not found; phase2_venv / phase2_api targets are unavailable — run pip/uvicorn manually for bigdata/ and ml/")
+    message(WARNING "Python3 not found; phase2_venv / phase2_api targets are unavailable - run Python manually for bigdata/ and ml/")
 endif()

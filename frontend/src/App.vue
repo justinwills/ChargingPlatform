@@ -23,7 +23,7 @@
         <div>
           <div class="eyebrow">运营总览 / ANALYTICS</div>
           <h2>充电业务全域分析</h2>
-          <p>从订单、站点、用户、设备、天气与机器学习模型多维度观察运营表现 · Vue3 + DataV + ECharts + FastAPI</p>
+          <p>从订单、站点、用户、设备、天气与机器学习模型多维度观察运营表现 · Vue3 + DataV + ECharts + Flask</p>
         </div>
         <div class="quality-badge">{{ modelQuality }}</div>
       </div>
@@ -138,7 +138,7 @@
     </main>
 
     <dv-decoration-5 style="width: 100%; height: 18px; margin-top: 14px" />
-    <footer>最后更新：{{ updatedAt }} · 数据源：真实充电订单 / 站点 / 设备 / 天气 CSV · 后端：FastAPI :8090</footer>
+    <footer>最后更新：{{ updatedAt }} · 数据源：真实充电订单 / 站点 / 设备 / 天气 CSV · 后端：Flask :8090</footer>
   </div>
 </template>
 
